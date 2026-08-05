@@ -22,6 +22,8 @@ public class BattleshipGame
     public DateTime LastActivity { get; set; } = DateTime.UtcNow;
     /// <summary>Final Boarding is one global transition; this guard prevents repeat bonuses/conversions.</summary>
     public bool BoardingTriggered { get; set; }
+    /// <summary>The only player whose fleet and summon entitlements enter Final Boarding.</summary>
+    public string BoardingPlayerId { get; set; }
     /// <summary>The shot that triggered Boarding is suspended until every mandatory ship is deployed.</summary>
     public bool BoardingResolutionPaused { get; set; }
     public bool PausedTurnContinues { get; set; }
@@ -72,6 +74,36 @@ public class BattleshipGame
     {
         GameLog.Add(new LogEntry { Text = text, VisibleTo = discordId });
     }
+
+    /// <summary>
+    /// Add tactical detail about one physical board. Its owner always sees it; the opponent
+    /// is added to the immutable audience only when an operational Mast exists at event time.
+    /// Spectators retain the full audit trail.
+    /// </summary>
+    public void AddBoardDetailLog(string boardOwnerId, string text)
+    {
+        var observer = GetOpponent(boardOwnerId);
+        GameLog.Add(new LogEntry
+        {
+            Text = text,
+            DetailBoardOwnerId = boardOwnerId,
+            DetailObserverId = HasOperationalMast(observer) ? observer.DiscordId : null,
+        });
+    }
+
+    private static bool HasOperationalMast(BattleshipPlayer player) =>
+        player != null && player.Fleet.Any(ship =>
+            !ship.IsDestroyed &&
+            !ship.Statuses.Any(status => status is
+                ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+            ship.Weapons.Any(weapon =>
+                weapon.Type == WeaponType.Mast &&
+                weapon.ShipId == ship.Id &&
+                !weapon.PreservedModuleDestroyed &&
+                ship.Decks.Any(deck =>
+                    deck.Index == weapon.DeckIndex &&
+                    !deck.IsDestroyed &&
+                    !deck.ModuleDestroyed)));
 }
 
 /// <summary>
@@ -90,13 +122,16 @@ public class BattleshipEndReward
 }
 
 /// <summary>
-/// Game log entry. VisibleTo = null → both players (and spectators) see it;
-/// otherwise only the player with that DiscordId (spectators see everything).
+/// Game log entry. VisibleTo restricts a personal entry to one player. DetailBoardOwnerId marks
+/// exact physical-board intelligence; DetailObserverId snapshots the opposing Mast-authorized
+/// viewer at event time. Entries with neither visibility mode are public; spectators see all.
 /// </summary>
 public class LogEntry
 {
     public string Text { get; set; }
     public string VisibleTo { get; set; }
+    public string DetailBoardOwnerId { get; set; }
+    public string DetailObserverId { get; set; }
 }
 
 public class BattleshipPlayer
@@ -124,7 +159,17 @@ public class BattleshipPlayer
     public List<Summon> Summons { get; set; } = new();
     public Weapon SelectedWeapon { get; set; }
     public ShotType SelectedShotType { get; set; } = ShotType.Ballista;
+    /// <summary>v2 pools every operational Tetracatapult by projectile type. Default for new games.</summary>
+    public bool UseSharedTetracatapultAmmo { get; set; } = true;
+    /// <summary>Boat mode gives every newly deployed summon one ghost shot before materializing.</summary>
+    public bool UseGhostSummons { get; set; } = true;
+    /// <summary>Current v2 ammunition; live operational modules determine and clamp its maximum.</summary>
+    public Dictionary<ShotType, int> SharedTetracatapultAmmo { get; set; } = new();
     public int RevealedCellCount { get; set; } // Per-player revealed cells (max 100)
+    /// <summary>Every valid shot action fired by this player, independent of weapon and turn resets.</summary>
+    public int TotalShotsFired { get; set; }
+    /// <summary>Valid shot actions fired since this player's current turn began.</summary>
+    public int ShotsFiredThisTurn { get; set; }
     public int StunShotExpiry { get; set; } = -1; // Shot# when stun expires (-1=none)
     public bool HasPenalty { get; set; } // Skip next turn
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
@@ -257,8 +302,8 @@ public class Ship
     }
 
     /// <summary>
-    /// Resolve one physical deck from the bow anchor. Deck.Index is deliberately used as
-    /// the offset so a deck removed by a ramming maneuver leaves a real gap in the hull.
+    /// Resolve one physical deck from the bow anchor. Definitions may provide arbitrary
+    /// per-deck offsets; legacy straight and diagonal hulls retain their index-based shapes.
     /// </summary>
     public (int row, int col) GetDeckCell(
         Deck deck,
@@ -266,33 +311,34 @@ public class Ship
         int col,
         Orientation orientation)
     {
-        var offset = deck.Index;
-        if (Abilities.Contains("diagonal_shape"))
-        {
-            return orientation switch
-            {
-                Orientation.Horizontal => (row + offset, col + offset),
-                Orientation.Vertical => (row + offset, col - offset),
-                Orientation.HorizontalReverse => (row - offset, col - offset),
-                Orientation.VerticalReverse => (row - offset, col + offset),
-                _ => (row + offset, col + offset),
-            };
-        }
+        var hasExplicitOffset = deck.OffsetRow.HasValue && deck.OffsetCol.HasValue;
+        var baseRowOffset = hasExplicitOffset
+            ? deck.OffsetRow.Value
+            : Abilities.Contains("diagonal_shape") ? deck.Index : 0;
+        var baseColOffset = hasExplicitOffset ? deck.OffsetCol.Value : deck.Index;
 
-        return orientation switch
+        var (rowOffset, colOffset) = orientation switch
         {
-            Orientation.Horizontal => (row, col + offset),
-            Orientation.HorizontalReverse => (row, col - offset),
-            Orientation.Vertical => (row + offset, col),
-            Orientation.VerticalReverse => (row - offset, col),
-            _ => (row, col + offset),
+            Orientation.Horizontal => (baseRowOffset, baseColOffset),
+            Orientation.Vertical => (baseColOffset, -baseRowOffset),
+            Orientation.HorizontalReverse => (-baseRowOffset, -baseColOffset),
+            Orientation.VerticalReverse => (-baseColOffset, baseRowOffset),
+            _ => (baseRowOffset, baseColOffset),
         };
+
+        return (row + rowOffset, col + colOffset);
     }
 }
 
 public class Deck
 {
     public int Index { get; set; }
+    /// <summary>
+    /// Hull-local position when the ship faces right. Null preserves the legacy shape derived
+    /// from Deck.Index, which keeps already-created and deserialized ships compatible.
+    /// </summary>
+    public int? OffsetRow { get; set; }
+    public int? OffsetCol { get; set; }
     public int MaxHp { get; set; } = 2;
     public int CurrentHp { get; set; } = 2;
     public bool IsDestroyed => CurrentHp <= 0;
@@ -310,6 +356,12 @@ public class Weapon
     public int AimSpeed { get; set; }
     public string ShipId { get; set; }
     public int DeckIndex { get; set; }
+    /// <summary>
+    /// A Cozy Joint replacement deck can retain weapons from two former modules. This flag
+    /// preserves one source module's disabled state independently of the shared physical deck;
+    /// ordinary weapons leave it false and continue to follow Deck.ModuleDestroyed.
+    /// </summary>
+    public bool PreservedModuleDestroyed { get; set; }
     /// <summary>Placement-time ammo choice for weapons such as the Tetracatapult.</summary>
     public ShotType? ConfiguredShotType { get; set; }
 
@@ -342,7 +394,19 @@ public class Summon
     public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
     public string SourceShipName { get; set; } // Player-facing identity of a converted Close ship
     public int SourceShipDeckCount { get; set; } // Preserves the converted hull silhouette for board rendering
+    /// <summary>
+    /// Independent combat snapshot of a converted ship's decks. Current/max HP, module state and
+    /// hull-local offsets continue to change on the boarding unit without aliasing the source ship.
+    /// Empty keeps deserialized legacy summons on their original one-cell/one-hit behavior.
+    /// </summary>
+    public List<Deck> BoardingDecks { get; set; } = new();
+    /// <summary>Source traits retained by a converted boarding hull.</summary>
+    public List<string> BoardingAbilities { get; set; } = new();
+    /// <summary>Source statuses retained by a converted boarding hull.</summary>
+    public List<ShipStatusType> BoardingStatuses { get; set; } = new();
     public bool HasDetonated { get; set; } // Brander chain-explosion idempotency guard
+    /// <summary>Ghost boats can be shot, but ignore hazards/collisions and do not move for their first shot.</summary>
+    public bool IsGhost { get; set; }
 }
 
 /// <summary>
@@ -363,6 +427,10 @@ public class PendingSummonDeploy
     public string SourceShipName { get; set; } // For log messages
     public string SourceShipId { get; set; } // Original Close ship for boarding Ballista VFX
     public int SourceShipDeckCount { get; set; } // Converted hull silhouette
+    /// <summary>Immutable-at-conversion deck snapshot copied again when the pending hull deploys.</summary>
+    public List<Deck> BoardingDecks { get; set; } = new();
+    public List<string> BoardingAbilities { get; set; } = new();
+    public List<ShipStatusType> BoardingStatuses { get; set; } = new();
 }
 
 public class ManualMoveOption
@@ -394,6 +462,8 @@ public class ShotResult
     public bool Destroyed { get; set; }
     public bool Burned { get; set; }
     public bool Dodged { get; set; }
+    /// <summary>The resolving action immediately applied a Penalty to its shooter.</summary>
+    public bool PenaltyApplied { get; set; }
     public bool ShipSunk { get; set; }
     public int Row { get; set; }
     public int Col { get; set; }
@@ -430,11 +500,19 @@ public class ShipDefinition
     public List<string> Abilities { get; set; } = new();
     public List<WeaponTemplate> DefaultWeapons { get; set; } = new();
     public List<int> DeckHpOverrides { get; set; } // if different HP per deck
+    /// <summary>Hull-local per-deck offsets for the Horizontal orientation.</summary>
+    public List<DeckOffset> DeckOffsets { get; set; } = new();
     public int Speed { get; set; } = 1;
     public bool IsFree { get; set; }
     public bool IsHome { get; set; } // "Домашний" unit
     public string Description { get; set; }
     public List<UpgradeDefinition> AvailableUpgrades { get; set; } = new();
+}
+
+public class DeckOffset
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
 }
 
 public class WeaponTemplate

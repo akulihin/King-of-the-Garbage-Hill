@@ -323,7 +323,7 @@ public static class BattleshipBotAI
             if (captureWeapon != null)
             {
                 var captureShot = captureWeapon.Type == WeaponType.Tetracatapult
-                    ? captureWeapon.ConfiguredShotType ?? ShotType.WhiteStone
+                    ? captureWeapon.ConfiguredShotType ?? ShotType.Buckshot
                     : captureWeapon.Type switch
                     {
                         WeaponType.EvilIncendiary => ShotType.EvilIncendiary,
@@ -362,7 +362,10 @@ public static class BattleshipBotAI
         }
 
         // Tetracatapult: White Stone or Buckshot
-        var tetraWeapons = FindWeapons(bot, WeaponType.Tetracatapult, revealedByBot).ToList();
+        var tetraWeapons = BattleshipGameEngine.GetUsableWeapons(game, bot, WeaponType.Tetracatapult)
+            .Where(value => value.weapon.AimSpeed <= revealedByBot)
+            .Select(value => value.weapon)
+            .ToList();
         if (tetraWeapons.Count > 0)
         {
             var configuredTypes = tetraWeapons

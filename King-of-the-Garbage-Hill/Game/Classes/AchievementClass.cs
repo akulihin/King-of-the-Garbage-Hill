@@ -902,9 +902,8 @@ public static class AchievementService
             var builtPositions = zig.BuiltPositions.Distinct().ToList();
             SetBestProgress(account, "c_goblin_architect", builtPositions.Count);
 
-            // The card requires *receiving* the enforced win, not merely owning a place-1 Ziggurat
-            // while winning on score: only HandleLastRound's overtake sets EnforcedWinTriggered.
-            // Cthulhu/Jon Snow can still displace the Goblins after it, so the place is re-checked (m57).
+            // The card requires the round-10 visit to change the result, not merely a score win
+            // while owning a place-1 Ziggurat (m57).
             SetBestProgress(account, "c_goblin_summit", zig.EnforcedWinTriggered ? 1 : 0,
                 zig.EnforcedWinTriggered && rewardWin && actualPlace == 1);
         }

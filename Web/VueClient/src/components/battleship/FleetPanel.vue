@@ -23,10 +23,12 @@ export interface FleetShip {
     moduleDestroyed?: boolean
   }>
   weapons: Array<{
+    id?: string
     type: string
     ammo: number
     hasAmmo: boolean
     aimSpeed: number
+    deckIndex?: number
   }>
   upgrades: string[]
   abilities: string[]
@@ -107,11 +109,12 @@ const skullHtml = renderIcon('skull', 12)
         </span>
 
         <!-- Ammo pips (own fleet only) -->
-        <span v-if="!isEnemy && ship.weapons.some(w => w.ammo > 0)" class="fleet-ship-ammo">
+        <span v-if="!isEnemy && ship.weapons.length" class="fleet-ship-ammo">
           <span
-            v-for="w in ship.weapons.filter(ww => ww.ammo > 0)"
-            :key="w.type"
+            v-for="(w, weaponIndex) in ship.weapons"
+            :key="w.id ?? `${w.type}-${w.deckIndex ?? weaponIndex}-${weaponIndex}`"
             class="ammo-pip"
+            :class="{ 'ammo-pip--empty': w.ammo <= 0 }"
             @mouseenter="showTip($event, `${w.type}: ${w.ammo} выстр.`)"
             @mousemove="moveTip"
             @mouseleave="hideTip"
@@ -262,6 +265,11 @@ const skullHtml = renderIcon('skull', 12)
   color: var(--accent-gold);
   font-family: var(--font-mono);
   font-weight: 700;
+}
+.ammo-pip--empty {
+  color: var(--text-dim);
+  background: color-mix(in srgb, var(--text-dim) 9%, transparent);
+  opacity: 0.66;
 }
 
 /* ── Sunk status ──────────────────────────────────────────── */

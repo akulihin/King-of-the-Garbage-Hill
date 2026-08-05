@@ -38,7 +38,10 @@ export interface BattleshipWeaponOption {
   shotType: string
   label: string
   ammo: number
+  maxAmmo: number
   hasAmmo: boolean
+  isShared: boolean
+  sources: string[]
   shipName: string
   shipRange: string
   shipRow: number
@@ -118,6 +121,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const pendingTurnSkipNotices: BattleshipTurnSkipNotice[] = []
   let turnSkipNoticeTimer: ReturnType<typeof setTimeout> | null = null
   let turnSkipNoticeSerial = 0
+  const penaltyFeedbackId = ref(0)
+  let penaltyFeedbackTimer: ReturnType<typeof setTimeout> | null = null
 
   // VFX toggle
   const vfxEnabled = ref(true)
@@ -218,6 +223,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
       const ship = myFleet.value.find(s => s.id === w.shipId)
       const base = {
         id: w.id, shipId: w.shipId, type: w.type, ammo: w.ammo, hasAmmo: w.ammo !== 0,
+        maxAmmo: w.maxAmmo, isShared: w.isShared, sources: w.sources ?? [w.shipName],
         shipName: w.shipName, shipRange: ship?.range ?? 'Close', shipRow: ship?.row ?? 0,
         aimSpeed: w.aimRemaining, deckIndex: w.deckIndex,
       }
@@ -373,6 +379,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
     turnSkipNotice.value = null
   }
 
+  function showPenaltyFeedback() {
+    const id = penaltyFeedbackId.value + 1
+    penaltyFeedbackId.value = id
+    if (penaltyFeedbackTimer) clearTimeout(penaltyFeedbackTimer)
+    penaltyFeedbackTimer = setTimeout(() => {
+      if (penaltyFeedbackId.value === id) penaltyFeedbackId.value = 0
+      penaltyFeedbackTimer = null
+    }, 1400)
+  }
+
   function initCallbacks() {
     signalrService.onBattleshipState = (state) => {
       // Snapshot old board cells before updating state (for diff animations)
@@ -463,6 +479,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
           return
         }
         lastShotResult.value = result
+        if (result.penaltyApplied) showPenaltyFeedback()
 
         // Start the public reload visualization before launching the projectile. Hit
         // flights are intentionally long, so the reload bar overlaps their animation.
@@ -547,6 +564,9 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onShipCatalog = null
     signalrService.onBattleshipStats = null
     clearTurnSkipNotices()
+    if (penaltyFeedbackTimer) clearTimeout(penaltyFeedbackTimer)
+    penaltyFeedbackTimer = null
+    penaltyFeedbackId.value = 0
     activateShotDelay(0)
   }
 
@@ -619,9 +639,18 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipRemoveShip(gameId.value, shipId)
   }
 
-  async function confirmPlacement(loadouts: BattleshipWeaponLoadout[]) {
+  async function confirmPlacement(
+    loadouts: BattleshipWeaponLoadout[],
+    useSharedTetracatapultAmmo = true,
+    useGhostSummons = true,
+  ) {
     if (!gameId.value) return
-    await signalrService.battleshipConfirmPlacement(gameId.value, loadouts)
+    await signalrService.battleshipConfirmPlacement(
+      gameId.value,
+      loadouts,
+      useSharedTetracatapultAmmo,
+      useGhostSummons,
+    )
   }
 
   async function cancelPlacement() {
@@ -777,6 +806,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     phaseTransitionActive,
     screenShake,
     turnSkipNotice,
+    penaltyFeedbackId,
     vfxEnabled,
     myShotsFired,
     myShotsHit,

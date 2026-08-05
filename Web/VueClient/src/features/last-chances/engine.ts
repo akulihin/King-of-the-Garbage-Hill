@@ -658,6 +658,8 @@ interface DamageEnemyOptions {
   storedDot?: LastChancesStoredDot | null
   distance?: number
   damageMultiplier?: number
+  /** Attack-facing axis when knockback itself is radial (for example «Акали» or «Толчок»). */
+  movementReferenceDirection?: LastChancesVector
   impactIntensity?: number
 }
 
@@ -7369,6 +7371,7 @@ export class LastChancesEngine {
         storedDot: area.storedDot,
         distance: vectorLength(toEnemy),
         damageMultiplier: (1 + area.motionDamageBonus) * stanceDamageMultiplier,
+        movementReferenceDirection: area.direction,
         impactIntensity: area.attack.behavior === 'swordRhythm' ? 0 : undefined,
       })
     }
@@ -9018,6 +9021,18 @@ export class LastChancesEngine {
     let hitEffects = attack.hitEffects?.map(effect => ({ ...effect }))
     let multiplier = 1
     let criticalHit = false
+    const spearMovement = this.spearV2MovementHit(
+      options.weaponId,
+      options.movementReferenceDirection ?? direction,
+      attack.damage,
+    )
+    if (spearMovement.damageMultiplier > 1) {
+      multiplier *= spearMovement.damageMultiplier
+      criticalHit = true
+    }
+    if (spearMovement.slowEffect) {
+      hitEffects = [...(hitEffects ?? []), spearMovement.slowEffect]
+    }
     const distance = options.distance
       ?? Math.sqrt(distanceSquared(this.player.position, enemy.position))
     if (attack.sweetSpot
@@ -9346,6 +9361,56 @@ export class LastChancesEngine {
         : undefined
       if (resetGesture) this.cooldownEnds.delete(cooldownKey(options.hand, resetGesture))
     }
+  }
+
+  /**
+   * Every damaging Двуручное копьё v2 contact reads the player's current movement against the
+   * spear axis. Forward input is an offensive commitment; backward input turns the same hit into
+   * a slowing retreat. Sideways or neutral movement leaves the authored attack unchanged.
+   * «Прорыв!» supplies its own travel direction because the dash owns movement during the run.
+   */
+  private spearV2MovementHit(
+    weaponId: string | undefined,
+    attackDirection: LastChancesVector,
+    damage: number,
+  ): {
+      damageMultiplier: number
+      slowEffect: LastChancesHitEffectDefinition | null
+    } {
+    if (weaponId !== 'twohand-spear-v2' || damage <= 0) {
+      return { damageMultiplier: 1, slowEffect: null }
+    }
+    const definition = this.config.weapons.find(weapon => weapon.id === weaponId)
+    const movement = this.activeDash?.weaponId === weaponId
+      && this.activeDash.attack.behavior === 'spearBreakthrough'
+      ? this.activeDash.direction
+      : this.resolveMovement()
+    if (vectorLength(movement) <= EPSILON) {
+      return { damageMultiplier: 1, slowEffect: null }
+    }
+    const movementDirection = normalize(movement)
+    const spearDirection = normalize(attackDirection, this.player.aim)
+    const alignment = movementDirection.x * spearDirection.x
+      + movementDirection.y * spearDirection.y
+    const threshold = clamp(tuningValue(definition, 'movementDirectionThreshold', 0.25), 0, 1)
+    if (alignment >= threshold) {
+      return {
+        damageMultiplier: Math.max(1, tuningValue(definition, 'advanceDamageMultiplier', 2)),
+        slowEffect: null,
+      }
+    }
+    if (alignment <= -threshold) {
+      return {
+        damageMultiplier: 1,
+        slowEffect: {
+          status: 'slow',
+          durationMs: Math.max(0, tuningValue(definition, 'retreatSlowDurationMs', 1200)),
+          magnitude: clamp(tuningValue(definition, 'retreatSlowMultiplier', 0.5), 0, 1),
+          refresh: 'refresh',
+        },
+      }
+    }
+    return { damageMultiplier: 1, slowEffect: null }
   }
 
   private finishEnemyDeath(enemy: RuntimeEnemy): void {

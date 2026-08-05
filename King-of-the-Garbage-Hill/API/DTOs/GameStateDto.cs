@@ -733,7 +733,6 @@ public class GordonStateDto
     public int CrowbarProgress { get; set; }
     public bool WakeUsed { get; set; }
     public bool CanWake { get; set; }
-    public bool WakeReservedForTsukuyomi { get; set; }
     public int HeadcrabsRemoved { get; set; }
     public int ZombieCount { get; set; }
     public List<GordonHeadcrabDto> ActiveHeadcrabs { get; set; } = new();

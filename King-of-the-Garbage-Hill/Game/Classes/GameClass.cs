@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.2.4";
+        GameVersion = "Версия: 5.2.13";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -106,6 +106,9 @@ public class GameClass
 
     /// <summary>Text snippets in GlobalLogs that should be stripped for non-admin players (e.g. Saitama hidden fights).</summary>
     public List<string> HiddenGlobalLogSnippets { get; set; } = new();
+
+    /// <summary>Dopa shadow-fight snippets retained for owner-only live projection and public-replay redaction.</summary>
+    public List<string> DopaShadowGlobalLogSnippets { get; set; } = new();
 
     /// <summary>Text snippets that should be stripped from GlobalLogs for Kira's "Genius" passive (character-revealing info).</summary>
     public List<string> KiraHiddenLogSnippets { get; set; } = new();

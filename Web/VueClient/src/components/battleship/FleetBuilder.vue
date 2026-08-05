@@ -4,6 +4,7 @@ import { useBattleshipStore } from 'src/store/battleship'
 import type { BattleshipShipCatalogEntry, BattleshipFleetSelection } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import { currentLocale } from 'src/i18n'
+import { message } from 'src/platform/localization'
 import BsIcon from './BsIcon.vue'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -85,7 +86,9 @@ const usedRegions = computed(() => {
   const regions = new Set<string>()
   for (const slot of slots.value) {
     const def = catalog.value.find(s => s.id === slot.definitionId)
-    for (const region of def?.regions ?? (def?.region ? [def.region] : [])) regions.add(region)
+    for (const region of def?.regions ?? (def?.region ? [def.region] : [])) {
+      if (region !== 'Tetracor') regions.add(region)
+    }
   }
   return regions
 })
@@ -138,6 +141,8 @@ function toggleUpgrade(globalIndex: number, upgradeId: string) {
   if (idx >= 0) {
     slot.upgrades.splice(idx, 1)
   } else {
+    if (upgradeId === 'double_mast' && slots.value.some((candidate, candidateIndex) =>
+      candidateIndex !== globalIndex && candidate.upgrades.includes('double_mast'))) return
     const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
     if (!upgrade || upgrade.cost > coinsLeft.value) return
     slot.upgrades.push(upgradeId)
@@ -148,6 +153,8 @@ function canToggleUpgrade(globalIndex: number, upgradeId: string): boolean {
   const slot = slots.value[globalIndex]
   if (!slot) return false
   if (slot.upgrades.includes(upgradeId)) return true
+  if (upgradeId === 'double_mast' && slots.value.some((candidate, candidateIndex) =>
+    candidateIndex !== globalIndex && candidate.upgrades.includes('double_mast'))) return false
   const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
   return !!upgrade && upgrade.cost <= coinsLeft.value
 }
@@ -232,6 +239,13 @@ function abilityLabel(a: string): string {
     case 'manual_move_after_hit': return 'Маневр — двигается после потери палубы'
     case 'ramming_maneuver': return 'Таранный маневр — может войти в Space союзника и уничтожить перекрытые палубы'
     case 'diagonal_shape': return 'Диагональный корпус из четырёх палуб'
+    case 'merge_maneuver': return message('battleship.ability.mergeManeuver.description')
+    case 'double_shot_while_alive': return message('battleship.ability.doubleShot.description')
+    case 'overheat_after_20_shots': return message('battleship.ability.overheat.description')
+    case 'capturing_shape': return message('battleship.ability.capturingShape.description')
+    case 'grab_summon': return message('battleship.ability.grabSummon.description')
+    case 'capture_reward': return message('battleship.ability.captureReward.description')
+    case 'crew_boarding_pirate': return message('battleship.ability.boardingCrew.description')
     case 'explode_on_hit': return 'Взрывается при любом попадании'
     case 'spawn_pirate_boat': return 'Пираты — выпускают Пиратскую лодку при гибели'
     case 'spawn_cursed_boat': return 'Выпускает проклятый корабль при гибели'
@@ -251,6 +265,13 @@ function abilityShortLabel(a: string): string {
     case 'manual_move_after_hit': return t('Maneuver', 'Маневр')
     case 'ramming_maneuver': return t('Ramming maneuver', 'Таранный маневр')
     case 'diagonal_shape': return t('Diagonal hull', 'Диагональный корпус')
+    case 'merge_maneuver': return message('battleship.ability.mergeManeuver.label')
+    case 'double_shot_while_alive': return message('battleship.ability.doubleShot.label')
+    case 'overheat_after_20_shots': return message('battleship.ability.overheat.label')
+    case 'capturing_shape': return message('battleship.ability.capturingShape.label')
+    case 'grab_summon': return message('battleship.ability.grabSummon.label')
+    case 'capture_reward': return message('battleship.ability.captureReward.label')
+    case 'crew_boarding_pirate': return message('battleship.ability.boardingCrew.label')
     case 'explode_on_hit': return t('Explosive', 'Взрывной')
     case 'spawn_pirate_boat': return t('Pirates', 'Пираты')
     case 'spawn_cursed_boat': return t('Cursed boat', 'Проклятый кораблик')

@@ -10,12 +10,14 @@ import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
 import BsIcon from '../BsIcon.vue'
 import ConfirmDialog from '../ConfirmDialog.vue'
+import { message } from 'src/platform/localization'
 import {
   anchorForDeck,
   deckOffsetVector,
   occupiedCells,
   occupiedDeckCells,
   orientationLabel,
+  rotateDeckOffset,
 } from '../battleship-geometry'
 
 const store = useBattleshipStore()
@@ -28,6 +30,8 @@ const placementLocked = computed(() => myPlayer.value?.isReady ?? false)
 const canCancelConfirmation = computed(() =>
   placementLocked.value && !!enemyPlayer.value && !enemyPlayer.value.isReady)
 const cancelDialogVisible = ref(false)
+const useSharedTetracatapultAmmo = ref(myPlayer.value?.useSharedTetracatapultAmmo ?? true)
+const useGhostSummons = ref(myPlayer.value?.useGhostSummons ?? true)
 
 type TetracatapultChoice = 'WhiteStone' | 'Buckshot'
 const tetracatapultLoadouts = ref<Record<string, TetracatapultChoice>>({})
@@ -53,13 +57,14 @@ watch(tetracatapults, weapons => {
     const configured = weapon.configuredShotType
     if (selected === 'WhiteStone' || selected === 'Buckshot') next[weapon.id] = selected
     else if (configured === 'WhiteStone' || configured === 'Buckshot') next[weapon.id] = configured
+    else next[weapon.id] = 'Buckshot'
   }
   tetracatapultLoadouts.value = next
 }, { immediate: true })
 
 // ── Placement hover / previews ───────────────────────────────
 const placementHoverCell = ref<{ row: number; col: number } | null>(null)
-const dragState = ref<{ shipId: string; deckOffset: number } | null>(null)
+const dragState = ref<{ shipId: string; deckIndex: number } | null>(null)
 let suppressNextClick = false
 
 watch(placementLocked, locked => {
@@ -77,10 +82,10 @@ function handlePlacementHover(row: number, col: number) {
 const previewAnchor = computed(() => {
   if (!placementHoverCell.value) return null
   const orientation = store.placementOrientation
-  const offset = dragState.value?.deckOffset ?? 0
+  const deckIndex = dragState.value?.deckIndex ?? 0
   const selected = myFleet.value.find(ship => ship.id === (dragState.value?.shipId ?? store.selectedShipId))
   return selected
-    ? anchorForDeck(selected, placementHoverCell.value, orientation, offset)
+    ? anchorForDeck(selected, placementHoverCell.value, orientation, deckIndex)
     : placementHoverCell.value
 })
 
@@ -130,8 +135,8 @@ const placementSpaceHighlight = computed(() => {
   })
 })
 
-type ZoneType = 'freeze' | 'poison' | 'explosion'
-type PlacementPose = Pick<BattleshipShip, 'row' | 'col' | 'orientation' | 'deckCount' | 'space' | 'explosionRadius' | 'abilities'>
+type ZoneType = 'freeze' | 'poison' | 'explosion' | 'grab'
+type PlacementPose = Pick<BattleshipShip, 'row' | 'col' | 'orientation' | 'deckCount' | 'space' | 'explosionRadius' | 'abilities' | 'decks' | 'grabRow' | 'grabCol'>
 
 function squareZone(ship: PlacementPose, radius: number): { row: number; col: number }[] {
   const cells = new Map<string, { row: number; col: number }>()
@@ -165,14 +170,23 @@ function poisonCone(ship: PlacementPose): { row: number; col: number }[] {
   return cells
 }
 
+function grabZone(ship: PlacementPose): { row: number; col: number }[] {
+  const offset = rotateDeckOffset({ row: 0, col: 1 }, ship.orientation)
+  const row = ship.row + offset.row
+  const col = ship.col + offset.col
+  return row >= 0 && row < 10 && col >= 0 && col < 10 ? [{ row, col }] : []
+}
+
 const zoneBuilders: Record<string, (ship: PlacementPose) => { type: ZoneType; cells: { row: number; col: number }[] }> = {
   freeze_nearby: ship => ({ type: 'freeze', cells: squareZone(ship, ship.space ?? 1) }),
   poison_cone: ship => ({ type: 'poison', cells: poisonCone(ship) }),
   explode_on_hit: ship => ({ type: 'explosion', cells: squareZone(ship, ship.explosionRadius || ship.space || 1) }),
+  grab_summon: ship => ({ type: 'grab', cells: grabZone(ship) }),
 }
 
 const placementEffectZones = computed(() => {
   const overlays = new Map<string, string>()
+  const grabCells: { row: number; col: number }[] = []
   for (const original of myFleet.value) {
     if (!original.isPlaced && original.id !== store.selectedShipId) continue
     const isPreview = original.id === store.selectedShipId && previewAnchor.value
@@ -182,9 +196,11 @@ const placementEffectZones = computed(() => {
     for (const ability of ship.abilities ?? []) {
       const zone = zoneBuilders[ability]?.(ship)
       if (!zone) continue
-      for (const cell of zone.cells) overlays.set(`${cell.row},${cell.col}`, zone.type)
+      if (zone.type === 'grab') grabCells.push(...zone.cells)
+      else for (const cell of zone.cells) overlays.set(`${cell.row},${cell.col}`, zone.type)
     }
   }
+  for (const cell of grabCells) overlays.set(`${cell.row},${cell.col}`, 'grab')
   return overlays
 })
 
@@ -221,7 +237,7 @@ function handlePlacementPointerDown(row: number, col: number, event: PointerEven
   event.preventDefault()
   store.selectedShipId = hit.ship.id
   store.placementOrientation = hit.ship.orientation
-  dragState.value = { shipId: hit.ship.id, deckOffset: hit.deckIndex }
+  dragState.value = { shipId: hit.ship.id, deckIndex: hit.deckIndex }
   placementHoverCell.value = { row, col }
 }
 
@@ -254,7 +270,11 @@ async function handleConfirmPlacement() {
     weaponId: weapon.id,
     shotType: tetracatapultLoadouts.value[weapon.id]!,
   }))
-  await store.confirmPlacement(loadouts)
+  await store.confirmPlacement(
+    loadouts,
+    useSharedTetracatapultAmmo.value,
+    useGhostSummons.value,
+  )
 }
 
 async function handleCancelConfirmation() {
@@ -303,6 +323,13 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
           <span v-if="[...placementEffectZones.values()].includes('freeze')" class="zone-chip zone-freeze">Заморозка</span>
           <span v-if="[...placementEffectZones.values()].includes('poison')" class="zone-chip zone-poison">Ядовитый конус</span>
           <span v-if="[...placementEffectZones.values()].includes('explosion')" class="zone-chip zone-explosion">Радиус взрыва</span>
+          <span
+            v-if="[...placementEffectZones.values()].includes('grab')"
+            class="zone-chip zone-grab"
+            @mouseenter="showTip($event, message('battleship.grab.tooltip'))"
+            @mousemove="moveTip"
+            @mouseleave="hideTip"
+          >{{ message('battleship.grab.label') }}</span>
         </div>
         <p v-if="!placementLocked" class="drag-hint">Зажмите ЛКМ на поставленном корабле, чтобы перетащить его.</p>
       </div>
@@ -334,6 +361,55 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
             <span class="ship-name">{{ ship.name }}</span>
             <span class="ship-decks bs-mono">{{ ship.deckCount }}П</span>
             <span v-if="ship.isPlaced" class="placed-mark">Размещён</span>
+          </div>
+        </div>
+
+        <div class="setup-modes bs-card">
+          <div class="setup-mode-row">
+            <span class="loadout-title">{{ message('battleship.placement.catapultMode') }}</span>
+            <div class="bs-seg" role="radiogroup" :aria-label="message('battleship.placement.catapultMode')">
+              <button
+                type="button"
+                role="radio"
+                class="bs-seg-btn"
+                :disabled="placementLocked"
+                :aria-checked="!useSharedTetracatapultAmmo"
+                :class="{ 'loadout-selected': !useSharedTetracatapultAmmo }"
+                @click="useSharedTetracatapultAmmo = false"
+              >{{ message('battleship.placement.catapultV1') }}</button>
+              <button
+                type="button"
+                role="radio"
+                class="bs-seg-btn"
+                :disabled="placementLocked"
+                :aria-checked="useSharedTetracatapultAmmo"
+                :class="{ 'loadout-selected': useSharedTetracatapultAmmo }"
+                @click="useSharedTetracatapultAmmo = true"
+              >{{ message('battleship.placement.catapultV2') }}</button>
+            </div>
+          </div>
+          <div class="setup-mode-row">
+            <span class="loadout-title">{{ message('battleship.placement.summonMode') }}</span>
+            <div class="bs-seg" role="radiogroup" :aria-label="message('battleship.placement.summonMode')">
+              <button
+                type="button"
+                role="radio"
+                class="bs-seg-btn"
+                :disabled="placementLocked"
+                :aria-checked="!useGhostSummons"
+                :class="{ 'loadout-selected': !useGhostSummons }"
+                @click="useGhostSummons = false"
+              >{{ message('battleship.placement.summons') }}</button>
+              <button
+                type="button"
+                role="radio"
+                class="bs-seg-btn"
+                :disabled="placementLocked"
+                :aria-checked="useGhostSummons"
+                :class="{ 'loadout-selected': useGhostSummons }"
+                @click="useGhostSummons = true"
+              >{{ message('battleship.placement.boats') }}</button>
+            </div>
           </div>
         </div>
 
@@ -498,12 +574,19 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
 .zone-freeze { color: var(--accent-blue); }
 .zone-poison { color: var(--accent-green); }
 .zone-explosion { color: var(--accent-orange); }
+.zone-grab { color: #9f1239; }
+.setup-modes,
 .catapult-loadouts {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.65rem;
   margin-top: 0.25rem;
+}
+.setup-mode-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 .loadout-title {
   color: var(--text-muted);

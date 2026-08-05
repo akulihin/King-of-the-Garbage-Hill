@@ -1756,13 +1756,16 @@ public class GameHub : Hub
 
     public async Task BattleshipConfirmPlacement(
         string gameId,
-        List<TetracatapultLoadoutDto> loadouts)
+        List<TetracatapultLoadoutDto> loadouts,
+        bool useSharedTetracatapultAmmo = true,
+        bool useGhostSummons = true)
     {
         var discordId = GetDiscordId();
         if (discordId == 0) { await SendNotAuthenticated(); return; }
 
         var (success, error) = _battleshipService.ConfirmPlacement(
-            gameId, discordId.ToString(), loadouts);
+            gameId, discordId.ToString(), loadouts,
+            useSharedTetracatapultAmmo, useGhostSummons);
         if (!success)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipConfirmPlacement", success = false, error });
@@ -2049,7 +2052,34 @@ public class GameHub : Hub
     private async Task SendBattleshipShotEvent(string gameId, Battleship.Models.ShotResult result)
     {
         if (result == null) return;
-        await _hubContext.Clients.Group($"bs-{gameId}").SendAsync("BattleshipEvent", new
+        var playerConnectionIds = new List<string>();
+        foreach (var playerId in _battleshipService.GetPlayerIds(gameId))
+        {
+            if (!ulong.TryParse(playerId, out var discordId)) continue;
+            var connections = _notificationService.GetConnections(discordId).ToList();
+            if (connections.Count == 0) continue;
+
+            playerConnectionIds.AddRange(connections);
+            var showDetails = _battleshipService.CanPlayerSeeShotDetails(gameId, playerId, result);
+            await _hubContext.Clients.Clients(connections).SendAsync(
+                "BattleshipEvent",
+                CreateBattleshipShotEvent(result, showDetails));
+        }
+
+        var spectatorEvent = CreateBattleshipShotEvent(result, showDetails: true);
+        if (playerConnectionIds.Count > 0)
+            await _hubContext.Clients.GroupExcept($"bs-{gameId}", playerConnectionIds)
+                .SendAsync("BattleshipEvent", spectatorEvent);
+        else
+            await _hubContext.Clients.Group($"bs-{gameId}")
+                .SendAsync("BattleshipEvent", spectatorEvent);
+    }
+
+    private static object CreateBattleshipShotEvent(
+        Battleship.Models.ShotResult result,
+        bool showDetails)
+    {
+        return new
         {
             eventType = "ShotResult",
             data = new
@@ -2059,17 +2089,18 @@ public class GameHub : Hub
                 result.SkipReason,
                 result.Hit,
                 result.Miss,
-                result.Scratched,
-                result.Destroyed,
-                result.ShipSunk,
-                result.Burned,
-                result.Dodged,
+                Scratched = showDetails && result.Scratched,
+                Destroyed = showDetails && result.Destroyed,
+                ShipSunk = showDetails && result.ShipSunk,
+                Burned = showDetails && result.Burned,
+                Dodged = showDetails && result.Dodged,
+                result.PenaltyApplied,
                 result.Row,
                 result.Col,
                 result.TurnContinues,
                 result.ShotDelayMs,
-                result.Message,
-                result.AffectedShipName,
+                Message = showDetails || result.WasSkipped ? result.Message : string.Empty,
+                AffectedShipName = showDetails ? result.AffectedShipName : null,
                 result.SourceShipId,
                 result.SourceDeckIndex,
                 result.SourceRow,
@@ -2078,7 +2109,7 @@ public class GameHub : Hub
                 result.ProjectileType,
                 result.TargetPlayerId,
             }
-        });
+        };
     }
 
     /// <summary>

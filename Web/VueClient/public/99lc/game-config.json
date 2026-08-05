@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 12,
+  "schemaVersion": 14,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -1337,7 +1337,7 @@
         "entranceRadiusRatio": 0.55,
         "hideMs": 5000,
         "exitRecoveryMs": 650,
-        "blastRadius": 900,
+        "blastRadius": 925,
         "blastDamageMaxHpRatio": 0.8
       }
     },
@@ -1381,18 +1381,18 @@
       "visionAngleDegrees": 360,
       "noticeMs": 1,
       "alertPauseMs": 1,
-      "attackRange": 14,
+      "attackRange": 28,
       "preferredAttackRangeRatio": 0.9,
       "role": "cockroach",
       "attackKind": "melee",
       "swarm": {
         "total": 100,
         "initialBurst": 10,
-        "spawnIntervalMs": 200
+        "spawnIntervalMs": 66.66666666666667
       },
       "attackDamage": 1,
-      "attackCooldownMs": 900,
-      "attackWindupMs": 200,
+      "attackCooldownMs": 450,
+      "attackWindupMs": 100,
       "mentalPressurePerSecond": 0.05,
       "color": "#c9b458"
     }
@@ -6363,6 +6363,12 @@
       "chanceCost": 3,
       "trait": "spearDistance",
       "defaultAugment": "none",
+      "tuning": {
+        "movementDirectionThreshold": 0.25,
+        "advanceDamageMultiplier": 2,
+        "retreatSlowDurationMs": 1200,
+        "retreatSlowMultiplier": 0.5
+      },
       "tapCombo": [
         {
           "name": "Охота",
@@ -6790,7 +6796,7 @@
             "windupMs": 250,
             "minimumTargetRange": 88,
             "targetRangeRatio": 0.72,
-            "shoveTargetDistance": 176
+            "shoveTargetDistance": 704
           }
         },
         "doubleTapHold": {
@@ -6871,9 +6877,9 @@
             "minimumTargetRange": 80,
             "targetDistancePerKnockback": 1,
             "armorMultiplier": 2,
-            "shoveTargetDistance": 188,
-            "kickTargetDistance": 432,
-            "strongKickTargetDistance": 528,
+            "shoveTargetDistance": 752,
+            "kickTargetDistance": 3456,
+            "strongKickTargetDistance": 4224,
             "strongKickImmobilizeMs": 1500
           }
         },

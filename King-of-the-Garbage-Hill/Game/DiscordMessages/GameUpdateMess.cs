@@ -194,8 +194,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game == null) return "ERROR 404";
 
         if (game.IsFinished && Madara.IsEternalTsukuyomiActive(game)
-            && !UnknownBug.Is(player)
-            && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
+            && !Madara.IsMadara(player))
         {
             var projected = Madara.GetIllusoryOrder(game, player)
                 .Where(x => !x.Passives.IsDead || x.GetPlayerId() == player.GetPlayerId())
@@ -978,10 +977,14 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
+        var ownPassiveNames = player.GameCharacter.Passive
+            .Select(passive => passive.PassiveName)
+            .ToHashSet(StringComparer.Ordinal);
         var hiddenPassiveNames = game.PlayersList
             .Where(other => other.GetPlayerId() != player.GetPlayerId())
             .SelectMany(other => other.GameCharacter.Passive)
             .Where(passive =>
+                !ownPassiveNames.Contains(passive.PassiveName) &&
                 passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
                 passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
             .Select(passive => passive.PassiveName)
@@ -1260,9 +1263,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
         var globalLogs = game!.GetGlobalLogs();
         if (game.IsFinished && Madara.IsEternalTsukuyomiActive(game)
-            && !Madara.IsMadara(player)
-            && !UnknownBug.Is(player)
-            && !GordonFreeman.SeesEternalTsukuyomiReality(player, game))
+            && !Madara.IsMadara(player))
             globalLogs = Madara.GetProjectedFinalLogs(game, player);
         // Hide fight logs from non-admin players
         if (player.PlayerType != 2)

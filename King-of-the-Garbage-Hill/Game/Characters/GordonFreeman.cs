@@ -54,7 +54,6 @@ public static class GordonFreeman
         public bool AllZombiesPenaltyApplied { get; set; }
         public int AllZombiesPenaltyRound { get; set; }
         public bool WakeUsed { get; set; }
-        public bool WakeReservedForEternalTsukuyomi { get; set; }
         public HalfLifeState HalfLife { get; set; } = new();
     }
 
@@ -227,8 +226,7 @@ public static class GordonFreeman
             || player.Passives.Gordon.WakeUsed || game.IsKratosEvent)
             return false;
 
-        if (player.Status.IsSkip || IsUnderItachiEyes(player, game)) return true;
-        return game.RoundNo == 9 && Madara.IsEternalTsukuyomiActive(game);
+        return player.Status.IsSkip || IsUnderItachiEyes(player, game);
     }
 
     public static bool Wake(GamePlayerBridgeClass player, GameClass game)
@@ -237,8 +235,6 @@ public static class GordonFreeman
 
         var state = player.Passives.Gordon;
         state.WakeUsed = true;
-        if (game.RoundNo == 9 && Madara.IsEternalTsukuyomiActive(game))
-            state.WakeReservedForEternalTsukuyomi = true;
 
         CancelItachiEyes(player, game);
 
@@ -271,15 +267,6 @@ public static class GordonFreeman
             game.Phrases.ItachiTsukuyomiEnd.SendLog(source, false);
         }
     }
-
-    public static bool IsAwakeForEternalTsukuyomi(GamePlayerBridgeClass player, GameClass game) =>
-        Is(player) && game != null && Madara.IsEternalTsukuyomiRound(game)
-        && player.Passives.Gordon.WakeReservedForEternalTsukuyomi;
-
-    public static bool SeesEternalTsukuyomiReality(GamePlayerBridgeClass player, GameClass game) =>
-        Is(player) && game != null
-        && player.Passives.Gordon.WakeReservedForEternalTsukuyomi
-        && Madara.IsEternalTsukuyomiActive(game);
 
     public static bool CanAnnounceHalfLife3(GamePlayerBridgeClass player, GameClass game) =>
         Is(player) && game != null && !player.Passives.IsDead && game.RoundNo is >= 3 and <= 7

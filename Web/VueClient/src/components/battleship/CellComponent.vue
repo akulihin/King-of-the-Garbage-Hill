@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { BattleshipCell } from 'src/services/signalr'
 import type { BattleshipBowDirection } from './battleship-geometry'
 import { renderIcon } from './battleship-icons'
+import { message } from 'src/platform/localization'
 import {
   boardingShipIconKey,
   boardingShipName,
@@ -52,12 +53,12 @@ const cellClass = computed(() => {
   // Priority order per spec section 11
   if (props.cell.isBurnResistMarked) classes.push('cell-burn-resist')
   else if (props.cell.isScratched) classes.push('cell-scratched')
+  else if (props.cell.isFrozen) classes.push('cell-frozen')
   else if (props.cell.isDevastated) classes.push('cell-devastated')
   else if (props.cell.isShipSunk) classes.push('cell-ship-sunk')
   else if (props.cell.isDestroyed) classes.push('cell-destroyed')
   else if (props.cell.isFirePermanent) classes.push('cell-fire-permanent')
   else if (props.cell.isBurning) classes.push('cell-burning')
-  else if (props.cell.isFrozen) classes.push('cell-frozen')
   else if (props.cell.isManeuverDodgeMarked) classes.push('cell-maneuver-dodge')
   else if (props.cell.isHit && props.cell.hasShip) classes.push('cell-hit')
   else if (props.cell.isHit) classes.push('cell-hit-empty')
@@ -73,6 +74,7 @@ const cellClass = computed(() => {
   // ТЗ #17: creatures render as an orange icon overlay — the base class above keeps
   // showing the cell's own status (hit/miss/fire/…) underneath
   if (props.cell.hasSummon) classes.push('cell-has-summon')
+  if (props.cell.isGhostSummon) classes.push('cell-ghost-summon')
   if (props.cell.isBoardingSummon) {
     classes.push('cell-boarding-ship')
     classes.push(`boarding-direction-${(props.cell.summonMoveDirection ?? 'Down').toLowerCase()}`)
@@ -122,6 +124,7 @@ const cellClass = computed(() => {
   if (props.rangeOverlay) {
     classes.push('cell-range-overlay', 'range-' + props.rangeOverlay)
   }
+  if (props.cell.isGrabCell) classes.push('cell-grab')
 
   return classes
 })
@@ -143,12 +146,12 @@ const cellIconHtml = computed(() => {
   }
   if (props.cell.isBurnResistMarked) return renderIcon('scratched', 14)
   if (props.cell.isScratched) return renderIcon('scratched', 14)
+  if (props.cell.isFrozen) return renderIcon('frozen', 14)
   if (props.cell.isDevastated) return renderIcon('devastated', 16)
   if (props.cell.isShipSunk) return renderIcon('destroyed', 16)
   if (props.cell.isDestroyed) return renderIcon('destroyed', 16)
   if (props.cell.isFirePermanent) return renderIcon('firePermanent', 14)
   if (props.cell.isBurning) return renderIcon('burning', 14)
-  if (props.cell.isFrozen) return renderIcon('frozen', 14)
   if (props.cell.isHit && props.cell.hasShip) return renderIcon('hit', 14)
   if (props.cell.isCaptured) return renderIcon('captured', 14)
   if (hasVisibleCurrentShip.value)
@@ -199,18 +202,21 @@ const cellTooltip = computed(() => {
       ? boardingShipName(props.cell.summonName)
       : props.cell.summonName
         ?? (props.cell.summonType ? summonTypeName(props.cell.summonType) : 'Призыв')
-    // ТЗ #1: enemy creature in the penalty zone (rows 1-3 of the own board)
-    if (!props.isEnemy && props.cell.row <= 2) {
+    if (props.cell.isGhostSummon) {
+      base = `${message('battleship.summon.ghost')} | ${base}`
+    }
+    // ТЗ #1: material enemy creature in the penalty zone (rows 1-3 of the own board)
+    if (!props.isEnemy && !props.cell.isGhostSummon && props.cell.row <= 2) {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
     }
   }
   else if (props.cell.isBurnResistMarked) base = `Корабль устоял против огня`
   else if (props.cell.isScratched) base = `Поцарапано`
+  else if (props.cell.isFrozen) base = `Заморожено`
   else if (props.cell.isShipSunk) base = `Корабль полностью потоплен${sunkShipSuffix}`
   else if (props.cell.isDestroyed) base = `Палуба уничтожена${ship}`
   else if (props.cell.isDevastated) base = `Опустошено`
   else if (props.cell.isBurning || props.cell.isFirePermanent) base = `Горит${ship}`
-  else if (props.cell.isFrozen) base = `Заморожено`
   else if (props.cell.isCaptured) base = `Захвачено`
   else if (props.cell.isManeuverDodgeMarked) base = `Лёгкая тройка увернулась — прежняя клетка`
   else if (props.cell.isHit && props.cell.hasShip) base = `Попадание${ship}`
@@ -234,6 +240,8 @@ const cellTooltip = computed(() => {
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
   addState(props.cell.isManeuverDodgeMarked, 'Манёвренное уклонение')
+  if (props.cell.isGrabCell || props.rangeOverlay === 'grab')
+    extras.push(message('battleship.grab.tooltip'))
   for (const marker of props.cell.summonTrails ?? [])
     extras.push(`След: ${summonMarkerName(marker)}`)
   for (const [index, marker] of (props.cell.summonDeaths ?? []).entries()) {
@@ -379,6 +387,15 @@ const cellTooltip = computed(() => {
 .cell-has-summon :deep(svg) {
   filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
 }
+.cell-ghost-summon .cell-icon {
+  opacity: 0.46;
+  filter: saturate(0.35) drop-shadow(0 0 5px #c4f1ff);
+  animation: ghost-summon-pulse 1.15s ease-in-out infinite alternate;
+}
+@keyframes ghost-summon-pulse {
+  from { transform: scale(0.88); opacity: 0.35; }
+  to { transform: scale(1.05); opacity: 0.68; }
+}
 
 /* A nimble ship dodged a ballista here — static green mark */
 .cell-dodge-mark {
@@ -435,6 +452,13 @@ const cellTooltip = computed(() => {
   color: var(--text-primary);
   outline: 2px solid var(--bs-cursed, var(--accent-purple));
   outline-offset: -2px;
+}
+.cell-grab {
+  background: color-mix(in srgb, #800020 58%, var(--bg-primary)) !important;
+  color: #fff1f2;
+  outline: 2px solid #be123c;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 9px rgba(76, 5, 25, 0.9);
 }
 .cell-fire-permanent {
   background: color-mix(in srgb, var(--bs-burn, var(--accent-orange)) 55%, var(--bs-hit, var(--accent-red)));
@@ -959,6 +983,11 @@ const cellTooltip = computed(() => {
   background: color-mix(in srgb, var(--accent-orange) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent-orange) 45%, transparent);
   box-shadow: inset 0 0 6px color-mix(in srgb, var(--accent-orange) 15%, transparent);
+}
+.range-grab::after {
+  background: color-mix(in srgb, #800020 58%, transparent);
+  border: 2px solid #be123c;
+  box-shadow: inset 0 0 8px rgba(76, 5, 25, 0.82), 0 0 6px rgba(159, 18, 57, 0.38);
 }
 .range-freeze::after {
   background: color-mix(in srgb, var(--accent-blue) 16%, transparent);

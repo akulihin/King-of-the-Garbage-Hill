@@ -1860,6 +1860,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
               :predictions="store.myPlayer?.predictions"
               :is-admin="store.isAdmin && !store.isTerminalMode"
               :pro-mode="store.isProMode && !store.isAdmin"
+              :allow-letopis-in-pro="store.myPlayer?.character.name === 'Salldorum'"
               :terminal-mode="store.isTerminalMode"
               :show-detailed-factors="store.isAdmin || store.isTerminalMode"
               :character-catalog="store.gameState.allCharacters || []"

@@ -159,7 +159,12 @@ public class DoomsdayMachine : IServiceSingleton
 
         var globalLogsNow = game.GetGlobalLogs();
         if (globalLogsNow.Length > globalLogsLengthBeforeFight)
-            game.HiddenGlobalLogSnippets.Add(globalLogsNow[globalLogsLengthBeforeFight..]);
+        {
+            var hiddenSnippet = globalLogsNow[globalLogsLengthBeforeFight..];
+            game.HiddenGlobalLogSnippets.Add(hiddenSnippet);
+            if (attacker.Status.IsShadowAction)
+                game.DopaShadowGlobalLogSnippets.Add(hiddenSnippet);
+        }
 
         attacker.Status.HideCurrentFight = false;
         defender.Status.HideCurrentFight = false;
@@ -320,13 +325,15 @@ public class DoomsdayMachine : IServiceSingleton
         var isEternalTsukuyomiRound = Madara.PrepareEternalTsukuyomiRound(game);
         if (isEternalTsukuyomiRound)
         {
-            var livingBugActs = game.PlayersList.Any(player =>
-                UnknownBug.Is(player) && !player.Passives.IsDead
-                                      && player.Status.WhoToAttackThisTurn.Count > 0);
-            if (!livingBugActs)
-                game.AddGlobalLogs(GordonFreeman.Find(game)?.Passives.Gordon.WakeReservedForEternalTsukuyomi == true
-                    ? "Все игроки, кроме Гордона Фримена, пропустили ход..."
-                    : "Все игроки пропустили ход...");
+            game.AddGlobalLogs("Все игроки пропустили ход...");
+            Madara.RestoreEternalTsukuyomiReality(game);
+            game.IsFinished = true;
+            ReplayService.CaptureRoundResult(replayRound, game, _gameUpdateMess);
+            SortGameLogs(game);
+            ReplayService.FinalizeRound(replayRound, game, _gameUpdateMess);
+            game.TimePassed.Reset();
+            watch.Stop();
+            return true;
         }
 
         // Щит-акула replaces DooM Guy's submitted block with a fightable, non-attacking
@@ -2106,14 +2113,7 @@ public class DoomsdayMachine : IServiceSingleton
             game.TurnLengthInSecond = 300;
         }
 
-        if (Madara.TryCaptureEternalTsukuyomiEnding(game))
-        {
-            SortGameLogs(game);
-            ReplayService.FinalizeRound(replayRound, game, _gameUpdateMess);
-            game.TimePassed.Reset();
-            watch.Stop();
-            return;
-        }
+        Madara.CaptureEternalTsukuyomiRoundOpening(game);
 
         await _characterPassives.HandleNextRound(game);
 
@@ -2145,13 +2145,49 @@ public class DoomsdayMachine : IServiceSingleton
         var zigguratPositionLocks = new Dictionary<Guid, int>();
         foreach (var pl in game.PlayersList)
         {
-            if (pl.Passives.GoblinZiggurat.IsInZiggurat && pl.Passives.GoblinZiggurat.ZigguratStayRoundsLeft > 0)
+            var ziggurat = pl.Passives.GoblinZiggurat;
+            if (ziggurat.IsInZiggurat && ziggurat.ZigguratStayRoundsLeft > 0)
             {
                 zigguratPositionLocks[pl.GetPlayerId()] = game.PlayersList.IndexOf(pl);
+                ziggurat.ZigguratStayRoundsLeft--;
+            }
+            else if (ziggurat.ZigguratStayRoundsLeft <= 0)
+            {
+                // The protected action turn has ended. Keep the occupied cell marker so merely
+                // remaining there cannot re-arm the Ziggurat; only leaving and entering can.
+                ziggurat.IsInZiggurat = false;
             }
         }
 
         game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
+
+        // A score sort can itself be a Ziggurat entry. Mark it before Tigr/Portal/Drop/Shen and
+        // the other position movers run, otherwise they could displace Goblins before the later
+        // post-sort passive hook noticed that the destination cell was protected.
+        for (var index = 0; index < game.PlayersList.Count; index++)
+        {
+            var sortedPlayer = game.PlayersList[index];
+            if (zigguratPositionLocks.ContainsKey(sortedPlayer.GetPlayerId())) continue;
+            var ziggurat = sortedPlayer.Passives.GoblinZiggurat;
+            var sortedPosition = index + 1;
+            if (!ziggurat.BuiltPositions.Contains(sortedPosition))
+            {
+                ziggurat.IsInZiggurat = false;
+                ziggurat.OccupiedZigguratPosition = 0;
+                ziggurat.ZigguratStayRoundsLeft = 0;
+                continue;
+            }
+
+            if (ziggurat.OccupiedZigguratPosition != sortedPosition)
+            {
+                ziggurat.ZigguratStayRoundsLeft = 1;
+                zigguratPositionLocks[sortedPlayer.GetPlayerId()] = index;
+                ziggurat.IsInZiggurat = true;
+                if (game.RoundNo == 10 && sortedPosition == 1)
+                    ziggurat.TopPositionVisitedOnRoundTen = true;
+            }
+            ziggurat.OccupiedZigguratPosition = sortedPosition;
+        }
 
 
         //Тигр топ, а ты холоп
@@ -2381,8 +2417,8 @@ public class DoomsdayMachine : IServiceSingleton
         // Apply after ordinary movers so position-based next-round passives see the held cell.
         Salldorum.ApplyShenPositionHolds(game);
 
-        // Round-10 "Ziggurat at place 1 ⇒ win" is enforced authoritatively in HandleLastRound (finding M1) —
-        // it can't fire here because the round-10 ziggurat isn't built until HandleNextRoundAfterSorting below.
+        // A round-10 visit to the place-1 Ziggurat is recorded in the post-sort hook below;
+        // a place-1 construction records the same visit while round 10 is settling.
 
         SortGameLogs(game);
         _characterPassives.HandleNextRoundAfterSorting(game);

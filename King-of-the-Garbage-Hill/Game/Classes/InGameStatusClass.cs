@@ -528,6 +528,18 @@ public class InGameStatus
         return Score + (HomelanderSevenPointsActive ? Homelander.SevenPoints : 0);
     }
 
+    public void RestoreEternalTsukuyomiScore(
+        decimal capturedScore,
+        bool homelanderSevenPointsActive)
+    {
+        HomelanderSevenPointsActive = homelanderSevenPointsActive;
+        Score = capturedScore - (homelanderSevenPointsActive ? Homelander.SevenPoints : 0);
+        ScoresToGiveAtEndOfRound = 0;
+        BonusPointsEarnedThisRound = 0;
+        ScoreSource = "";
+        ScoreEntries.Clear();
+    }
+
     public int GetPlaceAtLeaderBoard()
     {
         return PlaceAtLeaderBoard;

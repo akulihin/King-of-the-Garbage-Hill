@@ -67,8 +67,6 @@ public static class ScamRat
         var roll = SecureRandom.Next(IntelligenceCheckMinimum, IntelligenceCheckMaximum);
         state.LastIntelligenceRoll = roll;
         state.LastIntelligenceTargetId = target.GetPlayerId();
-        holder.Status.AddInGamePersonalLogs(
-            $"{PassiveName}: проверка {target.DiscordUsername}: {roll} против {target.FightCharacter.GetIntelligence()} Интеллекта.\n");
         if (roll <= target.FightCharacter.GetIntelligence()
             || !Homelander.CanTransferFrom(target, PassiveName))
             return;

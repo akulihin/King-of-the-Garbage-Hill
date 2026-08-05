@@ -17,7 +17,11 @@ export type BattleshipGeometry = {
    * Deck indices remain stable when Famous Ramming removes a physical deck.
    * Using them as offsets preserves holes instead of compacting the hull.
    */
-  decks?: Array<{ index: number }>
+  decks?: Array<{
+    index: number
+    offsetRow?: number | null
+    offsetCol?: number | null
+  }>
 }
 
 export type BattleshipCellPosition = { row: number; col: number }
@@ -41,20 +45,33 @@ export function deckOffsetVector(
   orientation: BattleshipOrientation,
   diagonal: boolean,
 ): BattleshipCellPosition {
-  if (diagonal) {
-    switch (orientation) {
-      case 'Vertical': return { row: 1, col: -1 }
-      case 'HorizontalReverse': return { row: -1, col: -1 }
-      case 'VerticalReverse': return { row: -1, col: 1 }
-      default: return { row: 1, col: 1 }
-    }
-  }
+  return rotateDeckOffset(diagonal ? { row: 1, col: 1 } : { row: 0, col: 1 }, orientation)
+}
+
+/** Rotate a hull-local offset defined for a ship facing right. */
+export function rotateDeckOffset(
+  offset: BattleshipCellPosition,
+  orientation: BattleshipOrientation,
+): BattleshipCellPosition {
   switch (orientation) {
-    case 'Vertical': return { row: 1, col: 0 }
-    case 'HorizontalReverse': return { row: 0, col: -1 }
-    case 'VerticalReverse': return { row: -1, col: 0 }
-    default: return { row: 0, col: 1 }
+    case 'Vertical': return { row: offset.col, col: -offset.row }
+    case 'HorizontalReverse': return { row: -offset.row, col: -offset.col }
+    case 'VerticalReverse': return { row: -offset.col, col: offset.row }
+    default: return offset
   }
+}
+
+function localDeckOffset(
+  ship: Pick<BattleshipGeometry, 'abilities'>,
+  deck: { index: number; offsetRow?: number | null; offsetCol?: number | null },
+): BattleshipCellPosition {
+  if (typeof deck.offsetRow === 'number' && typeof deck.offsetCol === 'number') {
+    return { row: deck.offsetRow, col: deck.offsetCol }
+  }
+
+  return isDiagonalShip(ship)
+    ? { row: deck.index, col: deck.index }
+    : { row: 0, col: deck.index }
 }
 
 export function bowDirectionForOrientation(
@@ -93,15 +110,17 @@ export function orientationLabel(orientation: BattleshipOrientation, diagonal: b
 }
 
 export function occupiedDeckCells(ship: BattleshipGeometry): BattleshipDeckCellPosition[] {
-  const step = deckOffsetVector(ship.orientation, isDiagonalShip(ship))
-  const deckIndices = ship.decks?.length
-    ? ship.decks.map(deck => deck.index).sort((a, b) => a - b)
-    : Array.from({ length: ship.deckCount }, (_, index) => index)
-  return deckIndices.map(deckIndex => ({
-    row: ship.row + step.row * deckIndex,
-    col: ship.col + step.col * deckIndex,
-    deckIndex,
-  }))
+  const decks = ship.decks?.length
+    ? [...ship.decks].sort((a, b) => a.index - b.index)
+    : Array.from({ length: ship.deckCount }, (_, index) => ({ index }))
+  return decks.map(deck => {
+    const offset = rotateDeckOffset(localDeckOffset(ship, deck), ship.orientation)
+    return {
+      row: ship.row + offset.row,
+      col: ship.col + offset.col,
+      deckIndex: deck.index,
+    }
+  })
 }
 
 export function occupiedCells(ship: BattleshipGeometry): BattleshipCellPosition[] {
@@ -109,14 +128,15 @@ export function occupiedCells(ship: BattleshipGeometry): BattleshipCellPosition[
 }
 
 export function anchorForDeck(
-  ship: Pick<BattleshipGeometry, 'abilities'>,
+  ship: Pick<BattleshipGeometry, 'abilities' | 'decks'>,
   hovered: BattleshipCellPosition,
   orientation: BattleshipOrientation,
-  deckOffset: number,
+  deckIndex: number,
 ): BattleshipCellPosition {
-  const step = deckOffsetVector(orientation, isDiagonalShip(ship))
+  const deck = ship.decks?.find(candidate => candidate.index === deckIndex) ?? { index: deckIndex }
+  const offset = rotateDeckOffset(localDeckOffset(ship, deck), orientation)
   return {
-    row: hovered.row - step.row * deckOffset,
-    col: hovered.col - step.col * deckOffset,
+    row: hovered.row - offset.row,
+    col: hovered.col - offset.col,
   }
 }

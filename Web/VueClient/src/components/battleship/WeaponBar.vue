@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTip } from 'src/composables/useTip'
 import { renderIcon } from './battleship-icons'
+import { message } from 'src/platform/localization'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
@@ -10,6 +11,7 @@ defineProps<{
   availableWeapons: Array<{
     id: string; shipId: string
     type: string; shotType: string; label: string; ammo: number
+    maxAmmo: number; isShared: boolean; sources: string[]
     hasAmmo: boolean; shipName: string; shipRange: string; shipRow: number; aimSpeed: number; deckIndex: number
   }>
   shotDelayActive: boolean
@@ -65,7 +67,7 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
           w.aimSpeed > 0 ? 'wb-weapon--charging' : '',
           shotDelayActive && w.shotType === 'EvilGreekFire' ? 'wb-weapon--response' : '',
         ]"
-        :aria-pressed="selectedShotType === w.shotType && (w.shotType === 'Ballista' || selectedWeaponId === w.id)"
+        :aria-pressed="selectedShotType === w.shotType && (w.shotType === 'Ballista' || w.isShared || selectedWeaponId === w.id)"
         :disabled="disabled || !w.hasAmmo || w.aimSpeed > 0"
         @mouseenter="showTip($event, weaponTooltip(w.shotType) + (w.aimSpeed > 0 ? ` (Прицел: ${w.aimSpeed} клет.)` : '') + ` [${wi + 1}]`)"
         @mousemove="moveTip"
@@ -74,12 +76,16 @@ function handleSelect(weaponType: string, shotType: string, weaponId: string) {
       >
         <span class="wb-icon" v-html="renderIcon(shotTypeToIconKey[w.shotType] ?? '', 18)"></span>
         <span class="wb-weapon-text">{{ w.label }}</span>
-        <span v-if="w.ammo >= 0" class="wb-ammo bs-mono">({{ w.ammo }})</span>
+        <span v-if="w.ammo >= 0" class="wb-ammo bs-mono">
+          ×{{ w.ammo }}<template v-if="w.isShared && w.maxAmmo >= 0">/{{ w.maxAmmo }}</template>
+        </span>
         <span v-if="w.aimSpeed > 0" class="wb-aim-charge">
           <span class="wb-aim-charge-fill" :style="{ width: Math.max(5, (1 - w.aimSpeed / 20) * 100) + '%' }"></span>
           <span class="wb-aim-charge-text bs-mono">{{ w.aimSpeed }}</span>
         </span>
-        <span v-if="w.shotType !== 'Ballista'" class="wb-source">{{ w.shipName }}</span>
+        <span v-if="w.shotType !== 'Ballista'" class="wb-source">
+          {{ message('battleship.weapon.source') }}: {{ w.sources.join(' + ') }}
+        </span>
         <span class="wb-hotkey bs-mono">{{ wi + 1 }}</span>
       </button>
     </div>

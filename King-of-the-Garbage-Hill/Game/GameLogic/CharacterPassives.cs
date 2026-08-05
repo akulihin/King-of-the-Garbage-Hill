@@ -869,7 +869,8 @@ public class CharacterPassives : IServiceSingleton
                             me.GameCharacter.Justice.GetRealJusticeNow();
                         me.GameCharacter.Justice.SetRealJusticeNow(
                             Math.Max(0, persistentJusticeBeforeSteal - stealLimit),
-                            "Регенирация");
+                            "Регенирация",
+                            isLog: false);
                         var stolenJustice = persistentJusticeBeforeSteal
                                             - me.GameCharacter.Justice.GetRealJusticeNow();
                         if (stolenJustice > 0)
@@ -1784,6 +1785,9 @@ public class CharacterPassives : IServiceSingleton
 
                 case "Гоблины":
                     me.Passives.GoblinLastAttackedPlayer = target.GetPlayerId();
+                    var attackedPlayerIds = me.Passives.GoblinZiggurat.AttackedPlayerIds;
+                    if (!attackedPlayerIds.Contains(target.GetPlayerId()))
+                        attackedPlayerIds.Add(target.GetPlayerId());
                     break;
 
                 case "Отличный рудник":
@@ -4990,26 +4994,30 @@ public class CharacterPassives : IServiceSingleton
                     var visionA = game.PlayersList.Find(x => x.GetPlayerId() == visionAId);
                     var visionB = game.PlayersList.Find(x => x.GetPlayerId() == visionBId);
 
-                    // Count predicted attacks by AIM only — a target's Block/Skip is irrelevant
-                    // (the promise is about who nападает, not whether the fight resolves). Dopa's
-                    // own attacks never count; when he blocked, only the other side attacking him
-                    // (his self-ID participant) can score. Both directions hitting = two predictions.
+                    // Count every predicted attack by AIM — a target's Block/Skip is irrelevant
+                    // (the promise is about who attacks, not whether the fight resolves). Repeated
+                    // queue entries are separate procs, e.g. twelve Geralt contract fights pay twelve
+                    // times. Dopa's own attacks never count; when he blocked, only the other side
+                    // attacking him (his self-ID participant) can score.
                     var visionCount = 0;
-                    if (visionAId != visionDopaId && visionA != null
-                        && visionA.Status.WhoToAttackThisTurn.Contains(visionBId)) visionCount++;
-                    if (visionBId != visionDopaId && visionB != null
-                        && visionB.Status.WhoToAttackThisTurn.Contains(visionAId)) visionCount++;
+                    if (visionAId != visionDopaId && visionA != null)
+                        visionCount += visionA.Status.WhoToAttackThisTurn.Count(targetId => targetId == visionBId);
+                    if (visionBId != visionDopaId && visionB != null)
+                        visionCount += visionB.Status.WhoToAttackThisTurn.Count(targetId => targetId == visionAId);
 
                     if (visionCount > 0)
                     {
                         var farmActive = player.GameCharacter.Passive.Any(x => x.PassiveName == "Фарм")
                             && (player.GameCharacter.Name != Dopa.CharacterName
                                 || player.Passives.DopaMetaChoice.ChosenTactic == "Фарм");
-                        int pointsAward = (farmActive ? 4 : 2) * visionCount;
-                        player.Status.AddRegularPoints(pointsAward, "Взгляд в будущее");
-                        player.GameCharacter.AddExtraSkill(50 * visionCount, "Взгляд в будущее");
+                        var pointsPerProc = farmActive ? 4 : 2;
+                        for (var proc = 0; proc < visionCount; proc++)
+                        {
+                            player.Status.AddRegularPoints(pointsPerProc, "Взгляд в будущее");
+                            player.GameCharacter.AddExtraSkill(50, "Взгляд в будущее");
+                            player.Passives.AchievementTracker.DopaVisionProcs++;
+                        }
                         player.Passives.DopaVision.Cooldown = 1;
-                        player.Passives.AchievementTracker.DopaVisionProcs += visionCount;
                         game.Phrases.DopaVisionProc.SendLog(player, false);
                     }
                     break;
@@ -5099,8 +5107,10 @@ public class CharacterPassives : IServiceSingleton
                             gobZigIntent.WantsToBuild = true;
                             gobZigIntent.PendingBuildPosition = player.Status.GetPlaceAtLeaderBoard();
                         }
-                        ResolveGoblinZigguratBuild(
+                        var learnedPassive = ResolveGoblinZigguratBuild(
                             player, game, gobZigIntent.PendingBuildPosition);
+                        if (learnedPassive != null)
+                            await _gameUpdateMess.UpdateCharacterMessage(player);
                     }
                     gobZigIntent.WantsToBuild = false;
                     gobZigIntent.PendingBuildPosition = 0;
@@ -6840,8 +6850,6 @@ public class CharacterPassives : IServiceSingleton
                 game.Phrases.MadaraTopOne.SendLog(madara, false, isRandomOrder: false);
             }
 
-            if (game.RoundNo == 10 && madara.Status.GetPlaceAtLeaderBoard() == 1 && !state.Sealed)
-                state.EternalTsukuyomiActive = true;
         }
 
         foreach (var player in game.PlayersList)
@@ -7178,20 +7186,29 @@ public class CharacterPassives : IServiceSingleton
                     var gobZigEnd = player.Passives.GoblinZiggurat;
                     var placeEnd = player.Status.GetPlaceAtLeaderBoard();
 
-                    // Check if current position has a built ziggurat
+                    // Entering a built position arms exactly one future score-sort hold. Remaining
+                    // on the same Ziggurat does not re-arm it; Goblins must leave and enter again.
                     if (gobZigEnd.BuiltPositions.Contains(placeEnd))
                     {
-                        gobZigEnd.IsInZiggurat = true;
-                        gobZigEnd.ZigguratStayRoundsLeft = 1;
+                        if (gobZigEnd.OccupiedZigguratPosition != placeEnd)
+                        {
+                            gobZigEnd.ZigguratStayRoundsLeft = 1;
+                            gobZigEnd.IsInZiggurat = true;
+                            if (game.RoundNo == 10 && placeEnd == 1)
+                                gobZigEnd.TopPositionVisitedOnRoundTen = true;
+                        }
+                        gobZigEnd.OccupiedZigguratPosition = placeEnd;
                     }
                     else
                     {
                         gobZigEnd.IsInZiggurat = false;
+                        gobZigEnd.OccupiedZigguratPosition = 0;
                         gobZigEnd.ZigguratStayRoundsLeft = 0;
                     }
 
-                    // Ziggurat grants Justice and Moral each round
-                    if (gobZigEnd.IsInZiggurat)
+                    // Occupancy bonuses remain active while Goblins stand on the built cell; only
+                    // the position protection expires after its single action turn.
+                    if (gobZigEnd.BuiltPositions.Contains(placeEnd))
                     {
                         player.GameCharacter.Justice.AddJusticeForNextRoundFromSkill(1);
                         player.GameCharacter.AddMoral(5, "Зиккурат");
@@ -8485,7 +8502,7 @@ public class CharacterPassives : IServiceSingleton
     }
     //end unique
 
-    private void ResolveGoblinZigguratBuild(
+    private Passive ResolveGoblinZigguratBuild(
         GamePlayerBridgeClass player,
         GameClass game,
         int buildPosition)
@@ -8496,17 +8513,17 @@ public class CharacterPassives : IServiceSingleton
         if (population.Warriors < 1 || population.Hobs < 1 || population.Workers < 1)
         {
             game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
-            return;
+            return null;
         }
         if (player.Status.GetScore() <= 3)
         {
             game.Phrases.GoblinZigguratNoMoney.SendLog(player, false);
-            return;
+            return null;
         }
         if (ziggurat.BuiltPositions.Contains(buildPosition))
         {
             player.Status.AddInGamePersonalLogs("Зиккурат уже построен на этом месте!\n");
-            return;
+            return null;
         }
 
         player.Status.AddBonusPoints(-3, GoblinSwarm.ZigguratPassive);
@@ -8519,32 +8536,44 @@ public class CharacterPassives : IServiceSingleton
         var stillOnBuiltPosition =
             player.Status.GetPlaceAtLeaderBoard() == buildPosition;
         ziggurat.IsInZiggurat = stillOnBuiltPosition;
+        ziggurat.OccupiedZigguratPosition = stillOnBuiltPosition ? buildPosition : 0;
         ziggurat.ZigguratStayRoundsLeft = stillOnBuiltPosition ? 1 : 0;
+        if (stillOnBuiltPosition && game.RoundNo == 10 && buildPosition == 1)
+            ziggurat.TopPositionVisitedOnRoundTen = true;
 
-        var lastAttacked = game.PlayersList.Find(x =>
-            x.GetPlayerId() == player.Passives.GoblinLastAttackedPlayer);
-        var enemyPassives = lastAttacked?.GameCharacter.Passive ?? new List<Passive>();
-        var standalonePassives = enemyPassives
+        // Any previously attacked enemy is a valid teacher. The old single-target pointer made a
+        // later target with no eligible Standalone passive erase otherwise valid learning sources.
+        var attackedIds = ziggurat.AttackedPlayerIds.Count > 0
+            ? ziggurat.AttackedPlayerIds
+            : new List<Guid> { player.Passives.GoblinLastAttackedPlayer };
+        var standalonePassives = game.PlayersList
+            .Where(enemy => attackedIds.Contains(enemy.GetPlayerId()))
+            .SelectMany(enemy => enemy.GameCharacter.Passive)
             .Where(passive => passive.Standalone
                               && passive.PassiveName != "Еврей"
                               && !ziggurat.LearnedPassives.Contains(passive.PassiveName)
                               && player.GameCharacter.Passive.All(existing =>
                                   existing.PassiveName != passive.PassiveName))
+            .GroupBy(passive => passive.PassiveName)
+            .Select(group => group.First())
             .ToList();
 
+        Passive learnedPassive = null;
         if (standalonePassives.Count > 0)
         {
-            var learnedPassive =
+            learnedPassive =
                 standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
             ziggurat.LearnedPassives.Add(learnedPassive.PassiveName);
-            player.GameCharacter.Passive.Add(learnedPassive.DeepCopy());
+            var learnedCopy = learnedPassive.DeepCopy();
+            learnedCopy.Visible = true;
+            player.GameCharacter.Passive.Add(learnedCopy);
             player.Status.AddInGamePersonalLogs(
                 $"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
         }
-
         game.Phrases.GoblinZigguratBuild.SendLog(player, false);
         player.Status.AddInGamePersonalLogs(
             $"Зиккурат построен на месте {buildPosition}! Позиция защищена.\n");
+        return learnedPassive;
     }
 
     // Стая Гоблинов: recompute Str/Int/Psyche from population size, but PRESERVE any external stat

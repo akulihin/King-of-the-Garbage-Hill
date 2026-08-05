@@ -4,11 +4,11 @@ import type {
   BattleshipCell,
   BattleshipSummonMarker,
 } from 'src/services/signalr'
+import { message } from 'src/platform/localization'
 import { renderIcon } from './battleship-icons'
 import {
   summonIconKey,
   summonMarkerClass,
-  summonMarkerName,
 } from './battleship-summon-presentation'
 
 const props = defineProps<{
@@ -32,7 +32,7 @@ const ordinaryTrailNames: Record<string, string> = {
 
 function displayKey(marker: BattleshipSummonMarker): string {
   if (!marker.isBoardingShip) return `type:${marker.type}`
-  return `boarding:${marker.sourceShipName || marker.summonId}`
+  return 'boarding'
 }
 
 const entries = computed<TrailLegendEntry[]>(() => {
@@ -44,7 +44,7 @@ const entries = computed<TrailLegendEntry[]>(() => {
       byDisplay.set(key, {
         key,
         label: marker.isBoardingShip
-          ? summonMarkerName(marker)
+          ? message('battleship.boarding.genericShip')
           : (ordinaryTrailNames[marker.type] ?? marker.type),
         icon: summonIconKey(marker.type, marker.isBoardingShip),
         markerClass: summonMarkerClass(marker),

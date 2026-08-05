@@ -6,14 +6,17 @@ import type {
   BattleshipPendingSummon,
   BattleshipShotResult,
   BattleshipSummon,
+  BattleshipVoluntaryManeuver,
 } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
+import { message } from 'src/platform/localization'
 import BoardGrid from '../BoardGrid.vue'
 import BsIcon from '../BsIcon.vue'
 import WeaponBar from '../WeaponBar.vue'
 import FleetPanel from '../FleetPanel.vue'
 import BattleLogPanel from '../BattleLogPanel.vue'
 import SummonBar from '../SummonBar.vue'
+import VoluntaryManeuverBar from '../VoluntaryManeuverBar.vue'
 import SummonTrailLegend from '../SummonTrailLegend.vue'
 import ActionBar from '../ActionBar.vue'
 import VfxCanvas from '../VfxCanvas.vue'
@@ -30,6 +33,7 @@ import {
   occupiedCells as occupiedCellPositions,
   occupiedDeckCells,
   orientationLabel,
+  rotateDeckOffset,
 } from '../battleship-geometry'
 
 const store = useBattleshipStore()
@@ -50,12 +54,6 @@ const myFleet = computed(() => store.myFleet)
 const gameLog = computed(() => store.gameLog)
 const pendingManeuver = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingManeuver ?? null))
-const pendingManeuverShip = computed(() =>
-  myFleet.value.find(ship => ship.id === pendingManeuver.value?.shipId) ?? null)
-const maneuverShipCells = computed(() =>
-  pendingManeuverShip.value ? occupiedCellPositions(pendingManeuverShip.value) : [])
-const maneuverTargetCells = computed(() =>
-  pendingManeuver.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const pendingCursedBoatDirection = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingCursedBoatDirection ?? null))
 const pendingAssembly = computed(() =>
@@ -86,6 +84,56 @@ const cursedBoatTargetCells = computed(() =>
   pendingCursedBoatDirection.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const mandatoryInteractionActive = computed(() =>
   !!pendingManeuver.value || !!pendingCursedBoatDirection.value || !!pendingAssembly.value)
+const availableVoluntaryManeuvers = computed<BattleshipVoluntaryManeuver[]>(() => {
+  const livingMergeShips = new Set(myFleet.value
+    .filter(ship => ship.definitionId === 'merging_ship' && !ship.isDestroyed && ship.isPlaced)
+    .map(ship => ship.id))
+  return (myPlayer.value?.voluntaryManeuvers ?? [])
+    .filter(maneuver => livingMergeShips.has(maneuver.shipId))
+})
+const selectedVoluntaryManeuverShipId = ref<string | null>(null)
+const voluntaryManeuverDisabled = computed(() =>
+  !isMyTurn.value
+  || (phase.value !== 'Combat' && phase.value !== 'Boarding')
+  || mandatoryInteractionActive.value
+  || summonPriorityLockActive.value)
+const selectedVoluntaryManeuver = computed(() => {
+  if (voluntaryManeuverDisabled.value) return null
+  return availableVoluntaryManeuvers.value
+    .find(maneuver => maneuver.shipId === selectedVoluntaryManeuverShipId.value) ?? null
+})
+const voluntaryManeuverActive = computed(() => !!selectedVoluntaryManeuver.value)
+const activeManeuver = computed(() => pendingManeuver.value ?? selectedVoluntaryManeuver.value)
+const activeManeuverShip = computed(() =>
+  myFleet.value.find(ship => ship.id === activeManeuver.value?.shipId) ?? null)
+const maneuverShipCells = computed(() =>
+  activeManeuverShip.value ? occupiedCellPositions(activeManeuverShip.value) : [])
+const maneuverTargetCells = computed(() =>
+  activeManeuver.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
+
+function selectVoluntaryManeuver(shipId: string) {
+  if (voluntaryManeuverDisabled.value) return
+  store.cancelSummonDeploy()
+  selectedVoluntaryManeuverShipId.value =
+    selectedVoluntaryManeuverShipId.value === shipId ? null : shipId
+}
+
+function cancelVoluntaryManeuver() {
+  selectedVoluntaryManeuverShipId.value = null
+}
+
+watch(
+  [voluntaryManeuverDisabled, () => availableVoluntaryManeuvers.value.map(value => value.shipId).join('|')],
+  ([disabled]) => {
+    if (
+      disabled
+      || !availableVoluntaryManeuvers.value.some(
+        maneuver => maneuver.shipId === selectedVoluntaryManeuverShipId.value,
+      )
+    ) selectedVoluntaryManeuverShipId.value = null
+  },
+  { immediate: true },
+)
 
 watch(mandatoryInteractionActive, (active) => {
   if (active) store.cancelSummonDeploy()
@@ -128,6 +176,7 @@ const hasCapturedShip = computed(() =>
 const captureFocusActive = computed(() =>
   hasCapturedShip.value
   && !mandatoryInteractionActive.value
+  && !voluntaryManeuverActive.value
   && !summonPriorityLockActive.value
   && !store.summonDeployMode)
 
@@ -180,13 +229,14 @@ const penaltyZoneRows = computed<number[]>(() => {
   if (!hasEnemySummonOnMyBoard.value) return []
   const myId = store.gameState?.myPlayerId
   const hasInPenaltyZone = store.myBoard?.cells.some(c =>
-    c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
+    c.hasSummon && !c.isGhostSummon && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
   ) ?? false
   return hasInPenaltyZone ? [0, 1, 2] : []
 })
 
 function canDeploySummonType(type: string): boolean {
   if (!myPlayer.value || !enemyPlayer.value) return false
+  if (voluntaryManeuverActive.value) return false
   const p = myPlayer.value
   if (waitingRamReturnActive.value) return false
   if (!p.canDeployAnySummon) return false
@@ -215,12 +265,14 @@ const canDeploySummon = computed(() => canDeploySummonType(store.summonType))
 const deployableSummons = computed(() => availableSummons.value.filter(canDeploySummonType))
 
 function enterSummonDeployMode() {
-  if (!canDeploySummon.value) return
+  if (!canDeploySummon.value || voluntaryManeuverActive.value) return
   store.summonDeployMode = { type: store.summonType }
 }
 
 function enterReentrySummonDeployMode(summon: BattleshipSummon) {
   if (
+    voluntaryManeuverActive.value
+    ||
     !summon.isAlive
     || summon.type !== 'Ram'
     || !summon.waitingForTurnBack
@@ -236,7 +288,7 @@ function enterReentrySummonDeployMode(summon: BattleshipSummon) {
 }
 
 function enterPendingSummonDeployMode(ps: BattleshipPendingSummon) {
-  if (waitingRamReturnActive.value) return
+  if (waitingRamReturnActive.value || voluntaryManeuverActive.value) return
   if (boardingPlacementPending.value && !ps.isMandatoryBoarding) return
   store.summonDeployMode = {
     type: ps.type,
@@ -327,9 +379,10 @@ const isEvilGreekFireResponse = computed(() =>
   && store.shotDelayOwnerId === enemyPlayer.value?.discordId)
 const canUseOwnBoardWeapon = computed(() =>
   !summonPriorityLockActive.value
+  && !voluntaryManeuverActive.value
   && ((isMyTurn.value && !store.shotDelayActive) || isEvilGreekFireResponse.value))
 const catapultReady = computed(() => isMyTurn.value && !store.shotDelayActive &&
-  !summonPriorityLockActive.value && !hasCapturedShip.value &&
+  !summonPriorityLockActive.value && !voluntaryManeuverActive.value && !hasCapturedShip.value &&
   store.availableWeapons.some(w => w.type === 'Tetracatapult' && w.aimSpeed <= 0 && w.hasAmmo))
 const aoeHighlight = ref<{ row: number; col: number }[]>([])
 
@@ -357,7 +410,7 @@ const enemyHighlight = computed(() => {
 
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
-  if (pendingManeuver.value || pendingAssembly.value) return
+  if (pendingManeuver.value || pendingAssembly.value || voluntaryManeuverActive.value) return
   if (pendingCursedBoatDirection.value) {
     const option = pendingCursedBoatDirection.value.options
       .find(value => value.row === row && value.col === col)
@@ -424,6 +477,15 @@ async function handleMyBoardCellClick(row: number, col: number) {
       await store.manualMove(pendingManeuver.value.shipId, option.direction, option.distance)
     return
   }
+  if (selectedVoluntaryManeuver.value) {
+    const maneuver = selectedVoluntaryManeuver.value
+    const option = maneuver.options.find(value => value.row === row && value.col === col)
+    if (option) {
+      await store.manualMove(maneuver.shipId, option.direction, option.distance)
+      selectedVoluntaryManeuverShipId.value = null
+    }
+    return
+  }
   if (!isMyTurn.value && !isEvilGreekFireResponse.value) return
   if (store.shotDelayActive && !isEvilGreekFireResponse.value) return
   if (boardingPlacementPending.value || waitingRamReturnActive.value) return
@@ -446,13 +508,13 @@ async function handleMyBoardCellClick(row: number, col: number) {
 }
 
 function handleEnemyHover(row: number, col: number) {
-  if (mandatoryInteractionActive.value) return
+  if (mandatoryInteractionActive.value || voluntaryManeuverActive.value) return
   if (store.summonDeployMode) updateSummonDeployHighlight(row, col)
   else updateAoeHighlight(row, col)
 }
 
 async function handleWeaponSelect(weaponType: string, shotType: string, weaponId: string) {
-  if (boardingPlacementPending.value || waitingRamReturnActive.value) return
+  if (boardingPlacementPending.value || waitingRamReturnActive.value || voluntaryManeuverActive.value) return
   await store.selectWeapon(weaponType, shotType, weaponId)
 }
 
@@ -565,6 +627,10 @@ const myBoardRangeOverlays = computed(() => {
         }
       }
     }
+
+    const grabCell = getGrabCell(ship)
+    if (grabCell && grabCell[0] >= 0 && grabCell[0] < 10 && grabCell[1] >= 0 && grabCell[1] < 10)
+      map.set(`${grabCell[0]},${grabCell[1]}`, 'grab')
   }
 
   if (hasEnemySummonOnMyBoard.value) {
@@ -628,9 +694,28 @@ function getOccupiedCells(ship: {
   deckCount: number
   orientation: BattleshipOrientation
   abilities?: string[]
-  decks?: Array<{ index: number }>
+  decks?: Array<{
+    index: number
+    offsetRow?: number | null
+    offsetCol?: number | null
+  }>
 }): [number, number][] {
   return occupiedCellPositions(ship).map(cell => [cell.row, cell.col])
+}
+
+function getGrabCell(ship: {
+  row: number
+  col: number
+  orientation: BattleshipOrientation
+  abilities?: string[]
+  grabRow?: number | null
+  grabCol?: number | null
+}): [number, number] | null {
+  if (!ship.abilities?.includes('grab_summon')) return null
+  if (typeof ship.grabRow === 'number' && typeof ship.grabCol === 'number')
+    return [ship.grabRow, ship.grabCol]
+  const offset = rotateDeckOffset({ row: 0, col: 1 }, ship.orientation)
+  return [ship.row + offset.row, ship.col + offset.col]
 }
 
 // ── Weapon cursor ────────────────────────────────────────────
@@ -638,6 +723,7 @@ const weaponCursorClass = computed(() => {
   if (
     !isMyTurn.value
     || mandatoryInteractionActive.value
+    || voluntaryManeuverActive.value
     || summonPriorityLockActive.value
     || hasCapturedShip.value
   ) return ''
@@ -751,6 +837,7 @@ onUnmounted(() => {
       'catapult-ready': catapultReady && !mandatoryInteractionActive,
       'mandatory-lock': mandatoryInteractionActive,
       'capture-attention': captureFocusActive,
+      'voluntary-maneuver-selection': voluntaryManeuverActive,
     }"
   >
     <div v-if="pendingAssembly" class="bs-banner bs-banner--warning maneuver-banner assembly-banner">
@@ -783,7 +870,7 @@ onUnmounted(() => {
       :shot-delay-active="store.shotDelayActive"
       :shot-delay-remaining="shotDelayRemaining"
       :phase="phase"
-      :disabled="boardingPlacementPending || waitingRamReturnActive"
+      :disabled="boardingPlacementPending || waitingRamReturnActive || voluntaryManeuverActive"
       @select-weapon="handleWeaponSelect"
     />
 
@@ -803,6 +890,14 @@ onUnmounted(() => {
       @enter-pending-deploy="enterPendingSummonDeployMode"
       @cancel-deploy="store.cancelSummonDeploy()"
       @set-summon-type="(t: string) => store.summonType = t"
+    />
+
+    <VoluntaryManeuverBar
+      :maneuvers="availableVoluntaryManeuvers"
+      :selected-ship-id="selectedVoluntaryManeuverShipId"
+      :disabled="voluntaryManeuverDisabled"
+      @select="selectVoluntaryManeuver"
+      @cancel="cancelVoluntaryManeuver"
     />
 
     <div v-if="catapultReady" class="catapult-ready-label" role="status">Камнемёт готов к выстрелу!</div>
@@ -852,7 +947,7 @@ onUnmounted(() => {
       :class="{
         'board-shake': store.screenShake,
         'boarding-zoom': boardingZoomActive,
-        'maneuver-focus': !!pendingManeuver || !!pendingAssembly,
+        'maneuver-focus': !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive,
         'assembly-focus': !!pendingAssembly,
         'cursed-focus': !!pendingCursedBoatDirection,
         'capture-focus': captureFocusActive,
@@ -866,7 +961,7 @@ onUnmounted(() => {
           <span v-if="enemyPlayer" class="indicator-badges">
             <span v-if="enemyPlayer.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="enemyPlayer.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
-            <span v-if="phase === 'Boarding'" class="bs-badge bs-badge--boarding" @mouseenter="showTip($event, 'Абордаж')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('crossbones', 12)"></span>
+            <span v-if="enemyPlayer.discordId === store.gameState?.boardingPlayerId" class="bs-badge bs-badge--boarding" @mouseenter="showTip($event, 'Абордаж')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('crossbones', 12)"></span>
           </span>
           <span v-if="enemyPlayer" class="revealed-count bs-mono">Разведано: {{ enemyPlayer.revealedCellCount }}/100</span>
         </div>
@@ -876,7 +971,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
+            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && !voluntaryManeuverActive && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -910,6 +1005,7 @@ onUnmounted(() => {
           <span v-if="myPlayer" class="indicator-badges">
             <span v-if="myPlayer.stunShotExpiry >= store.shotCount" class="bs-badge bs-badge--stun" @mouseenter="showTip($event, 'Оглушён')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('stun', 12)"></span>
             <span v-if="myPlayer.hasPenalty" class="bs-badge bs-badge--penalty" @mouseenter="showTip($event, 'Штраф')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('penalty', 12)"></span>
+            <span v-if="myPlayer.discordId === store.gameState?.boardingPlayerId" class="bs-badge bs-badge--boarding" @mouseenter="showTip($event, 'Абордаж')" @mousemove="moveTip" @mouseleave="hideTip" v-html="renderIcon('crossbones', 12)"></span>
           </span>
           <span v-if="myPlayer" class="revealed-count bs-mono">Разведано: {{ myPlayer.revealedCellCount }}/100</span>
         </div>
@@ -922,8 +1018,8 @@ onUnmounted(() => {
             :last-shot-cell="myLastShot"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
-            :maneuver-active="pirateRestoreActive || !!pendingManeuver || !!pendingAssembly"
+            :clickable="pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
+            :maneuver-active="pirateRestoreActive || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive"
             :maneuver-ship-cells="maneuverShipCells"
             :maneuver-target-cells="pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
             :capture-focus="captureFocusActive"
@@ -949,6 +1045,9 @@ onUnmounted(() => {
           <span v-if="hasOverlayType(myBoardRangeOverlays, 'penalty-zone')" class="legend-item legend-penalty" @mouseenter="showTip($event, 'Штраф за убийство суммона в этой зоне')" @mousemove="moveTip" @mouseleave="hideTip">
             <span v-html="renderIcon('penalty', 12)"></span> Штрафная зона
           </span>
+          <span v-if="hasOverlayType(myBoardRangeOverlays, 'grab')" class="legend-item legend-grab" @mouseenter="showTip($event, message('battleship.grab.tooltip'))" @mousemove="moveTip" @mouseleave="hideTip">
+            <span v-html="renderIcon('anchor', 12)"></span> {{ message('battleship.grab.label') }}
+          </span>
         </div>
         <SummonTrailLegend :cells="store.myBoard?.cells" />
       </div>
@@ -973,7 +1072,7 @@ onUnmounted(() => {
       :shot-result="store.lastShotResult"
       :shot-result-class="shotResultClass"
       :is-my-turn="isMyTurn"
-      :can-pass-boarding="!summonPriorityLockActive && (myPlayer?.canPassBoarding ?? false)"
+      :can-pass-boarding="!summonPriorityLockActive && !voluntaryManeuverActive && (myPlayer?.canPassBoarding ?? false)"
       @pass-boarding="store.passBoardingTurn()"
     />
 
@@ -1214,6 +1313,7 @@ onUnmounted(() => {
 .legend-freeze { --legend-color: var(--accent-blue); }
 .legend-target { --legend-color: var(--accent-red); }
 .legend-penalty { --legend-color: var(--accent-red); }
+.legend-grab { --legend-color: #9f1239; }
 .legend-trail-ram { --legend-color: var(--accent-red); }
 .legend-trail-scout { --legend-color: var(--accent-blue); }
 .legend-trail-brander { --legend-color: var(--accent-orange); }

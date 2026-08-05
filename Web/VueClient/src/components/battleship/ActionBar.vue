@@ -103,7 +103,7 @@ function emitManualMove(shipId: string, direction: string) {
   </template>
 
   <!-- Shot Result -->
-  <div v-if="shotResult" class="shot-result" :class="shotResultClass">
+  <div v-if="shotResult?.message" class="shot-result" :class="shotResultClass">
     {{ shotResult.message }}
   </div>
 

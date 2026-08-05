@@ -23,6 +23,7 @@ public static class BattleshipGameEngine
         Capture,
         Devastated,
         Poison,
+        Freeze,
     }
 
     // ── Turn Start Processing ─────────────────────────────────────────
@@ -81,7 +82,87 @@ public static class BattleshipGameEngine
                             WeaponType.GreekFire or WeaponType.EvilGreekFire) &&
                         (!capturedEnemyIds.Contains(x.ship.Id) || x.weapon.Type == WeaponType.Ballista) &&
                         (x.weapon.Type != WeaponType.Ballista || x.ship.Range is RangeClass.Mid or RangeClass.Close) &&
-                        (type == null || x.weapon.Type == type) && x.weapon.HasAmmo && IsWeaponOperational(x.ship, x.weapon));
+                        (type == null || x.weapon.Type == type) && HasWeaponAmmo(game, player, x.weapon) &&
+                        IsWeaponOperational(x.ship, x.weapon));
+    }
+
+    private static bool HasWeaponAmmo(BattleshipGame game, BattleshipPlayer player, Weapon weapon)
+    {
+        if (weapon.Type != WeaponType.Tetracatapult || !player.UseSharedTetracatapultAmmo)
+            return weapon.HasAmmo;
+        return weapon.ConfiguredShotType is { } shotType &&
+               GetSharedTetracatapultAmmo(game, player, shotType) > 0;
+    }
+
+    public static void InitializeSharedTetracatapultAmmo(BattleshipGame game, BattleshipPlayer player)
+    {
+        player.SharedTetracatapultAmmo.Clear();
+        if (!player.UseSharedTetracatapultAmmo) return;
+        foreach (var shotType in new[] { ShotType.WhiteStone, ShotType.Buckshot })
+        {
+            var ammo = GetControlledShips(game, player)
+                .Where(ship => !ship.IsDestroyed)
+                .SelectMany(ship => ship.Weapons.Select(weapon => (ship, weapon)))
+                .Where(value => value.weapon.Type == WeaponType.Tetracatapult &&
+                                value.weapon.ConfiguredShotType == shotType &&
+                                IsWeaponOperational(value.ship, value.weapon))
+                .Sum(value => Math.Max(0, value.weapon.Ammo));
+            player.SharedTetracatapultAmmo[shotType] = ammo;
+        }
+    }
+
+    public static int GetSharedTetracatapultMaxAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType shotType)
+    {
+        if (!player.UseSharedTetracatapultAmmo) return 0;
+        return GetControlledShips(game, player)
+            .Where(ship => !ship.IsDestroyed)
+            .SelectMany(ship => ship.Weapons.Select(weapon => (ship, weapon)))
+            .Where(value => value.weapon.Type == WeaponType.Tetracatapult &&
+                            value.weapon.ConfiguredShotType == shotType &&
+                            IsWeaponOperational(value.ship, value.weapon))
+            .Sum(value => Math.Max(0, value.weapon.MaxAmmo));
+    }
+
+    public static int GetSharedTetracatapultAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType shotType)
+    {
+        if (!player.UseSharedTetracatapultAmmo) return 0;
+        var maximum = GetSharedTetracatapultMaxAmmo(game, player, shotType);
+        var current = player.SharedTetracatapultAmmo.GetValueOrDefault(shotType);
+        current = Math.Clamp(current, 0, maximum);
+        player.SharedTetracatapultAmmo[shotType] = current;
+        return current;
+    }
+
+    private static void AddSharedTetracatapultAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType? shotType,
+        int amount)
+    {
+        if (!player.UseSharedTetracatapultAmmo || shotType == null || amount <= 0) return;
+        var current = GetSharedTetracatapultAmmo(game, player, shotType.Value);
+        var maximum = GetSharedTetracatapultMaxAmmo(game, player, shotType.Value);
+        player.SharedTetracatapultAmmo[shotType.Value] = Math.Min(maximum, current + amount);
+    }
+
+    public static void ConsumeSelectedWeaponAmmo(BattleshipGame game, BattleshipPlayer player)
+    {
+        var weapon = player.SelectedWeapon;
+        if (weapon?.Type == WeaponType.Tetracatapult &&
+            player.UseSharedTetracatapultAmmo &&
+            weapon.ConfiguredShotType is { } shotType)
+        {
+            var current = GetSharedTetracatapultAmmo(game, player, shotType);
+            if (current > 0) player.SharedTetracatapultAmmo[shotType] = current - 1;
+            return;
+        }
+        weapon?.UseAmmo();
     }
 
     public static bool HasAnyLegalShot(BattleshipGame game, BattleshipPlayer player)
@@ -102,7 +183,7 @@ public static class BattleshipGameEngine
         if (ship == null || weapon == null || ship.IsDestroyed || weapon.ShipId != ship.Id) return false;
         var deck = ship.Decks.FirstOrDefault(value => value.Index == weapon.DeckIndex);
         if (deck == null) return false;
-        return !deck.IsDestroyed && !deck.ModuleDestroyed;
+        return !deck.IsDestroyed && !deck.ModuleDestroyed && !weapon.PreservedModuleDestroyed;
     }
 
     private static IEnumerable<Ship> GetControlledShips(BattleshipGame game, BattleshipPlayer player)
@@ -183,9 +264,10 @@ public static class BattleshipGameEngine
 
         // Increment global shot counter
         game.ShotCount++;
+        ApplyWhiteStoneStun(game, shooter, opponent);
 
         // Consume ammo from selected weapon
-        shooter.SelectedWeapon?.UseAmmo();
+        ConsumeSelectedWeaponAmmo(game, shooter);
 
         // Brander detonation: shooter shoots their own Brander on opponent's board
         var friendlyBrander = shooter.Summons.FirstOrDefault(s =>
@@ -204,6 +286,8 @@ public static class BattleshipGameEngine
         // Allow re-targeting scratched cells and incendiary retargets
         if (cell.IsHit || cell.IsMiss)
         {
+            if (cell.SummonRef is { IsAlive: true })
+                return ProcessSummonHit(game, shooter, opponent.Board, cell, row, col);
             if (cell.WasScratched && cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
             {
                 return ProcessShipHit(game, shooter, opponent, cell, row, col);
@@ -238,23 +322,6 @@ public static class BattleshipGameEngine
         // Hit summon
         if (cell.SummonRef != null)
         {
-            // Allied summon hit — turn ends, no penalty
-            if (cell.SummonRef.OwnerId == shooter.DiscordId)
-            {
-                cell.IsHit = true;
-                var alliedSummon = cell.SummonRef;
-                ResolveDeferredRevealOnDeath(game, alliedSummon,
-                    shooter.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary);
-                alliedSummon.IsAlive = false;
-                MarkSummonDeath(opponent.Board, row, col, alliedSummon);
-                cell.SummonRef = null;
-                game.AddLog($"{shooter.Username} попал в своё призванное существо ({(char)('A' + col)}{row + 1})");
-                return new ShotResult
-                {
-                    Hit = true, Row = row, Col = col, TurnContinues = false,
-                    Destroyed = true, Message = "Попадание в своё призванное существо! Ход прерван."
-                };
-            }
             return ProcessSummonHit(game, shooter, opponent.Board, cell, row, col);
         }
 
@@ -280,24 +347,7 @@ public static class BattleshipGameEngine
         // Enemy summon on own board — kill without penalty; per-match use counters persist
         if (cell.SummonRef != null && cell.SummonRef.IsAlive && cell.SummonRef.OwnerId != shooter.DiscordId)
         {
-            var deadSummon = cell.SummonRef;
-            TransmitScoutReveal(game, deadSummon);
-            deadSummon.IsAlive = false;
-            MarkSummonDeath(shooter.Board, row, col, deadSummon);
-            cell.SummonRef = null;
-            // The four normal summons are a per-match use limit, not reusable active slots.
-            // Brander is tracked separately and neither counter is refunded on death (ТЗ #10).
-            var fireName = shooter.SelectedShotType == ShotType.EvilGreekFire
-                ? "Злой Греческий огонь"
-                : "Греческий огонь";
-            game.AddLog($"{fireName} сжёг призванное существо! ({(char)('A' + col)}{row + 1})");
-            // ТЗ #13/#10.4: fire detonates the Brander — on the shooter's own board
-            if (deadSummon.Type == SummonType.Brander)
-            {
-                DetonateBrander(game, shooter, deadSummon, row, col);
-            }
-            return new ShotResult { Hit = true, Destroyed = true, Row = row, Col = col, TurnContinues = false,
-                Message = $"{fireName} уничтожил призыв без штрафа!" };
+            return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
         }
 
         // Own ship — burns like any ship (BurnResist immune)
@@ -309,13 +359,15 @@ public static class BattleshipGameEngine
                 cell.ShipRef.Statuses.Add(ShipStatusType.Burn);
                 RevealShip(shooter.Board, cell.ShipRef);
                 HandleShipDeath(game, shooter, cell.ShipRef, ShipDestructionCause.GreekFire);
-                game.AddLog($"Греческий огонь сжёг {cell.ShipRef.Name}!");
+                game.AddBoardDetailLog(shooter.DiscordId,
+                    $"Греческий огонь сжёг {cell.ShipRef.Name}!");
                 return new ShotResult { Hit = true, Destroyed = true, ShipSunk = true, Burned = true,
                     Row = row, Col = col, TurnContinues = false,
                     Message = $"Греческий огонь сжёг {cell.ShipRef.Name}!", AffectedShipName = cell.ShipRef.Name };
             }
             MarkFireResistance(cell);
-            game.AddLog($"{cell.ShipRef.Name}: Корабль устоял против огня! Поцарапано.");
+            game.AddBoardDetailLog(shooter.DiscordId,
+                $"{cell.ShipRef.Name}: Корабль устоял против огня! Поцарапано.");
             return new ShotResult { Row = row, Col = col, TurnContinues = false,
                 Hit = true, Scratched = true,
                 Message = "Корабль устоял против огня. Поцарапано.",
@@ -324,7 +376,8 @@ public static class BattleshipGameEngine
 
         // Empty cell — permanent fire (area denial against summons)
         cell.IsMiss = true;
-        game.AddLog($"Греческий огонь горит на ({(char)('A' + col)}{row + 1})!");
+        game.AddBoardDetailLog(shooter.DiscordId,
+            $"Греческий огонь горит на ({(char)('A' + col)}{row + 1})!");
         return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false,
             Message = "Греческий огонь — клетка горит!" };
     }
@@ -334,7 +387,6 @@ public static class BattleshipGameEngine
     /// </summary>
     private static ShotResult ProcessCapturedShipShot(BattleshipGame game, BattleshipPlayer shooter, int row, int col)
     {
-        game.ShotCount++;
         var cell = shooter.Board.GetCell(row, col);
         if (cell?.ShipRef == null || !cell.ShipRef.Statuses.Contains(ShipStatusType.Capture))
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false, Message = "Мимо!" };
@@ -355,7 +407,9 @@ public static class BattleshipGameEngine
                 Message = "Эта палуба уже уничтожена." };
         }
 
-        shooter.SelectedWeapon?.UseAmmo();
+        game.ShotCount++;
+        ApplyWhiteStoneStun(game, shooter, shooter);
+        ConsumeSelectedWeaponAmmo(game, shooter);
         cell.IsRevealed = true;
         cell.IsHit = true;
         cell.IsMiss = false;
@@ -368,7 +422,8 @@ public static class BattleshipGameEngine
         if (ship.Abilities.Contains("explode_on_hit") && !ship.HasExploded)
         {
             ExplodeShip(game, shooter, ship, shooter);
-            game.AddLog($"Захваченный {ship.Name} взорвался от первого попадания!");
+            game.AddBoardDetailLog(shooter.DiscordId,
+                $"Захваченный {ship.Name} взорвался от первого попадания!");
             return FinishCapturedShipDestruction(
                 game, shooter, ship, row, col, burned: true);
         }
@@ -381,7 +436,8 @@ public static class BattleshipGameEngine
             if (ship.Statuses.Contains(ShipStatusType.BurnResist))
             {
                 MarkFireResistance(cell);
-                game.AddLog($"{ship.Name}: Корабль устоял против огня! Поцарапано.");
+                game.AddBoardDetailLog(shooter.DiscordId,
+                    $"{ship.Name}: Корабль устоял против огня! Поцарапано.");
                 return new ShotResult
                 {
                     Hit = true,
@@ -404,13 +460,11 @@ public static class BattleshipGameEngine
 
         if (shooter.SelectedShotType == ShotType.WhiteStone)
         {
-            var capturer = game.GetOpponent(shooter.DiscordId);
-            if (capturer != null)
-                capturer.StunShotExpiry = game.ShotCount + 1;
             if (deck.Module != null)
             {
                 deck.ModuleDestroyed = true;
-                game.AddLog($"Белый камень разрушил модуль {deck.Module} на захваченном {ship.Name}!");
+                game.AddBoardDetailLog(shooter.DiscordId,
+                    $"Белый камень разрушил модуль {deck.Module} на захваченном {ship.Name}!");
             }
         }
 
@@ -425,13 +479,15 @@ public static class BattleshipGameEngine
         if (deck.IsDestroyed)
         {
             cell.WasScratched = false;
-            game.AddLog($"{shooter.Username} повредил палубу захваченного {ship.Name}!");
+            game.AddBoardDetailLog(shooter.DiscordId,
+                $"{shooter.Username} повредил палубу захваченного {ship.Name}!");
             return new ShotResult { Hit = true, Destroyed = true, Row = row, Col = col, TurnContinues = false,
                 Message = $"Палуба захваченного {ship.Name} уничтожена!", AffectedShipName = ship.Name };
         }
 
         cell.WasScratched = true;
-        game.AddLog($"{shooter.Username} поцарапал броню захваченного {ship.Name}.");
+        game.AddBoardDetailLog(shooter.DiscordId,
+            $"{shooter.Username} поцарапал броню захваченного {ship.Name}.");
         return new ShotResult { Hit = true, Scratched = true, Row = row, Col = col, TurnContinues = false,
             Message = "Поцарапал броню захваченного корабля!", AffectedShipName = ship.Name };
     }
@@ -449,7 +505,8 @@ public static class BattleshipGameEngine
         var capturer = game.GetOpponent(originalOwner.DiscordId);
         RevealShip(originalOwner.Board, ship, capturer);
         ship.Statuses.Remove(ShipStatusType.Capture);
-        game.AddLog($"{originalOwner.Username} уничтожил захваченный {ship.Name}!");
+        game.AddBoardDetailLog(originalOwner.DiscordId,
+            $"{originalOwner.Username} уничтожил захваченный {ship.Name}!");
         HandleShipDeath(game, originalOwner, ship, ShipDestructionCause.Capture);
         return new ShotResult
         {
@@ -480,42 +537,9 @@ public static class BattleshipGameEngine
                 Message = "На этой клетке нет вражеского призыва." };
 
         game.ShotCount++;
-        shooter.SelectedWeapon?.UseAmmo();
-
-        var summon = cell.SummonRef;
-        ResolveDeferredRevealOnDeath(game, summon,
-            shooter.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary);
-        summon.IsAlive = false;
-        MarkSummonDeath(shooter.Board, row, col, summon);
-        cell.SummonRef = null;
-
-        // Normal summon uses are a per-match cap and are not refunded on death (ТЗ #10).
-
-        game.AddLog($"{shooter.Username} уничтожил вражеский призыв на своём поле ({(char)('A' + col)}{row + 1})");
-
-        // ТЗ #10.4: enemy Brander shot down on own half explodes and damages the shooter's own ships
-        if (summon.Type == SummonType.Brander)
-        {
-            cell.IsHit = true;
-            DetonateBrander(game, shooter, summon, row, col);
-        }
-
-        // Penalty for killing summon in rear rows (0-2)
-        var penalty = false;
-        if (row <= 2 && game.ShotCount - summon.SpawnedAtShot > 1)
-        {
-            shooter.HasPenalty = true;
-            penalty = true;
-            game.AddLog($"{shooter.Username} получает штраф за уничтожение призыва в тылу!");
-        }
-
-        return new ShotResult
-        {
-            Hit = true, Row = row, Col = col, TurnContinues = false,
-            Destroyed = true, Message = penalty
-                ? "Вражеский призыв уничтожен! Штраф: пропуск хода."
-                : "Вражеский призыв уничтожен!"
-        };
+        ApplyWhiteStoneStun(game, shooter, shooter);
+        ConsumeSelectedWeaponAmmo(game, shooter);
+        return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
     }
 
     /// <summary>
@@ -530,7 +554,7 @@ public static class BattleshipGameEngine
         game.ShotCount++;
 
         // Consume ammo from selected weapon
-        shooter.SelectedWeapon?.UseAmmo();
+        ConsumeSelectedWeaponAmmo(game, shooter);
 
         var aggregate = new ShotResult
         {
@@ -541,6 +565,7 @@ public static class BattleshipGameEngine
         var anyHit = false;
         var anyDestroyed = false;
         var anySunk = false;
+        var penaltyApplied = false;
 
         // Process 2x2 area
         for (var dr = 0; dr < 2; dr++)
@@ -552,7 +577,9 @@ public static class BattleshipGameEngine
             if (cell == null) continue;
 
             // Allow re-targeting scratched cells (armor survived)
-            if (cell.IsHit && cell.WasScratched && cell.ShipRef != null && !cell.ShipRef.IsDestroyed)
+            if (cell.IsHit && cell.WasScratched &&
+                (cell.ShipRef != null && !cell.ShipRef.IsDestroyed ||
+                 cell.SummonRef is { IsAlive: true, IsBoardingShip: true }))
             {
                 // Fall through to process as normal hit
             }
@@ -568,24 +595,16 @@ public static class BattleshipGameEngine
 
             if (cell.SummonRef != null)
             {
-                cell.IsHit = true;
                 var summon = cell.SummonRef;
-                TransmitScoutReveal(game, summon);
-                summon.IsAlive = false;
-                MarkSummonDeath(opponent.Board, r, c, summon);
-                cell.SummonRef = null;
-                anyHit = true;
-                // ТЗ #13: a shot detonates the Brander
-                if (summon.Type == SummonType.Brander)
+                var summonHit = ProcessSummonHit(game, shooter, opponent.Board, cell, r, c);
+                anyHit |= summonHit.Hit;
+                penaltyApplied |= summonHit.PenaltyApplied;
+                // Legacy summons remain non-resetting. A converted hull retains ship-like
+                // per-deck destruction and only sinks after its last living deck is gone.
+                if (summon.IsBoardingShip)
                 {
-                    DetonateBrander(game, opponent, summon, r, c, shooter);
-                }
-                // Summon kill: never resets turn (Bug #6)
-                // Penalty check for rows 0-2 (Bug #7)
-                if (r <= 2 && game.ShotCount - summon.SpawnedAtShot > 1)
-                {
-                    shooter.HasPenalty = true;
-                    game.AddLog($"{shooter.Username} получает штраф за уничтожение призыва картечью в тылу!");
+                    anyDestroyed |= summonHit.Destroyed;
+                    anySunk |= summonHit.ShipSunk;
                 }
                 continue;
             }
@@ -596,19 +615,6 @@ public static class BattleshipGameEngine
             var deckIndex = GetDeckIndexAtCell(ship, r, c);
             if (deckIndex >= 0 && deckIndex < ship.Decks.Count)
             {
-                // Check auto_dodge_bow_stern (Light Wood Triple) — dodges all shots including buckshot
-                if (ship.Abilities.Contains("auto_dodge_bow_stern"))
-                {
-                    var dodgeResult = ProcessAutoDodge(game, opponent, ship, r, c, deckIndex);
-                    if (dodgeResult != null)
-                    {
-                        cell.IsHit = false;
-                        cell.WasShipHit = false;
-                        aggregate.Dodged = true;
-                        continue;
-                    }
-                }
-
                 var deck = ship.Decks[deckIndex];
                 if (deck.IsDestroyed)
                 {
@@ -630,7 +636,7 @@ public static class BattleshipGameEngine
                     cell.WasScratched = false; // No longer scratched — deck is destroyed (ТЗ #9)
                     // ТЗ #20: shooter's mast spots the Maneuvering Double (same rule as ProcessShipHit)
                     if (wasAlive && ship.Abilities.Contains("manual_move_after_hit") &&
-                        shooter.Board.PlacedShips.Any(s => !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed)))
+                        HasLivingMast(shooter))
                     {
                         game.AddLogFor(shooter.DiscordId, "[Мачта] Даёт по вёслам!");
                     }
@@ -648,7 +654,8 @@ public static class BattleshipGameEngine
                     anySunk = true;
                     RevealShip(opponent.Board, ship, shooter);
                     HandleShipDeath(game, opponent, ship);
-                    game.AddLog($"Картечь потопила {ship.Name}!");
+                    game.AddBoardDetailLog(opponent.DiscordId,
+                        $"Картечь потопила {ship.Name}!");
                 }
             }
         }
@@ -659,11 +666,36 @@ public static class BattleshipGameEngine
         aggregate.Hit = anyHit;
         aggregate.Destroyed = anyDestroyed;
         aggregate.ShipSunk = anySunk;
+        aggregate.PenaltyApplied = penaltyApplied;
         aggregate.Miss = !anyHit;
         aggregate.Message = anyHit ? "Картечь поразила цель!" : "Картечь — мимо!";
 
         game.AddLog($"{shooter.Username} выстрелил картечью ({(char)('A' + topCol)}{topRow + 1})");
         return aggregate;
+    }
+
+    private static void DestroyBoardingHull(
+        BattleshipGame game,
+        Board board,
+        Summon summon,
+        bool suppressDeferredReveal,
+        bool frozen = false)
+    {
+        var occupied = GetLiveBoardingDeckCells(summon);
+        ResolveDeferredRevealOnDeath(game, summon, suppressDeferredReveal || frozen);
+        foreach (var (row, col, _) in occupied)
+            MarkSummonDeath(board, row, col, summon, frozen);
+        foreach (var deck in summon.BoardingDecks)
+            deck.CurrentHp = 0;
+        if (frozen && !summon.BoardingStatuses.Contains(ShipStatusType.Freeze))
+            summon.BoardingStatuses.Add(ShipStatusType.Freeze);
+        summon.IsAlive = false;
+        summon.WaitingForTurnBack = false;
+        summon.WaitingForDirectionChoice = false;
+        ClearSummonFromBoard(board, summon);
+        var owner = game.GetPlayer(summon.OwnerId);
+        SyncBoardingSourceState(owner, summon);
+        MarkBoardingSourceDestroyed(owner, summon);
     }
 
     private static ShotResult ProcessSummonHit(
@@ -675,25 +707,183 @@ public static class BattleshipGameEngine
         int col)
     {
         var summon = cell.SummonRef;
+        var physicalBoardOwner = game.GetPlayers()
+            .FirstOrDefault(player => ReferenceEquals(player.Board, board));
+        var physicalBoardOwnerId = physicalBoardOwner?.DiscordId;
+        if (summon == null || !summon.IsAlive)
+            return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false };
+
+        if (HasBoardingHull(summon))
+        {
+            var deck = GetLiveBoardingDeckAtCell(summon, row, col);
+            if (deck == null)
+                return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false };
+
+            cell.IsHit = true;
+            cell.IsMiss = false;
+            cell.WasDodge = false;
+            cell.WasManeuverDodge = false;
+            var sourceName = summon.SourceShipName ?? "Абордажный корабль";
+
+            if (shooter.SelectedShotType == ShotType.Ballista &&
+                BoardingHasAbility(summon, "ballista_immune"))
+            {
+                cell.IsHit = false;
+                cell.IsRevealed = true;
+                cell.WasDodge = true;
+                game.AddBoardDetailLog(physicalBoardOwnerId,
+                    $"{sourceName} неуязвим для Баллисты! ({(char)('A' + col)}{row + 1})");
+                return new ShotResult
+                {
+                    Miss = true,
+                    Scratched = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = false,
+                    Message = $"{sourceName} не получает урон от Баллисты.",
+                    AffectedShipName = sourceName,
+                };
+            }
+
+            var directIncendiary =
+                shooter.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary;
+            var fire = directIncendiary ||
+                       shooter.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire;
+            if (fire)
+            {
+                if (BoardingHasStatus(summon, ShipStatusType.BurnResist))
+                {
+                    MarkFireResistance(cell);
+                    game.AddBoardDetailLog(physicalBoardOwnerId,
+                        $"{sourceName}: Корабль устоял против огня! Поцарапано.");
+                    return new ShotResult
+                    {
+                        Hit = true,
+                        Scratched = true,
+                        Row = row,
+                        Col = col,
+                        TurnContinues = false,
+                        Message = "Корабль устоял против огня. Поцарапано.",
+                        AffectedShipName = sourceName,
+                    };
+                }
+
+                if (!summon.BoardingStatuses.Contains(ShipStatusType.Burn))
+                    summon.BoardingStatuses.Add(ShipStatusType.Burn);
+                DestroyBoardingHull(game, board, summon, directIncendiary);
+                game.AddBoardDetailLog(physicalBoardOwnerId,
+                    $"{sourceName} сгорел! ({(char)('A' + col)}{row + 1})");
+                return new ShotResult
+                {
+                    Hit = true,
+                    Destroyed = true,
+                    ShipSunk = true,
+                    Burned = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = true,
+                    Message = $"{sourceName} сгорел!",
+                    AffectedShipName = sourceName,
+                };
+            }
+
+            if (shooter.SelectedShotType == ShotType.WhiteStone && deck.Module != null)
+            {
+                deck.ModuleDestroyed = true;
+                game.AddBoardDetailLog(physicalBoardOwnerId,
+                    $"Белый камень разрушил модуль {deck.Module} на {sourceName}!");
+            }
+
+            deck.CurrentHp = Math.Max(0, deck.CurrentHp - GetDamage(shooter));
+            var deckDestroyed = deck.IsDestroyed;
+            if (deckDestroyed)
+            {
+                MarkSummonDeath(board, row, col, summon);
+                if (cell.SummonRef == summon) cell.SummonRef = null;
+            }
+            else
+            {
+                cell.WasScratched = true;
+            }
+
+            summon.IsAlive = summon.BoardingDecks.Any(value => !value.IsDestroyed);
+            var owner = game.GetPlayer(summon.OwnerId);
+            SyncBoardingSourceState(owner, summon);
+            if (!summon.IsAlive)
+            {
+                ResolveDeferredRevealOnDeath(game, summon, suppress: false);
+                ClearSummonFromBoard(board, summon);
+                MarkBoardingSourceDestroyed(owner, summon);
+            }
+
+            var boardingPenalty = false;
+            if (!summon.IsAlive && summon.OwnerId != shooter.DiscordId &&
+                shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire) &&
+                row <= 2 && game.ShotCount - summon.SpawnedAtShot > 1)
+            {
+                shooter.HasPenalty = true;
+                boardingPenalty = true;
+                game.AddLog($"{shooter.Username} получает штраф за уничтожение абордажного корабля в тылу!");
+            }
+
+            if (deckDestroyed)
+            {
+                cell.WasScratched = false;
+                var message = summon.IsAlive
+                    ? $"Палуба {sourceName} уничтожена!"
+                    : $"{sourceName} уничтожен!";
+                game.AddBoardDetailLog(physicalBoardOwnerId,
+                    $"{shooter.Username}: {message} ({(char)('A' + col)}{row + 1})");
+                return new ShotResult
+                {
+                    Hit = true,
+                    Destroyed = true,
+                    ShipSunk = !summon.IsAlive,
+                    PenaltyApplied = boardingPenalty,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = true,
+                    Message = boardingPenalty ? $"{message} Штраф: пропуск хода." : message,
+                    AffectedShipName = sourceName,
+                };
+            }
+
+            game.AddBoardDetailLog(physicalBoardOwnerId,
+                $"{shooter.Username} поцарапал броню {sourceName} ({(char)('A' + col)}{row + 1})");
+            return new ShotResult
+            {
+                Hit = true,
+                Scratched = true,
+                Row = row,
+                Col = col,
+                TurnContinues = false,
+                Message = "Поцарапал броню абордажного корабля!",
+                AffectedShipName = sourceName,
+            };
+        }
+
         cell.IsHit = true;
         summon.IsAlive = false;
         MarkSummonDeath(board, row, col, summon);
-        cell.SummonRef = null;
+        ClearSummonFromBoard(board, summon);
 
         ResolveDeferredRevealOnDeath(game, summon,
             shooter.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary);
 
-        game.AddLog($"{shooter.Username} уничтожил призванное существо ({(char)('A' + col)}{row + 1})");
+        game.AddBoardDetailLog(physicalBoardOwnerId,
+            $"{shooter.Username} уничтожил призванное существо ({(char)('A' + col)}{row + 1})");
         if (summon.Type == SummonType.Brander)
             DetonateBrander(game, game.GetOpponent(summon.OwnerId), summon, row, col, shooter);
 
         // Summon kill penalty: rows 0-2 = penalty, unless just spawned
         var turnContinues = false;
         var penalty = false;
-        if (row <= 2)
+        if (summon.OwnerId != shooter.DiscordId &&
+            shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire) &&
+            row <= 2)
         {
             // Check if summon was just spawned (within 1 shot)
-            if (game.ShotCount - summon.SpawnedAtShot > 1)
+            if (!summon.IsGhost && game.ShotCount - summon.SpawnedAtShot > 1)
             {
                 shooter.HasPenalty = true;
                 penalty = true;
@@ -705,7 +895,7 @@ public static class BattleshipGameEngine
         return new ShotResult
         {
             Hit = true, Row = row, Col = col, TurnContinues = turnContinues,
-            Destroyed = true, Message = penalty
+            Destroyed = true, PenaltyApplied = penalty, Message = penalty
                 ? "Призыв уничтожен! Штраф: пропуск хода."
                 : "Призванное существо уничтожено!"
         };
@@ -732,7 +922,8 @@ public static class BattleshipGameEngine
                 {
                     KillShipByFire(game, opponent, ship, shooter, applyBurnStatus: true);
                     HandleShipDeath(game, opponent, ship, ShipDestructionCause.EvilIncendiary);
-                    game.AddLog($"Злая горючка взорвала {ship.Name} через уничтоженную палубу!");
+                    game.AddBoardDetailLog(opponent.DiscordId,
+                        $"Злая горючка взорвала {ship.Name} через уничтоженную палубу!");
                     return new ShotResult
                     {
                         Hit = true, Destroyed = true, Row = row, Col = col,
@@ -743,7 +934,8 @@ public static class BattleshipGameEngine
                 }
 
                 MarkFireResistance(cell);
-                game.AddLog($"{ship.Name}: Корабль устоял против огня! Поцарапано.");
+                game.AddBoardDetailLog(opponent.DiscordId,
+                    $"{ship.Name}: Корабль устоял против огня! Поцарапано.");
                 return new ShotResult
                 {
                     Hit = true, Scratched = true, Row = row, Col = col,
@@ -768,7 +960,8 @@ public static class BattleshipGameEngine
         cell.WasManeuverDodge = false;
 
         // Check auto_dodge_bow_stern (Light Wood Triple)
-        if (ship.Abilities.Contains("auto_dodge_bow_stern"))
+        if (shooter.SelectedShotType == ShotType.Ballista &&
+            ship.Abilities.Contains("auto_dodge_bow_stern"))
         {
             var dodgeResult = ProcessAutoDodge(game, opponent, ship, row, col, deckIndex);
             if (dodgeResult != null) return dodgeResult;
@@ -785,7 +978,8 @@ public static class BattleshipGameEngine
             var nimbleMsg = Random.Shared.Next(2) == 0
                 ? "Юркая единичка! Опять увернулась!"
                 : "Ну и юркая же она! Камней бы ей на голову!";
-            game.AddLog($"{nimbleMsg} ({(char)('A' + col)}{row + 1})");
+            game.AddBoardDetailLog(opponent.DiscordId,
+                $"{nimbleMsg} ({(char)('A' + col)}{row + 1})");
             return new ShotResult { Miss = true, Scratched = true, Row = row, Col = col, TurnContinues = false,
                 Message = nimbleMsg, AffectedShipName = ship.Name };
         }
@@ -803,7 +997,8 @@ public static class BattleshipGameEngine
                 var weaponName = shooter.SelectedShotType == ShotType.EvilIncendiary
                     ? "Злая горючка"
                     : "Зажигательный снаряд";
-                game.AddLog($"{weaponName} сжёг {ship.Name}!");
+                game.AddBoardDetailLog(opponent.DiscordId,
+                    $"{weaponName} сжёг {ship.Name}!");
                 return new ShotResult
                 {
                     Hit = true, Destroyed = true, Row = row, Col = col,
@@ -812,7 +1007,8 @@ public static class BattleshipGameEngine
                 };
             }
             MarkFireResistance(cell);
-            game.AddLog($"{ship.Name}: Корабль устоял против огня! Поцарапано.");
+            game.AddBoardDetailLog(opponent.DiscordId,
+                $"{ship.Name}: Корабль устоял против огня! Поцарапано.");
             return new ShotResult
             {
                 Hit = true, Scratched = true, Row = row, Col = col, TurnContinues = false,
@@ -823,15 +1019,15 @@ public static class BattleshipGameEngine
         // Calculate damage
         var damage = GetDamage(shooter);
 
-        // White Stone always stuns on a real deck hit and destroys that deck's module,
-        // even when 8 damage is not enough to break the armor.
+        // White Stone destroys the struck deck's module even when 8 damage is not enough
+        // to break the armor. Stun is applied once when the valid shot lands.
         if (shooter.SelectedShotType == ShotType.WhiteStone)
         {
-            opponent.StunShotExpiry = game.ShotCount + 1;
             if (deck.Module != null)
             {
                 deck.ModuleDestroyed = true;
-                game.AddLog($"Белый камень разрушил модуль {deck.Module} на {ship.Name}!");
+                game.AddBoardDetailLog(opponent.DiscordId,
+                    $"Белый камень разрушил модуль {deck.Module} на {ship.Name}!");
             }
         }
 
@@ -844,7 +1040,8 @@ public static class BattleshipGameEngine
         {
             ExplodeShip(game, opponent, ship, shooter); // kills all decks + marks cells for both players (ТЗ #4)
             HandleShipDeath(game, opponent, ship, ShipDestructionCause.Explosion);
-            game.AddLog($"{ship.Name} взорвался от попадания!");
+            game.AddBoardDetailLog(opponent.DiscordId,
+                $"{ship.Name} взорвался от попадания!");
             return new ShotResult
             {
                 Hit = true, Destroyed = true, ShipSunk = true,
@@ -862,7 +1059,8 @@ public static class BattleshipGameEngine
             if (ship.IsDestroyed)
             {
                 RevealShip(opponent.Board, ship, shooter);
-                game.AddLog($"{shooter.Username} потопил {ship.Name}! ({(char)('A' + col)}{row + 1})");
+                game.AddBoardDetailLog(opponent.DiscordId,
+                    $"{shooter.Username} потопил {ship.Name}! ({(char)('A' + col)}{row + 1})");
                 HandleShipDeath(game, opponent, ship, ShipDestructionCause.Shot);
 
                 return new ShotResult
@@ -875,15 +1073,14 @@ public static class BattleshipGameEngine
             }
 
             // Deck destroyed but ship survives
-            game.AddLog($"{shooter.Username} уничтожил палубу {ship.Name}! ({(char)('A' + col)}{row + 1})");
+            game.AddBoardDetailLog(opponent.DiscordId,
+                $"{shooter.Username} уничтожил палубу {ship.Name}! ({(char)('A' + col)}{row + 1})");
 
             // ТЗ #20: the SHOOTER's mast spots the Maneuvering Double preparing to row away —
             // personal message, gated on the shooter's own mast
             if (ship.Abilities.Contains("manual_move_after_hit"))
             {
-                var shooterHasMast = shooter.Board.PlacedShips.Any(s =>
-                    !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
-                if (shooterHasMast)
+                if (HasLivingMast(shooter))
                     game.AddLogFor(shooter.DiscordId, "[Мачта] Даёт по вёслам!");
             }
 
@@ -898,7 +1095,8 @@ public static class BattleshipGameEngine
 
         // Scratched — damage didn't destroy the deck
         cell.WasScratched = true;
-        game.AddLog($"{shooter.Username} поцарапал броню {ship.Name} ({(char)('A' + col)}{row + 1})");
+        game.AddBoardDetailLog(opponent.DiscordId,
+            $"{shooter.Username} поцарапал броню {ship.Name} ({(char)('A' + col)}{row + 1})");
         return new ShotResult
         {
             Hit = true, Scratched = true,
@@ -918,6 +1116,22 @@ public static class BattleshipGameEngine
             _ => 2                         // standard ballista
         };
         return baseDamage;
+    }
+
+    /// <summary>
+    /// White Stone stuns the owner of the physical board where a valid shot lands.
+    /// Call only after the shot has passed validation and incremented <see cref="BattleshipGame.ShotCount"/>.
+    /// </summary>
+    public static void ApplyWhiteStoneStun(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        BattleshipPlayer targetBoardOwner)
+    {
+        if (game == null || shooter == null || targetBoardOwner == null ||
+            shooter.SelectedShotType != ShotType.WhiteStone)
+            return;
+
+        targetBoardOwner.StunShotExpiry = game.ShotCount + 1;
     }
 
     private static int GetDeckIndexAtCell(Ship ship, int row, int col)
@@ -1115,6 +1329,11 @@ public static class BattleshipGameEngine
             cell.WasScratched = false;
             cell.WasRevealedShip = false;
             cell.WasDodge = false;
+            cell.WasManeuverDodge = false;
+            cell.BurnResistMarked = false;
+            cell.SunkShipName = null;
+            cell.KnownShipId = null;
+            cell.KnownDeckIndex = -1;
         }
         ship.ManeuverStaleHitCells.Clear();
         ship.HasHiddenMovement = false;
@@ -1162,7 +1381,8 @@ public static class BattleshipGameEngine
                     SourceShipName = ship.Name,
                     SourceShipId = ship.Id,
                 });
-                game.AddLog($"Пиратская лодка готова к выпуску после гибели {ship.Name}!");
+                game.AddBoardDetailLog(owner.DiscordId,
+                    $"Пиратская лодка готова к выпуску после гибели {ship.Name}!");
             }
         }
 
@@ -1181,12 +1401,24 @@ public static class BattleshipGameEngine
                     SourceShipName = ship.Name,
                     SourceShipId = ship.Id,
                 });
-                game.AddLog($"Проклятый корабль готов к выпуску после гибели {ship.Name}!");
+                game.AddBoardDetailLog(owner.DiscordId,
+                    $"Проклятый корабль готов к выпуску после гибели {ship.Name}!");
             }
         }
 
         // Explode on death (Incendiary Barge still explodes on full death too)
         if (!passiveDisabled && ship.Abilities.Contains("explode_on_hit") && cause != ShipDestructionCause.Capture)
+        {
+            var deathAttacker = game.GetOpponent(owner.DiscordId);
+            ExplodeShip(game, owner, ship, deathAttacker);
+        }
+
+        // The Fast Warming Ship explodes either at its owner's shot threshold (resolved by
+        // TriggerOverheatExplosion) or immediately when a Burn-producing effect kills it.
+        // Ordinary shot/collision/poison/freeze deaths deliberately remain non-explosive.
+        if (!passiveDisabled && ship.Abilities.Contains("overheat_after_20_shots") &&
+            cause is ShipDestructionCause.Incendiary or ShipDestructionCause.EvilIncendiary or
+                ShipDestructionCause.GreekFire or ShipDestructionCause.Explosion)
         {
             var deathAttacker = game.GetOpponent(owner.DiscordId);
             ExplodeShip(game, owner, ship, deathAttacker);
@@ -1234,6 +1466,28 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
+    /// Resolve the living Fast Warming hull after its owner reaches twenty valid shots.
+    /// Returns true only when a new explosion was produced.
+    /// </summary>
+    public static bool TriggerOverheatExplosion(BattleshipGame game, BattleshipPlayer owner)
+    {
+        if (game == null || owner == null || owner.TotalShotsFired < 20) return false;
+        var ship = owner.Board.PlacedShips.FirstOrDefault(candidate =>
+            !candidate.IsDestroyed &&
+            !candidate.Statuses.Any(status => status is
+                ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+            candidate.Abilities.Contains("overheat_after_20_shots") &&
+            !candidate.HasExploded);
+        if (ship == null) return false;
+
+        game.AddBoardDetailLog(owner.DiscordId,
+            $"{ship.Name} перегрелся после 20-го выстрела и взорвался!");
+        ExplodeShip(game, owner, ship, game.GetOpponent(owner.DiscordId));
+        HandleShipDeath(game, owner, ship, ShipDestructionCause.Explosion);
+        return true;
+    }
+
+    /// <summary>
     /// Unified explosion zone (ТЗ #4/#5/#13): every cell within Chebyshev radius of the center
     /// cells — empty water → «Промах»; ship with a deck in radius → the WHOLE ship is killed
     /// (BurnResist ships are marked black instead, no damage); summons die (scouts transmit
@@ -1266,14 +1520,16 @@ public static class BattleshipGameEngine
                     {
                         var isIncendiaryBargeBlast = sourceName == "Incendiary Barge";
                         KillShipByFire(game, boardOwner, target, attacker, isIncendiaryBargeBlast);
-                        game.AddLog($"{target.Name} сгорел от взрыва! ({sourceName})");
+                        game.AddBoardDetailLog(boardOwner.DiscordId,
+                            $"{target.Name} сгорел от взрыва! ({sourceName})");
                         HandleShipDeath(game, boardOwner, target, ShipDestructionCause.Explosion); // may chain-explode
                     }
                     else
                     {
                         MarkFireResistance(cell);
                         if (resistLogged.Add(target.Id))
-                            game.AddLog($"{target.Name}: Корабль устоял против огня! Поцарапано.");
+                            game.AddBoardDetailLog(boardOwner.DiscordId,
+                                $"{target.Name}: Корабль устоял против огня! Поцарапано.");
                     }
                 }
                 else if (cell.ShipRef == null && !cell.IsBurning)
@@ -1319,12 +1575,34 @@ public static class BattleshipGameEngine
     {
         var explodedSummon = cell.SummonRef;
 
+        if (HasBoardingHull(explodedSummon) &&
+            BoardingHasStatus(explodedSummon, ShipStatusType.BurnResist))
+        {
+            var wasAlreadyMarked = cell.BurnResistMarked;
+            MarkFireResistance(cell);
+            if (!wasAlreadyMarked)
+                game.AddBoardDetailLog(boardOwner.DiscordId,
+                    $"{explodedSummon.SourceShipName ?? "Абордажный корабль"}: Корабль устоял против огня! Поцарапано.");
+            return;
+        }
+
+        if (HasBoardingHull(explodedSummon))
+        {
+            if (!explodedSummon.BoardingStatuses.Contains(ShipStatusType.Burn))
+                explodedSummon.BoardingStatuses.Add(ShipStatusType.Burn);
+            DestroyBoardingHull(game, boardOwner.Board, explodedSummon, suppressDeferredReveal: false);
+            game.AddBoardDetailLog(boardOwner.DiscordId,
+                $"{explodedSummon.SourceShipName ?? "Абордажный корабль"} сгорел от взрыва! ({sourceName})");
+            return;
+        }
+
         TransmitScoutReveal(game, explodedSummon);
 
         explodedSummon.IsAlive = false;
         MarkSummonDeath(boardOwner.Board, cell.Row, cell.Col, explodedSummon);
         cell.SummonRef = null;
-        game.AddLog($"Призванное существо сгорело от взрыва! ({sourceName})");
+        game.AddBoardDetailLog(boardOwner.DiscordId,
+            $"Призванное существо сгорело от взрыва! ({sourceName})");
         if (explodedSummon.Type == SummonType.Brander)
             DetonateBrander(game, boardOwner, explodedSummon, cell.Row, cell.Col, attacker);
     }
@@ -1344,7 +1622,8 @@ public static class BattleshipGameEngine
         var cell = boardOwner.Board.GetCell(row, col);
         if (cell?.SummonRef == brander) cell.SummonRef = null;
         ExplodeArea(game, boardOwner, new List<(int row, int col)> { (row, col) }, 1, "Брандер", attacker);
-        game.AddLog($"Брандер взорвался! ({(char)('A' + col)}{row + 1})");
+        game.AddBoardDetailLog(boardOwner.DiscordId,
+            $"Брандер взорвался! ({(char)('A' + col)}{row + 1})");
     }
 
     // ── Win Condition ────────────────────────────────────────────────
@@ -1447,6 +1726,14 @@ public static class BattleshipGameEngine
     {
         if (game.BoardingTriggered || game.IsFinished) return;
         game.BoardingTriggered = true;
+        var currentPlayer = game.GetPlayer(game.CurrentTurnPlayerId);
+        var currentOpponent = game.GetOpponent(game.CurrentTurnPlayerId);
+        var boardingPlayer = currentOpponent != null && !HasLivingMidShip(currentOpponent)
+            ? currentOpponent
+            : currentPlayer != null && !HasLivingMidShip(currentPlayer)
+                ? currentPlayer
+                : game.GetPlayers().FirstOrDefault(player => !HasLivingMidShip(player));
+        game.BoardingPlayerId = boardingPlayer?.DiscordId;
 
         // Resolve this before entering the deployment phase. Two living Desiccators only
         // suppress this auto-win while both remain alive; their other passives stay active.
@@ -1462,14 +1749,10 @@ public static class BattleshipGameEngine
 
         game.Phase = BsGamePhase.Boarding;
 
-        PrepareMandatoryBoardingSummons(game);
+        PrepareMandatoryBoardingSummons(game, boardingPlayer);
 
-        // Only the side whose Mid line is gone deploys Close ships onto the enemy board.
-        // If an effect removes both Mid lines in one resolution, both sides qualify.
-        QueueBoardingShipsForMidlessPlayers(game);
-
-        // A Boarding-entry Pirate can collide on row 1 and remove the other side's last
-        // Mid during this same transition. Queue that newly eligible side as well.
+        // Final Boarding belongs to exactly one side for the rest of the match. A later
+        // loss of the other Mid line never converts that second fleet.
         QueueBoardingShipsForMidlessPlayers(game);
         foreach (var player in game.GetPlayers().Where(player =>
                      player.BoardingDeploymentCapacity <= 0))
@@ -1487,10 +1770,12 @@ public static class BattleshipGameEngine
                     {
                         tetraWeapon.Ammo += 2;
                         tetraWeapon.MaxAmmo += 2;
+                        AddSharedTetracatapultAmmo(game, p, tetraWeapon.ConfiguredShotType, 2);
                         var projectile = tetraWeapon.ConfiguredShotType == ShotType.Buckshot
                             ? "заряда Дроби"
                             : "Белых камня";
-                        game.AddLog($"Доп. снаряды: +2 {projectile} для {ship.Name}!");
+                        game.AddBoardDetailLog(p.DiscordId,
+                            $"Доп. снаряды: +2 {projectile} для {ship.Name}!");
                     }
                 }
             }
@@ -1507,6 +1792,7 @@ public static class BattleshipGameEngine
                 {
                     w.Ammo += 1;
                     w.MaxAmmo += 1;
+                    AddSharedTetracatapultAmmo(game, p, w.ConfiguredShotType, 1);
                 }
             }
         }
@@ -1528,12 +1814,15 @@ public static class BattleshipGameEngine
         }
     }
 
-    private static void PrepareMandatoryBoardingSummons(BattleshipGame game)
+    private static void PrepareMandatoryBoardingSummons(
+        BattleshipGame game,
+        BattleshipPlayer boardingPlayer)
     {
         foreach (var player in game.GetPlayers())
         {
             if (player.BoardingSummonsPrepared) continue;
             player.BoardingSummonsPrepared = true;
+            if (player != boardingPlayer) continue;
             var opponent = game.GetOpponent(player.DiscordId);
             player.BoardingDeploymentCapacity = opponent == null
                 ? 0
@@ -1543,25 +1832,27 @@ public static class BattleshipGameEngine
             foreach (var pending in player.PendingSummons)
                 pending.IsMandatoryBoarding = true;
 
-            foreach (var triple in player.Board.PlacedShips.Where(ship =>
+            foreach (var crewShip in player.Board.PlacedShips.Where(ship =>
                          !ship.IsDestroyed &&
-                         ship.DefinitionId == "triple" &&
-                         ship.Abilities.Contains("spawn_pirate_boat")))
+                         !ship.Statuses.Any(status => status is
+                             ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+                         ship.Abilities.Contains("crew_boarding_pirate")))
             {
                 player.PendingSummons.Add(new PendingSummonDeploy
                 {
                     Type = SummonType.PirateBoat,
-                    AllowedColumns = triple.GetOccupiedCells()
+                    AllowedColumns = crewShip.GetOccupiedCells()
                         .Select(cell => cell.col)
                         .Distinct()
                         .OrderBy(col => col)
                         .ToList(),
                     Speed = 1,
-                    SourceShipName = triple.Name,
-                    SourceShipId = triple.Id,
+                    SourceShipName = crewShip.Name,
+                    SourceShipId = crewShip.Id,
                     IsMandatoryBoarding = true,
                 });
-                game.AddLog($"Экипаж {triple.Name} готов выпустить Пиратскую лодку!");
+                game.AddBoardDetailLog(player.DiscordId,
+                    $"Экипаж {crewShip.Name} готов выпустить Пиратскую лодку!");
             }
 
             var summonRegions = player.Fleet.SelectMany(ship => ship.Regions).ToHashSet();
@@ -1583,7 +1874,8 @@ public static class BattleshipGameEngine
 
     public static void QueueBoardingShipsForMidlessPlayers(BattleshipGame game)
     {
-        foreach (var player in game.GetPlayers().Where(player => !HasLivingMidShip(player)))
+        foreach (var player in game.GetPlayers().Where(player =>
+                     player.DiscordId == game.BoardingPlayerId && !HasLivingMidShip(player)))
         {
             var boardingShips = player.Board.PlacedShips
                 .Where(ship =>
@@ -1607,11 +1899,65 @@ public static class BattleshipGameEngine
                     SourceShipName = ship.Name,
                     SourceShipId = ship.Id,
                     SourceShipDeckCount = ship.Decks.Count,
+                    BoardingDecks = CloneBoardingDecks(ship.Decks),
+                    BoardingAbilities = ship.Abilities.ToList(),
+                    BoardingStatuses = ship.Statuses.ToList(),
                 });
                 RemoveBoardingSourceFromOwnBoard(player, ship);
-                game.AddLog($"{ship.Name} готов к абордажу! Разместите на первой строчке вражеского поля.");
+                game.AddBoardDetailLog(player.DiscordId,
+                    $"{ship.Name} готов к абордажу! Разместите на первой строчке вражеского поля.");
             }
         }
+    }
+
+    private static List<Deck> CloneBoardingDecks(IEnumerable<Deck> decks)
+    {
+        return (decks ?? Enumerable.Empty<Deck>()).Select(deck => new Deck
+        {
+            Index = deck.Index,
+            OffsetRow = deck.OffsetRow,
+            OffsetCol = deck.OffsetCol,
+            MaxHp = deck.MaxHp,
+            CurrentHp = deck.CurrentHp,
+            Module = deck.Module,
+            ModuleDestroyed = deck.ModuleDestroyed,
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Materialize a pending deployment without sharing its mutable hull snapshot. Transport
+    /// callers should use this factory so every converted ship retains its armor and traits.
+    /// </summary>
+    public static Summon CreateSummonFromPending(
+        PendingSummonDeploy pending,
+        string ownerId,
+        int row,
+        int col,
+        Direction direction,
+        int spawnedAtShot,
+        bool useGhostSummons)
+    {
+        if (pending == null) return null;
+        return new Summon
+        {
+            Type = pending.Type,
+            Row = row,
+            Col = col,
+            Speed = pending.Speed,
+            CollisionDamage = pending.CollisionDamage,
+            RevealRadius = pending.RevealRadius,
+            OwnerId = ownerId,
+            MoveDirection = direction,
+            SpawnedAtShot = spawnedAtShot,
+            IsBoardingShip = pending.IsBoarding,
+            SourceShipId = pending.SourceShipId,
+            SourceShipName = pending.SourceShipName,
+            SourceShipDeckCount = pending.SourceShipDeckCount,
+            BoardingDecks = CloneBoardingDecks(pending.BoardingDecks),
+            BoardingAbilities = pending.BoardingAbilities?.ToList() ?? new List<string>(),
+            BoardingStatuses = pending.BoardingStatuses?.ToList() ?? new List<ShipStatusType>(),
+            IsGhost = !pending.IsBoarding && useGhostSummons,
+        };
     }
 
     private static void RemoveBoardingSourceFromOwnBoard(BattleshipPlayer player, Ship ship)
@@ -1667,7 +2013,8 @@ public static class BattleshipGameEngine
         player.MandatoryBoardingBrander = false;
         player.BoardingDeploymentCapacity = 0;
         if (discarded > 0)
-            game.AddLog($"{player.Username}: {discarded} лишних единиц исчезли при абордаже.");
+            game.AddBoardDetailLog(player.DiscordId,
+                $"{player.Username}: {discarded} лишних единиц исчезли при абордаже.");
     }
 
     private static (bool gameOver, string winnerId) CheckDesiccatorBoardingWin(BattleshipGame game)
@@ -1698,6 +2045,421 @@ public static class BattleshipGameEngine
             s.Abilities.Contains("auto_win_boarding"));
     }
 
+    private static bool HasBoardingHull(Summon summon) =>
+        summon is { IsBoardingShip: true } && summon.BoardingDecks.Count > 0;
+
+    private static void EnsureBoardingSnapshot(BattleshipPlayer owner, Summon summon)
+    {
+        if (summon is not { IsBoardingShip: true } || owner == null ||
+            summon.SourceShipId == null || summon.BoardingDecks.Count > 0)
+            return;
+        var source = owner.Fleet.FirstOrDefault(ship => ship.Id == summon.SourceShipId);
+        if (source == null) return;
+        summon.BoardingDecks = CloneBoardingDecks(source.Decks);
+        summon.BoardingAbilities = source.Abilities.ToList();
+        summon.BoardingStatuses = source.Statuses.ToList();
+        summon.SourceShipDeckCount = source.Decks.Count;
+    }
+
+    private static (int row, int col) GetBoardingDeckCell(
+        Summon summon,
+        Deck deck,
+        int row,
+        int col,
+        Direction direction)
+    {
+        var hasExplicitOffset = deck.OffsetRow.HasValue && deck.OffsetCol.HasValue;
+        var baseRowOffset = hasExplicitOffset
+            ? deck.OffsetRow.Value
+            : summon.BoardingAbilities.Contains("diagonal_shape") ? deck.Index : 0;
+        var baseColOffset = hasExplicitOffset ? deck.OffsetCol.Value : deck.Index;
+        var (rowOffset, colOffset) = direction switch
+        {
+            Direction.Right => (baseRowOffset, baseColOffset),
+            Direction.Down => (baseColOffset, -baseRowOffset),
+            Direction.Left => (-baseRowOffset, -baseColOffset),
+            Direction.Up => (-baseColOffset, baseRowOffset),
+            _ => (baseRowOffset, baseColOffset),
+        };
+        return (row + rowOffset, col + colOffset);
+    }
+
+    private static List<(int row, int col, Deck deck)> GetLiveBoardingDeckCells(
+        Summon summon,
+        int? row = null,
+        int? col = null,
+        Direction? direction = null)
+    {
+        if (!HasBoardingHull(summon)) return new List<(int row, int col, Deck deck)>();
+        var anchorRow = row ?? summon.Row;
+        var anchorCol = col ?? summon.Col;
+        var resolvedDirection = direction ?? summon.MoveDirection;
+        return summon.BoardingDecks
+            .Where(deck => !deck.IsDestroyed)
+            .Select(deck =>
+            {
+                var cell = GetBoardingDeckCell(
+                    summon, deck, anchorRow, anchorCol, resolvedDirection);
+                return (cell.row, cell.col, deck);
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Resolve every currently living physical deck of a converted hull. Legacy boarding
+    /// snapshots without deck data retain their historical single anchor cell.
+    /// </summary>
+    public static List<(int row, int col)> GetLiveBoardingOccupiedCells(
+        Summon summon,
+        int? row = null,
+        int? col = null,
+        Direction? direction = null)
+    {
+        if (summon is not { IsAlive: true, IsBoardingShip: true })
+            return new List<(int row, int col)>();
+        if (!HasBoardingHull(summon))
+            return new List<(int row, int col)> { (row ?? summon.Row, col ?? summon.Col) };
+        return GetLiveBoardingDeckCells(summon, row, col, direction)
+            .Select(value => (value.row, value.col))
+            .Distinct()
+            .ToList();
+    }
+
+    private static List<(int row, int col)> GetLiveSummonOccupiedCells(
+        Summon summon,
+        int? row = null,
+        int? col = null,
+        Direction? direction = null)
+    {
+        if (summon is not { IsAlive: true }) return new List<(int row, int col)>();
+        if (summon.IsBoardingShip)
+            return GetLiveBoardingOccupiedCells(summon, row, col, direction);
+        return new List<(int row, int col)> { (row ?? summon.Row, col ?? summon.Col) };
+    }
+
+    /// <summary>Remove every cell reference owned by this summon, including a sparse hull.</summary>
+    public static void ClearSummonFromBoard(Board board, Summon summon)
+    {
+        if (board == null || summon == null) return;
+        foreach (var cell in board.Grid.Cast<Cell>())
+        {
+            if (cell.SummonRef == summon) cell.SummonRef = null;
+        }
+    }
+
+    /// <summary>
+    /// Validate only full-hull geometry. Course selection may point at another summon: movement
+    /// will wait atomically until that destination becomes free instead of deadlocking the turn.
+    /// </summary>
+    public static bool CanFitSummonHullInBounds(
+        Summon summon,
+        int row,
+        int col,
+        Direction direction)
+    {
+        if (summon is not { IsAlive: true }) return false;
+        var occupied = GetLiveSummonOccupiedCells(summon, row, col, direction);
+        return occupied.Count > 0 && occupied.Distinct().Count() == occupied.Count &&
+               occupied.All(position =>
+                   position.row is >= 0 and < 10 && position.col is >= 0 and < 10);
+    }
+
+    /// <summary>
+    /// Validate the full live hull without mutating board state. Existing cells owned by this
+    /// summon may overlap the destination.
+    /// </summary>
+    public static bool CanPlaceSummonOnBoard(
+        Board board,
+        Summon summon,
+        int row,
+        int col,
+        Direction direction)
+    {
+        if (board == null || !CanFitSummonHullInBounds(summon, row, col, direction)) return false;
+        var occupied = GetLiveSummonOccupiedCells(summon, row, col, direction);
+        return occupied.All(position =>
+               {
+                   var occupant = board.GetCell(position.row, position.col)?.SummonRef;
+                   return occupant is not { IsAlive: true } || occupant == summon;
+               });
+    }
+
+    /// <summary>
+    /// Atomically place the full live hull. Another living summon or an invalid/duplicated hull
+    /// coordinate rejects it without disturbing the current position.
+    /// </summary>
+    public static bool TryPlaceSummonOnBoard(
+        Board board,
+        Summon summon,
+        int row,
+        int col,
+        Direction direction)
+    {
+        if (!CanPlaceSummonOnBoard(board, summon, row, col, direction)) return false;
+        var occupied = GetLiveSummonOccupiedCells(summon, row, col, direction);
+
+        ClearSummonFromBoard(board, summon);
+        summon.Row = row;
+        summon.Col = col;
+        summon.MoveDirection = direction;
+        foreach (var (occupiedRow, occupiedCol) in occupied)
+            board.GetCell(occupiedRow, occupiedCol).SummonRef = summon;
+        return true;
+    }
+
+    /// <summary>Resolve the living physical deck of a converted boarding hull at a board cell.</summary>
+    public static Deck GetLiveBoardingDeckAtCell(Summon summon, int row, int col)
+    {
+        return GetLiveBoardingDeckCells(summon)
+            .FirstOrDefault(value => value.row == row && value.col == col).deck;
+    }
+
+    private static bool BoardingHasAbility(Summon summon, string ability) =>
+        summon is { IsBoardingShip: true } && summon.BoardingAbilities.Contains(ability);
+
+    private static bool BoardingHasStatus(Summon summon, ShipStatusType status) =>
+        summon is { IsBoardingShip: true } &&
+        (summon.BoardingStatuses.Contains(status) ||
+         status == ShipStatusType.BurnResist && BoardingHasAbility(summon, "burn_resist"));
+
+    private static void SyncBoardingSourceState(BattleshipPlayer owner, Summon summon)
+    {
+        if (!HasBoardingHull(summon) || owner == null || summon.SourceShipId == null) return;
+        var source = owner.Fleet.FirstOrDefault(ship => ship.Id == summon.SourceShipId);
+        if (source == null) return;
+        foreach (var snapshot in summon.BoardingDecks)
+        {
+            var sourceDeck = source.Decks.FirstOrDefault(deck => deck.Index == snapshot.Index);
+            if (sourceDeck == null) continue;
+            sourceDeck.MaxHp = snapshot.MaxHp;
+            sourceDeck.CurrentHp = snapshot.CurrentHp;
+            sourceDeck.Module = snapshot.Module;
+            sourceDeck.ModuleDestroyed = snapshot.ModuleDestroyed;
+            sourceDeck.OffsetRow = snapshot.OffsetRow;
+            sourceDeck.OffsetCol = snapshot.OffsetCol;
+        }
+        source.Statuses.Clear();
+        source.Statuses.AddRange(summon.BoardingStatuses.Distinct());
+    }
+
+    private enum SummonEntryOutcome
+    {
+        Continue,
+        Stop,
+        Dead,
+    }
+
+    private static void DestroySummonAtCurrentPosition(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        BattleshipPlayer boardOwner,
+        Summon summon,
+        bool suppressDeferredReveal = false,
+        bool frozen = false)
+    {
+        if (HasBoardingHull(summon))
+        {
+            DestroyBoardingHull(
+                game, boardOwner.Board, summon, suppressDeferredReveal, frozen);
+            return;
+        }
+
+        ResolveDeferredRevealOnDeath(game, summon, suppressDeferredReveal || frozen);
+        MarkSummonDeath(boardOwner.Board, summon.Row, summon.Col, summon, frozen);
+        summon.IsAlive = false;
+        summon.WaitingForTurnBack = false;
+        summon.WaitingForDirectionChoice = false;
+        ClearSummonFromBoard(boardOwner.Board, summon);
+        MarkBoardingSourceDestroyed(owner, summon);
+    }
+
+    private static void ProcessBoardingDrakkarFreezeAura(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        BattleshipPlayer boardOwner,
+        Summon summon)
+    {
+        if (!HasBoardingHull(summon) ||
+            !BoardingHasAbility(summon, "freeze_nearby") ||
+            !summon.IsAlive)
+            return;
+
+        var auraCells = GetLiveBoardingDeckCells(summon)
+            .Select(value => (value.row, value.col))
+            .ToList();
+        var radius = summon.RevealRadius;
+        var targets = boardOwner.Board.PlacedShips.Where(ship =>
+                !ship.IsDestroyed &&
+                !ship.Statuses.Contains(ShipStatusType.Capture) &&
+                ship.Decks.Where(deck => !deck.IsDestroyed).Any(deck =>
+                {
+                    var target = ship.GetDeckCell(deck, ship.Row, ship.Col, ship.Orientation);
+                    return auraCells.Any(aura =>
+                        Math.Abs(aura.row - target.row) <= radius &&
+                        Math.Abs(aura.col - target.col) <= radius);
+                }))
+            .ToList();
+
+        foreach (var target in targets)
+        {
+            if (!target.Statuses.Contains(ShipStatusType.Freeze))
+                target.Statuses.Add(ShipStatusType.Freeze);
+            foreach (var deck in target.Decks)
+                deck.CurrentHp = 0;
+        }
+        foreach (var target in targets)
+        {
+            RevealShip(boardOwner.Board, target, owner);
+            HandleShipDeath(game, boardOwner, target, ShipDestructionCause.Freeze);
+            game.AddBoardDetailLog(boardOwner.DiscordId,
+                $"Аура абордажного Драккара заморозила {target.Name}!");
+        }
+    }
+
+    private static SummonEntryOutcome ResolveSummonEntry(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        BattleshipPlayer boardOwner,
+        Summon summon)
+    {
+        var occupied = GetLiveSummonOccupiedCells(summon);
+        foreach (var (row, col) in occupied)
+        {
+            MarkSummonTrail(boardOwner.Board, row, col, summon);
+            AccumulateDeferredReveal(game, summon, boardOwner, row, col);
+        }
+
+        foreach (var (row, col) in occupied)
+        {
+            if (!BattleshipCapturingMechanics.TryGrabSummon(
+                    game, owner, boardOwner, summon, row, col))
+                continue;
+            MarkBoardingSourceDestroyed(owner, summon);
+            return SummonEntryOutcome.Dead;
+        }
+
+        var burningCells = occupied
+            .Select(position => boardOwner.Board.GetCell(position.row, position.col))
+            .Where(cell => cell is { IsBurning: true })
+            .ToList();
+        if (burningCells.Count > 0)
+        {
+            if (HasBoardingHull(summon) &&
+                BoardingHasStatus(summon, ShipStatusType.BurnResist))
+            {
+                foreach (var burningCell in burningCells)
+                    MarkFireResistance(burningCell);
+                game.AddBoardDetailLog(boardOwner.DiscordId,
+                    $"{summon.SourceShipName ?? "Абордажный корабль"}: Корабль устоял против огня! Поцарапано.");
+            }
+            else
+            {
+                if (HasBoardingHull(summon) &&
+                    !summon.BoardingStatuses.Contains(ShipStatusType.Burn))
+                    summon.BoardingStatuses.Add(ShipStatusType.Burn);
+                DestroySummonAtCurrentPosition(game, owner, boardOwner, summon);
+                game.AddBoardDetailLog(boardOwner.DiscordId,
+                    $"Призванное существо сгорело в огне! ({(char)('A' + summon.Col)}{summon.Row + 1})");
+                if (summon.Type == SummonType.Brander)
+                    DetonateBrander(game, boardOwner, summon, summon.Row, summon.Col, owner);
+                return SummonEntryOutcome.Dead;
+            }
+        }
+
+        if (occupied.Any(position => IsInFreezeZone(boardOwner, position.row, position.col)))
+        {
+            FreezeSummon(game, owner, boardOwner, summon, summon.Row, summon.Col);
+            return SummonEntryOutcome.Dead;
+        }
+
+        // A converted Drakkar resolves its hostile ship aura before physical collision. It
+        // deliberately never iterates summons, so allied boats/boarding hulls are untouched.
+        ProcessBoardingDrakkarFreezeAura(game, owner, boardOwner, summon);
+
+        var collisions = GetLiveSummonOccupiedCells(summon)
+            .Select(position =>
+            {
+                var cell = boardOwner.Board.GetCell(position.row, position.col);
+                return (position.row, position.col, ship: cell?.ShipRef);
+            })
+            .Where(value => value.ship != null &&
+                            (HasAliveDeckAt(value.ship, value.row, value.col) ||
+                             summon.Type == SummonType.PirateBoat &&
+                             value.ship.Statuses.Contains(ShipStatusType.Devastated) &&
+                             GetDeckIndexAtCell(value.ship, value.row, value.col) >= 0))
+            .GroupBy(value => value.ship.Id)
+            .Select(group => group.First())
+            .ToList();
+
+        foreach (var collision in collisions)
+        {
+            HandleSummonCollision(
+                game, summon, collision.ship, boardOwner, collision.row, collision.col);
+            if (summon.Type == SummonType.CursedBoat)
+                summon.WaitingForDirectionChoice = true;
+            if (!summon.IsAlive)
+            {
+                DestroySummonAtCurrentPosition(game, owner, boardOwner, summon);
+                return SummonEntryOutcome.Dead;
+            }
+            if (summon.WaitingForDirectionChoice)
+                return SummonEntryOutcome.Stop;
+            if (!summon.IsBoardingShip)
+            {
+                DestroySummonAtCurrentPosition(game, owner, boardOwner, summon);
+                return SummonEntryOutcome.Dead;
+            }
+        }
+
+        if (GetLiveSummonOccupiedCells(summon).Any(position =>
+                IsInPoisonConeFromAnotherSource(
+                    game, boardOwner, summon, position.row, position.col)))
+        {
+            DestroySummonAtCurrentPosition(game, owner, boardOwner, summon);
+            AddPoisonSummonMastWarning(game, owner);
+            return SummonEntryOutcome.Dead;
+        }
+
+        if (!summon.IsBoardingShip &&
+            summon.Type is SummonType.Ram or SummonType.PirateBoat)
+        {
+            foreach (var (row, col) in GetLiveSummonOccupiedCells(summon))
+                RevealCell(boardOwner.Board, boardOwner.Board.GetCell(row, col), owner);
+        }
+
+        return summon.WaitingForDirectionChoice
+            ? SummonEntryOutcome.Stop
+            : SummonEntryOutcome.Continue;
+    }
+
+    /// <summary>
+    /// Poison is indiscriminate, but a converted Alchi hull cannot collide with the stale cone
+    /// produced by its own previous position while it advances. Resolve current physical sources
+    /// directly and exclude only the entering source itself.
+    /// </summary>
+    private static bool IsInPoisonConeFromAnotherSource(
+        BattleshipGame game,
+        BattleshipPlayer boardOwner,
+        Summon enteringSummon,
+        int row,
+        int col)
+    {
+        if (boardOwner.Board.PlacedShips.Any(ship =>
+                !ship.IsDestroyed &&
+                !ship.Statuses.Contains(ShipStatusType.Capture) &&
+                ship.Abilities.Contains("poison_cone") &&
+                GetPoisonConeCells(ship).Contains((row, col))))
+            return true;
+
+        return game.GetPlayers().SelectMany(player => player.Summons).Any(source =>
+            source != enteringSummon &&
+            source.IsAlive &&
+            BoardingHasAbility(source, "poison_cone") &&
+            GetLiveSummonOccupiedCells(source).Any(position =>
+                boardOwner.Board.GetCell(position.row, position.col)?.SummonRef == source) &&
+            GetBoardingPoisonConeCells(source).Contains((row, col)));
+    }
+
     // ── Summon Movement ──────────────────────────────────────────────
 
     public static void MoveSummons(BattleshipGame game)
@@ -1708,113 +2470,52 @@ public static class BattleshipGameEngine
             var opponent = game.GetOpponent(player.DiscordId);
             if (opponent == null) continue;
 
-            foreach (var summon in player.Summons.Where(s => s.IsAlive && !s.WaitingForTurnBack && !s.WaitingForDirectionChoice && s.SpawnedAtShot < game.ShotCount).ToList())
+            var justMaterialized = player.Summons
+                .Where(summon => summon.IsAlive && summon.IsGhost &&
+                                 summon.SpawnedAtShot < game.ShotCount)
+                .ToList();
+            foreach (var summon in justMaterialized)
+            {
+                summon.IsGhost = false;
+                RegisterSummonOnTargetBoard(game, player, summon);
+            }
+            var justMaterializedIds = justMaterialized.Select(summon => summon.Id).ToHashSet();
+
+            foreach (var summon in player.Summons.Where(s => s.IsAlive && !s.IsGhost &&
+                         !justMaterializedIds.Contains(s.Id) && !s.WaitingForTurnBack &&
+                         !s.WaitingForDirectionChoice && s.SpawnedAtShot < game.ShotCount).ToList())
             {
                 for (var step = 0; step < summon.Speed; step++)
                 {
-                    // Clear old SummonRef on opponent's board
-                    var oldCell = opponent.Board.GetCell(summon.Row, summon.Col);
-                    if (oldCell?.SummonRef == summon) oldCell.SummonRef = null;
-
                     var (newRow, newCol) = GetNextPosition(summon.Row, summon.Col, summon.MoveDirection);
+                    var destination = GetLiveSummonOccupiedCells(
+                        summon, newRow, newCol, summon.MoveDirection);
 
-                    // Out of bounds — mark for turn-back
-                    if (newRow < 0 || newRow >= 10 || newCol < 0 || newCol >= 10)
+                    // A multi-deck hull turns back before any living deck would leave the map.
+                    if (destination.Count == 0 || destination.Any(position =>
+                            position.row is < 0 or >= 10 || position.col is < 0 or >= 10))
                     {
                         // Every Ram, including a converted boarding ship, can be redirected.
-                        if (summon.Type == SummonType.Ram)
+                        if (summon.Type == SummonType.Ram || summon.IsBoardingShip)
+                        {
+                            ClearSummonFromBoard(opponent.Board, summon);
                             summon.WaitingForTurnBack = true;
-                        else
-                        {
-                            TransmitScoutReveal(game, summon);
-                            summon.IsAlive = false;
-                            MarkSummonDeath(opponent.Board, summon.Row, summon.Col, summon);
-                        }
-                        break;
-                    }
-
-                    var targetCell = opponent.Board.GetCell(newRow, newCol);
-                    MarkSummonTrail(opponent.Board, newRow, newCol, summon);
-                    AccumulateDeferredReveal(game, summon, opponent, newRow, newCol);
-
-                    // Entry precedence: permanent fire, Freeze, live-deck collision, poison, reveal.
-                    if (targetCell is { IsBurning: true })
-                    {
-                        TransmitScoutReveal(game, summon);
-                        summon.IsAlive = false;
-                        MarkSummonDeath(opponent.Board, newRow, newCol, summon);
-                        game.AddLog($"Призванное существо сгорело в огне! ({(char)('A' + newCol)}{newRow + 1})");
-                        if (summon.Type == SummonType.Brander)
-                            DetonateBrander(game, opponent, summon, newRow, newCol, player);
-                        break;
-                    }
-
-                    if (IsInFreezeZone(opponent, newRow, newCol))
-                    {
-                        FreezeSummon(game, player, opponent, summon, newRow, newCol);
-                        break;
-                    }
-
-                    // Living decks block movement. Pirate Boats also board a Devastated hull,
-                    // whose decks intentionally sit at 0 HP until Capture restores them.
-                    if (targetCell?.ShipRef != null &&
-                        (HasAliveDeckAt(targetCell.ShipRef, newRow, newCol) ||
-                         summon.Type == SummonType.PirateBoat &&
-                         targetCell.ShipRef.Statuses.Contains(ShipStatusType.Devastated) &&
-                         GetDeckIndexAtCell(targetCell.ShipRef, newRow, newCol) >= 0))
-                    {
-                        HandleSummonCollision(game, summon, targetCell.ShipRef, opponent, newRow, newCol);
-                        // CursedBoat and boarding ships that devastated 1-2 deckers continue;
-                        // Brander no longer passes through live decks (ТЗ #16) — dies via the else below
-                        if (summon.Type == SummonType.CursedBoat)
-                        {
-                            // CursedBoat applies Devastated, then waits for owner to choose direction
-                            summon.Row = newRow;
-                            summon.Col = newCol;
-                            summon.WaitingForDirectionChoice = true;
-                            break;
-                        }
-                        else if (summon.IsBoardingShip && summon.IsAlive)
-                        {
-                            // Boarding ship devastated a small ship, continues
-                            summon.Row = newRow;
-                            summon.Col = newCol;
-                            continue;
                         }
                         else
                         {
-                            TransmitScoutReveal(game, summon);
-                            summon.IsAlive = false;
-                            MarkSummonDeath(opponent.Board, newRow, newCol, summon);
+                            DestroySummonAtCurrentPosition(game, player, opponent, summon);
                         }
                         break;
                     }
 
-                    if (game.PoisonZonesByBoardOwner.TryGetValue(opponent.DiscordId, out var poisonZone) &&
-                        poisonZone.Contains((newRow, newCol)))
-                    {
-                        TransmitScoutReveal(game, summon);
-                        summon.IsAlive = false;
-                        MarkSummonDeath(opponent.Board, newRow, newCol, summon);
-                        AddPoisonSummonMastWarning(game, player);
+                    // Another live summon blocks the whole destination atomically. The old hull
+                    // remains registered and no trail/hazard/collision is resolved.
+                    if (!TryPlaceSummonOnBoard(
+                            opponent.Board, summon, newRow, newCol, summon.MoveDirection))
                         break;
-                    }
 
-                    // Ordinary Ram/PirateBoat reveal cells they pass through. Converted ships
-                    // instead keep a deferred Space payload like Scouts.
-                    if (!summon.IsBoardingShip &&
-                        summon.Type is SummonType.Ram or SummonType.PirateBoat)
-                    {
-                        var passCell = opponent.Board.GetCell(newRow, newCol);
-                        if (passCell != null) RevealCell(opponent.Board, passCell, player);
-                    }
-
-                    summon.Row = newRow;
-                    summon.Col = newCol;
-
-                    // Set SummonRef on opponent's board at new position
-                    var newCell = opponent.Board.GetCell(newRow, newCol);
-                    if (newCell != null) newCell.SummonRef = summon;
+                    var outcome = ResolveSummonEntry(game, player, opponent, summon);
+                    if (outcome != SummonEntryOutcome.Continue) break;
                 }
             }
 
@@ -1822,8 +2523,7 @@ public static class BattleshipGameEngine
             // Clear SummonRef for dead summons
             foreach (var deadSummon in player.Summons.Where(s => !s.IsAlive))
             {
-                var deadCell = opponent.Board.GetCell(deadSummon.Row, deadSummon.Col);
-                if (deadCell?.SummonRef == deadSummon) deadCell.SummonRef = null;
+                ClearSummonFromBoard(opponent.Board, deadSummon);
                 MarkBoardingSourceDestroyed(player, deadSummon);
             }
             player.Summons.RemoveAll(s => !s.IsAlive);
@@ -1841,17 +2541,14 @@ public static class BattleshipGameEngine
         int row,
         int col)
     {
-        var deathCell = boardOwner.Board.GetCell(row, col);
-        RevealCell(boardOwner.Board, deathCell, summonOwner);
-        MarkSummonDeath(boardOwner.Board, row, col, summon, frozen: true);
-        summon.ScoutRevealData.Clear();
-        summon.WaitingForTurnBack = false;
-        summon.WaitingForDirectionChoice = false;
-        summon.IsAlive = false;
-        MarkBoardingSourceDestroyed(summonOwner, summon);
+        var occupied = GetLiveSummonOccupiedCells(summon);
+        if (occupied.Count == 0) occupied.Add((row, col));
+        foreach (var (deathRow, deathCol) in occupied)
+            RevealCell(boardOwner.Board, boardOwner.Board.GetCell(deathRow, deathCol), summonOwner);
+        DestroySummonAtCurrentPosition(
+            game, summonOwner, boardOwner, summon, suppressDeferredReveal: true, frozen: true);
         game.AddLogFor(boardOwner.DiscordId, "[Драккар] Призванное существо заморожено аурой Драккара");
-        if (summonOwner.Board.PlacedShips.Any(s =>
-                !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed)))
+        if (HasLivingMast(summonOwner))
             game.AddLogFor(summonOwner.DiscordId, "[Мачта] Наших заморозили!");
     }
 
@@ -1859,66 +2556,27 @@ public static class BattleshipGameEngine
     public static bool RegisterSummonOnTargetBoard(BattleshipGame game, BattleshipPlayer owner, Summon summon)
     {
         var boardOwner = game.GetOpponent(owner.DiscordId);
-        var cell = boardOwner?.Board.GetCell(summon.Row, summon.Col);
-        if (boardOwner == null || cell == null || cell.SummonRef is { IsAlive: true }) return false;
+        if (boardOwner == null || summon == null) return false;
+        if (summon.IsBoardingShip)
+        {
+            summon.IsGhost = false;
+            EnsureBoardingSnapshot(owner, summon);
+        }
+        if (!TryPlaceSummonOnBoard(
+                boardOwner.Board, summon, summon.Row, summon.Col, summon.MoveDirection))
+            return false;
 
-        MarkSummonTrail(boardOwner.Board, summon.Row, summon.Col, summon);
+        if (summon.IsGhost)
+        {
+            foreach (var (row, col) in GetLiveSummonOccupiedCells(summon))
+                MarkSummonTrail(boardOwner.Board, row, col, summon);
+            return true;
+        }
+
         RefreshPoisonZones(game);
-        AccumulateDeferredReveal(game, summon, boardOwner, summon.Row, summon.Col);
-        if (cell.IsBurning)
-        {
-            TransmitScoutReveal(game, summon);
-            summon.IsAlive = false;
-            MarkSummonDeath(boardOwner.Board, summon.Row, summon.Col, summon);
-            if (summon.Type == SummonType.Brander)
-                DetonateBrander(game, boardOwner, summon, summon.Row, summon.Col, owner);
-            MarkBoardingSourceDestroyed(owner, summon);
-            return true;
-        }
-        if (IsInFreezeZone(boardOwner, summon.Row, summon.Col))
-        {
-            FreezeSummon(game, owner, boardOwner, summon, summon.Row, summon.Col);
-            return true;
-        }
-        if (cell.ShipRef != null &&
-            (HasAliveDeckAt(cell.ShipRef, summon.Row, summon.Col) ||
-             summon.Type == SummonType.PirateBoat &&
-             cell.ShipRef.Statuses.Contains(ShipStatusType.Devastated) &&
-             GetDeckIndexAtCell(cell.ShipRef, summon.Row, summon.Col) >= 0))
-        {
-            HandleSummonCollision(game, summon, cell.ShipRef, boardOwner, summon.Row, summon.Col);
-            if (summon.Type == SummonType.CursedBoat)
-            {
-                summon.WaitingForDirectionChoice = true;
-                cell.SummonRef = summon;
-            }
-            else if (summon.IsBoardingShip && summon.IsAlive)
-            {
-                cell.SummonRef = summon;
-            }
-            else
-            {
-                summon.IsAlive = false;
-                MarkSummonDeath(boardOwner.Board, summon.Row, summon.Col, summon);
-            }
-            MarkBoardingSourceDestroyed(owner, summon);
-            return true;
-        }
-        if (game.PoisonZonesByBoardOwner.TryGetValue(boardOwner.DiscordId, out var zone) &&
-            zone.Contains((summon.Row, summon.Col)))
-        {
-            TransmitScoutReveal(game, summon);
-            summon.IsAlive = false;
-            MarkSummonDeath(boardOwner.Board, summon.Row, summon.Col, summon);
-            AddPoisonSummonMastWarning(game, owner);
-            MarkBoardingSourceDestroyed(owner, summon);
-            return true;
-        }
-
-        if (!summon.IsBoardingShip &&
-            summon.Type is SummonType.Ram or SummonType.PirateBoat)
-            RevealCell(boardOwner.Board, cell, owner);
-        cell.SummonRef = summon;
+        ResolveSummonEntry(game, owner, boardOwner, summon);
+        if (summon.IsAlive && BoardingHasAbility(summon, "poison_cone"))
+            ProcessPoisonCones(game);
         return true;
     }
 
@@ -1959,8 +2617,9 @@ public static class BattleshipGameEngine
     private static void MarkBoardingSourceDestroyed(BattleshipPlayer owner, Summon summon)
     {
         if (summon is not { IsAlive: false, IsBoardingShip: true } ||
-            summon.SourceShipId == null)
+            summon.SourceShipId == null || owner == null)
             return;
+        SyncBoardingSourceState(owner, summon);
         var source = owner.Fleet.FirstOrDefault(ship => ship.Id == summon.SourceShipId);
         if (source == null || source.IsDestroyed) return;
         foreach (var deck in source.Decks)
@@ -1991,12 +2650,16 @@ public static class BattleshipGameEngine
                 {
                     if (targetShip.Decks.Count <= 2)
                     {
-                        targetShip.Statuses.Add(ShipStatusType.Devastated);
+                        if (!targetShip.Statuses.Contains(ShipStatusType.Devastated))
+                            targetShip.Statuses.Add(ShipStatusType.Devastated);
                         foreach (var d in targetShip.Decks) d.CurrentHp = 0;
                         RevealShip(targetOwner.Board, targetShip, attacker);
                         HandleShipDeath(game, targetOwner, targetShip, ShipDestructionCause.Devastated);
-                        game.AddLog($"Абордажный корабль опустошил {targetShip.Name}! {coord}");
+                        game.AddBoardDetailLog(targetOwner.DiscordId,
+                            $"Абордажный корабль опустошил {targetShip.Name}! {coord}");
                         summon.IsAlive = true; // continue moving (don't die)
+                        if (BoardingHasAbility(summon, "spawn_cursed_boat"))
+                            summon.WaitingForDirectionChoice = true;
                     }
                     else
                     {
@@ -2006,7 +2669,8 @@ public static class BattleshipGameEngine
                         {
                             collisionDeck.CurrentHp -= summon.CollisionDamage;
                             if (collisionDeck.CurrentHp < 0) collisionDeck.CurrentHp = 0;
-                            game.AddLog($"Абордажный корабль протаранил {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
+                            game.AddBoardDetailLog(targetOwner.DiscordId,
+                                $"Абордажный корабль протаранил {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                             // Mark cell on target owner's board (#8)
                             MarkRamDamageOnBoard(targetOwner, attacker, collisionRow, collisionCol, collisionDeck);
                             if (targetShip.IsDestroyed)
@@ -2027,7 +2691,8 @@ public static class BattleshipGameEngine
                 {
                     ramDeck.CurrentHp -= summon.CollisionDamage;
                     if (ramDeck.CurrentHp < 0) ramDeck.CurrentHp = 0;
-                    game.AddLog($"Таран врезался в {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
+                    game.AddBoardDetailLog(targetOwner.DiscordId,
+                        $"Таран врезался в {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                     // Mark cell on target owner's board (#8)
                     MarkRamDamageOnBoard(targetOwner, attacker, collisionRow, collisionCol, ramDeck);
                     // Ram triggers barge explosion (#9); both players see decks + zone statuses (ТЗ #5)
@@ -2035,7 +2700,8 @@ public static class BattleshipGameEngine
                     {
                         ExplodeShip(game, targetOwner, targetShip, attacker);
                         HandleShipDeath(game, targetOwner, targetShip, ShipDestructionCause.Explosion);
-                        game.AddLog($"{targetShip.Name} взорвался от тарана! {coord}");
+                        game.AddBoardDetailLog(targetOwner.DiscordId,
+                            $"{targetShip.Name} взорвался от тарана! {coord}");
                     }
                     else if (targetShip.IsDestroyed)
                     {
@@ -2055,6 +2721,8 @@ public static class BattleshipGameEngine
                     if (!targetShip.Statuses.Contains(ShipStatusType.Capture))
                     {
                         targetShip.Statuses.Add(ShipStatusType.Capture);
+                        BattleshipCapturingMechanics.GrantCaptureReward(
+                            game, attacker, targetOwner, targetShip);
                         targetOwner.SelectedShotType = ShotType.Ballista;
                         targetOwner.SelectedWeapon = null;
                         foreach (var (r, c) in targetShip.GetOccupiedCells())
@@ -2063,13 +2731,16 @@ public static class BattleshipGameEngine
                             if (capturedCell == null) continue;
                             RevealCell(targetOwner.Board, capturedCell, attacker);
                         }
-                        game.AddLog($"Пиратская лодка захватила {targetShip.Name}! {coord}");
+                        game.AddBoardDetailLog(targetOwner.DiscordId,
+                            $"Пиратская лодка захватила {targetShip.Name}! {coord}");
                     }
-                    else game.AddLog($"{targetShip.Name} уже находится под CAPTURE. {coord}");
+                    else game.AddBoardDetailLog(targetOwner.DiscordId,
+                        $"{targetShip.Name} уже находится под CAPTURE. {coord}");
                 }
                 else
                 {
-                    game.AddLog($"Пиратская лодка разбилась о {targetShip.Name}! {coord}");
+                    game.AddBoardDetailLog(targetOwner.DiscordId,
+                        $"Пиратская лодка разбилась о {targetShip.Name}! {coord}");
                 }
                 break;
 
@@ -2079,7 +2750,8 @@ public static class BattleshipGameEngine
                 foreach (var d in targetShip.Decks) d.CurrentHp = 0;
                 RevealShip(targetOwner.Board, targetShip, attacker);
                 HandleShipDeath(game, targetOwner, targetShip, ShipDestructionCause.Devastated);
-                game.AddLog($"Проклятый корабль опустошил {targetShip.Name}! {coord}");
+                game.AddBoardDetailLog(targetOwner.DiscordId,
+                    $"Проклятый корабль опустошил {targetShip.Name}! {coord}");
                 break;
 
             case SummonType.Scout:
@@ -2087,12 +2759,14 @@ public static class BattleshipGameEngine
                 var summonOwner = game.GetPlayer(summon.OwnerId);
                 TransmitScoutReveal(game, summon);
                 RevealArea(targetOwner.Board, collisionRow, collisionCol, summon.RevealRadius, summonOwner);
-                game.AddLog($"Разведчик обнаружил корабли противника!");
+                game.AddBoardDetailLog(targetOwner.DiscordId,
+                    "Разведчик обнаружил корабли противника!");
                 break;
 
             case SummonType.Brander:
                 // ТЗ #16: Brander cannot pass live decks — разбивается без детонации (решение дизайнера)
-                game.AddLog($"Брандер разбился о {targetShip.Name}! {coord}");
+                game.AddBoardDetailLog(targetOwner.DiscordId,
+                    $"Брандер разбился о {targetShip.Name}! {coord}");
                 break;
         }
     }
@@ -2108,6 +2782,12 @@ public static class BattleshipGameEngine
             ship.Statuses.Contains(ShipStatusType.Capture))
             return false;
 
+        if (fullRepair && owner.UseSharedTetracatapultAmmo)
+        {
+            GetSharedTetracatapultAmmo(game, owner, ShotType.WhiteStone);
+            GetSharedTetracatapultAmmo(game, owner, ShotType.Buckshot);
+        }
+
         ship.Statuses.Remove(ShipStatusType.Devastated);
         ship.Statuses.Remove(ShipStatusType.Burn);
         foreach (var deck in ship.Decks)
@@ -2119,7 +2799,14 @@ public static class BattleshipGameEngine
         if (fullRepair)
         {
             foreach (var weapon in ship.Weapons)
+                weapon.PreservedModuleDestroyed = false;
+            foreach (var weapon in ship.Weapons)
+            {
                 weapon.Ammo = weapon.MaxAmmo;
+                if (weapon.Type == WeaponType.Tetracatapult)
+                    AddSharedTetracatapultAmmo(
+                        game, owner, weapon.ConfiguredShotType, Math.Max(0, weapon.MaxAmmo));
+            }
         }
 
         ship.AssemblyEligibleTurnNumber = -1;
@@ -2180,7 +2867,11 @@ public static class BattleshipGameEngine
     {
         foreach (var ship in player.Board.PlacedShips)
         {
-            if (ship.IsDestroyed || !ship.Abilities.Contains("freeze_nearby")) continue;
+            if (ship.IsDestroyed ||
+                ship.Statuses.Any(status => status is
+                    ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) ||
+                !ship.Abilities.Contains("freeze_nearby"))
+                continue;
             var occupied = ship.GetOccupiedCells();
             foreach (var (sr, sc) in occupied)
             {
@@ -2203,15 +2894,22 @@ public static class BattleshipGameEngine
 
             foreach (var ship in player.Board.PlacedShips)
             {
-                if (ship.IsDestroyed || !ship.Abilities.Contains("freeze_nearby")) continue;
+                if (ship.IsDestroyed ||
+                    ship.Statuses.Any(status => status is
+                        ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) ||
+                    !ship.Abilities.Contains("freeze_nearby"))
+                    continue;
                 var occupied = ship.GetOccupiedCells();
 
                 // Freeze enemy summons
-                foreach (var summon in opponent.Summons.Where(s => s.IsAlive).ToList())
+                foreach (var summon in opponent.Summons.Where(s => s.IsAlive && !s.IsGhost).ToList())
                 {
+                    var summonCells = GetLiveSummonOccupiedCells(summon);
                     foreach (var (sr, sc) in occupied)
                     {
-                        if (Math.Abs(sr - summon.Row) <= ship.Space && Math.Abs(sc - summon.Col) <= ship.Space)
+                        if (summonCells.Any(cell =>
+                                Math.Abs(sr - cell.row) <= ship.Space &&
+                                Math.Abs(sc - cell.col) <= ship.Space))
                         {
                             FreezeSummon(game, opponent, player, summon, summon.Row, summon.Col);
                             break;
@@ -2236,7 +2934,7 @@ public static class BattleshipGameEngine
             foreach (var ship in player.Board.PlacedShips)
             {
                 if (ship.IsDestroyed || ship.Statuses.Contains(ShipStatusType.Capture) ||
-                    !ship.Abilities.Contains("poison_cone") || game.Phase == BsGamePhase.Boarding) continue;
+                    !ship.Abilities.Contains("poison_cone")) continue;
 
                 var coneCells = GetPoisonConeCells(ship);
                 var opponent = game.GetOpponent(player.DiscordId);
@@ -2246,11 +2944,11 @@ public static class BattleshipGameEngine
                     // Enemy summons physically occupy this player's board.
                     if (opponent != null)
                     {
-                        foreach (var summon in opponent.Summons.Where(s => s.IsAlive && s.Row == cr && s.Col == cc).ToList())
+                        foreach (var summon in opponent.Summons.Where(s =>
+                                     s.IsAlive && !s.IsGhost &&
+                                     GetLiveSummonOccupiedCells(s).Contains((cr, cc))).ToList())
                         {
-                            TransmitScoutReveal(game, summon);
-                            summon.IsAlive = false;
-                            MarkSummonDeath(player.Board, cr, cc, summon);
+                            DestroySummonAtCurrentPosition(game, opponent, player, summon);
                             AddPoisonSummonMastWarning(game, opponent);
                         }
                     }
@@ -2263,9 +2961,50 @@ public static class BattleshipGameEngine
                         foreach (var d in allyShip.Decks) d.CurrentHp = 0;
                         RevealShip(player.Board, allyShip, opponent);
                         HandleShipDeath(game, player, allyShip, ShipDestructionCause.Poison);
-                        game.AddLog($"Ядовитый конус {ship.Name} уничтожил союзный {allyShip.Name}!");
+                        game.AddBoardDetailLog(player.DiscordId,
+                            $"Ядовитый конус {ship.Name} уничтожил союзный {allyShip.Name}!");
                     }
                 }
+            }
+        }
+
+        // A converted Alchi-Barge keeps its cone on the physical board it is boarding.
+        // The cone remains indiscriminate: it can kill defending ships and any other summon,
+        // including allied boats, while never targeting its own source hull.
+        foreach (var boardOwner in game.GetPlayers())
+        foreach (var sourceOwner in game.GetPlayers())
+        foreach (var source in sourceOwner.Summons.Where(summon =>
+                     summon.IsAlive &&
+                     BoardingHasAbility(summon, "poison_cone") &&
+                     GetLiveSummonOccupiedCells(summon).Any(position =>
+                         boardOwner.Board.GetCell(position.row, position.col)?.SummonRef == summon)))
+        {
+            var coneCells = GetBoardingPoisonConeCells(source);
+            var poisonedShips = coneCells
+                .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.ShipRef)
+                .Where(ship => ship is { IsDestroyed: false })
+                .DistinctBy(ship => ship.Id)
+                .ToList();
+            foreach (var poisonedShip in poisonedShips)
+            {
+                foreach (var deck in poisonedShip.Decks) deck.CurrentHp = 0;
+                RevealShip(boardOwner.Board, poisonedShip, sourceOwner);
+                HandleShipDeath(game, boardOwner, poisonedShip, ShipDestructionCause.Poison);
+                game.AddBoardDetailLog(boardOwner.DiscordId,
+                    $"Ядовитый конус {source.SourceShipName ?? "абордажного корабля"} уничтожил {poisonedShip.Name}!");
+            }
+
+            var poisonedSummons = coneCells
+                .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.SummonRef)
+                .Where(target => target is { IsAlive: true, IsGhost: false } && target != source)
+                .DistinctBy(target => target.Id)
+                .ToList();
+            foreach (var poisonedSummon in poisonedSummons)
+            {
+                var poisonedOwner = game.GetPlayer(poisonedSummon.OwnerId);
+                if (poisonedOwner == null) continue;
+                DestroySummonAtCurrentPosition(game, poisonedOwner, boardOwner, poisonedSummon);
+                AddPoisonSummonMastWarning(game, poisonedOwner);
             }
         }
 
@@ -2278,10 +3017,16 @@ public static class BattleshipGameEngine
         {
             var zones = player.Board.PlacedShips
                 .Where(s => !s.IsDestroyed && !s.Statuses.Contains(ShipStatusType.Capture) &&
-                            s.Abilities.Contains("poison_cone") &&
-                            game.Phase != BsGamePhase.Boarding)
+                            s.Abilities.Contains("poison_cone"))
                 .SelectMany(ship => GetPoisonConeCells(ship))
                 .ToHashSet();
+            foreach (var sourceOwner in game.GetPlayers())
+            foreach (var source in sourceOwner.Summons.Where(summon =>
+                         summon.IsAlive &&
+                         BoardingHasAbility(summon, "poison_cone") &&
+                         GetLiveSummonOccupiedCells(summon).Any(position =>
+                             player.Board.GetCell(position.row, position.col)?.SummonRef == summon)))
+                zones.UnionWith(GetBoardingPoisonConeCells(source));
             game.PoisonZonesByBoardOwner[player.DiscordId] = zones;
         }
     }
@@ -2293,10 +3038,13 @@ public static class BattleshipGameEngine
             "Призванное существо погибло в ядовитом конусе!");
     }
 
-    private static bool HasLivingMast(BattleshipPlayer player) =>
-        player.Board.PlacedShips.Any(ship =>
+    public static bool HasLivingMast(BattleshipPlayer player) =>
+        player != null && player.Fleet.Any(ship =>
             !ship.IsDestroyed &&
-            ship.Decks.Any(deck => deck.Module == "mast" && !deck.ModuleDestroyed && !deck.IsDestroyed));
+            !ship.Statuses.Any(status => status is
+                ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+            ship.Weapons.Any(weapon =>
+                weapon.Type == WeaponType.Mast && IsWeaponOperational(ship, weapon)));
 
     public static List<(int row, int col)> GetPoisonConeCells(
         Ship ship,
@@ -2329,6 +3077,32 @@ public static class BattleshipGameEngine
 
         // Filter valid cells
         return cells.Where(c => c.Item1 >= 0 && c.Item1 < 10 && c.Item2 >= 0 && c.Item2 < 10).ToList();
+    }
+
+    private static List<(int row, int col)> GetBoardingPoisonConeCells(Summon summon)
+    {
+        var sourceCell = GetLiveBoardingDeckCells(summon)
+            .OrderBy(value => value.deck.Index)
+            .Select(value => (value.row, value.col))
+            .FirstOrDefault();
+        var (forwardRow, forwardCol) = summon.MoveDirection switch
+        {
+            Direction.Up => (-1, 0),
+            Direction.Left => (0, -1),
+            Direction.Right => (0, 1),
+            _ => (1, 0),
+        };
+        var (sideRow, sideCol) = forwardRow != 0 ? (0, 1) : (1, 0);
+        var cells = new List<(int row, int col)>();
+        for (var depth = 1; depth <= 2; depth++)
+        for (var side = -depth; side <= depth; side++)
+        {
+            var row = sourceCell.row + forwardRow * depth + sideRow * side;
+            var col = sourceCell.col + forwardCol * depth + sideCol * side;
+            if (row is >= 0 and < 10 && col is >= 0 and < 10)
+                cells.Add((row, col));
+        }
+        return cells;
     }
 
     private static void AccumulateDeferredReveal(
@@ -2402,7 +3176,8 @@ public static class BattleshipGameEngine
 
         if (TryMoveShip(shipOwner, ship, dodgeDir))
         {
-            game.AddLog($"{ship.Name} увернулся от выстрела! ({(char)('A' + col)}{row + 1})");
+            game.AddBoardDetailLog(shipOwner.DiscordId,
+                $"{ship.Name} увернулся от выстрела! ({(char)('A' + col)}{row + 1})");
             // The cell is now empty — mark as miss
             var cell = shipOwner.Board.GetCell(row, col);
             if (cell != null)
@@ -2428,7 +3203,8 @@ public static class BattleshipGameEngine
                     ship.Statuses.Add(ShipStatusType.Burn);
                     RevealShip(shipOwner.Board, ship, null);
                     HandleShipDeath(game, shipOwner, ship, ShipDestructionCause.GreekFire);
-                    game.AddLog($"{ship.Name} заплыл в огонь при уклонении!");
+                    game.AddBoardDetailLog(shipOwner.DiscordId,
+                        $"{ship.Name} заплыл в огонь при уклонении!");
                     break;
                 }
             }
@@ -2441,7 +3217,8 @@ public static class BattleshipGameEngine
                         foreach (var d in ship.Decks) d.CurrentHp = 0;
                         RevealShip(shipOwner.Board, ship, null);
                         HandleShipDeath(game, shipOwner, ship, ShipDestructionCause.Poison);
-                        game.AddLog($"{ship.Name} заплыл в ядовитый конус при уклонении!");
+                        game.AddBoardDetailLog(shipOwner.DiscordId,
+                            $"{ship.Name} заплыл в ядовитый конус при уклонении!");
                         break;
                     }
                 }
@@ -2525,7 +3302,7 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// Legal endpoints for a beginning-of-turn manual maneuver.
+    /// Legal endpoints for an axial manual maneuver.
     /// </summary>
     public static List<ManualMoveOption> GetManualMoveOptions(BattleshipPlayer player, Ship ship)
     {
@@ -2564,6 +3341,11 @@ public static class BattleshipGameEngine
 
     private static bool CanManualMoveShip(BattleshipPlayer player, Ship ship, int newRow, int newCol)
     {
+        if (player == null || ship == null || ship.IsDestroyed ||
+            ship.Statuses.Any(status => status is
+                ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze))
+            return false;
+
         var newCells = ship.GetOccupiedCells(newRow, newCol, ship.Orientation);
         if (newCells.Any(cell => cell.row < 0 || cell.row >= 10 || cell.col < 0 || cell.col >= 10))
             return false;
@@ -2571,17 +3353,31 @@ public static class BattleshipGameEngine
             return false;
 
         var canRamAllies = ship.Abilities.Contains("ramming_maneuver");
-        foreach (var (row, col) in newCells)
+        var overlaps = newCells
+            .Select(position =>
+                (position.row, position.col,
+                    ship: player.Board.GetCell(position.row, position.col)?.ShipRef))
+            .Where(value => value.ship != null && value.ship.Id != ship.Id)
+            .ToList();
+        if (canRamAllies) return true;
+
+        Ship mergeTarget = null;
+        if (overlaps.Count > 0)
         {
-            var occupant = player.Board.GetCell(row, col)?.ShipRef;
-            if (occupant != null && occupant.Id != ship.Id && !canRamAllies)
+            if (!ship.Abilities.Contains("merge_maneuver") || overlaps.Count != 1)
+                return false;
+            mergeTarget = overlaps[0].ship;
+            if (GetDeckIndexAtCell(mergeTarget, overlaps[0].row, overlaps[0].col) < 0 ||
+                mergeTarget.IsDestroyed ||
+                mergeTarget.Statuses.Any(status => status is
+                    ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze))
                 return false;
         }
-        if (canRamAllies) return true;
 
         foreach (var ally in player.Board.PlacedShips)
         {
             if (ally.Id == ship.Id || ally.IsDestroyed) continue;
+            if (mergeTarget != null && ally.Id == mergeTarget.Id) continue;
             var spacing = Math.Max(ship.Space, ally.Space);
             foreach (var (allyRow, allyCol) in ally.GetOccupiedCells())
             foreach (var (row, col) in newCells)
@@ -2594,8 +3390,8 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// Apply a validated maneuver. The Alliance ramming variant may enter allied Space and
-    /// replaces overlapped allied decks after destroying their modules and weapons.
+    /// Apply a validated maneuver. The Alliance ramming variant removes overlapped allied decks;
+    /// the merging variant replaces one eligible allied overlap with a persistent composite hull.
     /// </summary>
     public static bool ManualMoveShip(
         BattleshipGame game,
@@ -2629,6 +3425,13 @@ public static class BattleshipGameEngine
                 if (collisions.All(x => x.ship.Id != target.Id || x.deck.Index != deck.Index))
                     collisions.Add((target, deck, row, col));
             }
+        }
+
+        if (!ship.Abilities.Contains("ramming_maneuver") &&
+            ship.Abilities.Contains("merge_maneuver") && collisions.Count > 0)
+        {
+            return BattleshipCompositeShipFactory.TryMerge(
+                player, ship, newRow, newCol, out _, out _);
         }
 
         foreach (var (r, c) in oldCells)
@@ -2681,7 +3484,8 @@ public static class BattleshipGameEngine
         var summon = player.Summons.FirstOrDefault(s => s.Id == summonId && s.IsAlive && s.WaitingForDirectionChoice);
         if (summon == null) return false;
         var (nextRow, nextCol) = GetNextPosition(summon.Row, summon.Col, direction);
-        if (nextRow is < 0 or >= 10 || nextCol is < 0 or >= 10) return false;
+        if (!CanFitSummonHullInBounds(summon, nextRow, nextCol, direction))
+            return false;
 
         summon.MoveDirection = direction;
         summon.WaitingForDirectionChoice = false;
@@ -2693,10 +3497,7 @@ public static class BattleshipGameEngine
     /// </summary>
     public static string GenerateMastWarning(BattleshipPlayer player, SummonType summonType, int row = -1, int col = -1)
     {
-        var hasMast = player.Board.PlacedShips.Any(s =>
-            !s.IsDestroyed && s.Decks.Any(d => d.Module == "mast" && !d.ModuleDestroyed));
-
-        if (!hasMast) return null;
+        if (!HasLivingMast(player)) return null;
 
         var coord = row >= 0 && col >= 0 ? $" ({(char)('A' + col)}{row + 1})" : "";
 

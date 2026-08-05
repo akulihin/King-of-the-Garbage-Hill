@@ -30,7 +30,11 @@ public static class ShipCatalog
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { },
             Factions = new() { Faction.Empire, Faction.Alliance },
             Description = "Базовый двухпалубный корабль средней дальности с Баллистой.",
-            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } },
+            AvailableUpgrades = new()
+            {
+                new UpgradeDefinition { Id = "double_mast", Name = "Mast", NameRu = "Мачта", Cost = 2, Description = "Устанавливает модуль Мачта на носовую палубу.", Effect = "mast_bow" },
+            }
         },
         new ShipDefinition
         {
@@ -46,7 +50,7 @@ public static class ShipCatalog
             },
             AvailableUpgrades = new()
             {
-                new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "spawn_pirate_boat" },
+                new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "crew_boarding_pirate" },
                 new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 4, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных выбранных снаряда.", Effect = "extra_ammo" },
                 new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палубы 1", Cost = 4, Description = "Увеличивает прочность первой палубы на 4, но не выше 9.", Effect = "armor_deck_0" },
                 new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1" },
@@ -81,6 +85,13 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 4, 4, 4, 4 }, Speed = 1, Space = 1,
             Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
             Abilities = new() { "diagonal_shape" },
+            DeckOffsets = new()
+            {
+                new DeckOffset { Row = 0, Col = 0 },
+                new DeckOffset { Row = 1, Col = 1 },
+                new DeckOffset { Row = 2, Col = 2 },
+                new DeckOffset { Row = 3, Col = 3 },
+            },
             Description = "Домашний флагман Альянса с четырьмя палубами по диагонали: Котельная, Мачта, Тетракамнемёт и Баллиста.",
             DefaultWeapons = new()
             {
@@ -98,6 +109,19 @@ public static class ShipCatalog
         },
 
         // ── Upgraded (cost coins) ships ─────────────────────────────
+        new ShipDefinition
+        {
+            Id = "fast_warming_ship", Name = "Быстроразогревающийся корабль", NameRu = "Быстроразогревающийся корабль",
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsHome = true,
+            DeckHpOverrides = new() { 1, 1, 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2,
+            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Abilities = new() { "double_shot_while_alive", "overheat_after_20_shots" },
+            Description = "Домашняя альтернатива диагональному флагману: даёт второй выстрел за ход, а после 20 выстрелов владельца взрывается в радиусе 2.",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+            }
+        },
         new ShipDefinition
         {
             Id = "desiccator", Name = "Desiccator", NameRu = "Иссушитель",
@@ -139,6 +163,7 @@ public static class ShipCatalog
             Id = "alchi_barge", Name = "Alchi-Barge", NameRu = "Алхи-Баржа",
             DeckCount = 1, Range = RangeClass.Close, Cost = 15,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.East },
+            Factions = new() { Faction.Empire, Faction.Alliance },
             Abilities = new() { "poison_cone" },
             Description = "Создаёт перед носом ядовитый конус, уничтожающий корабли и призывы в зоне.",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
@@ -154,10 +179,10 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
-            Id = "famous_assembling_ship", Name = "Знаменитый собирающийся корабль", NameRu = "Знаменитый собирающийся корабль",
+            Id = "famous_assembling_ship", Name = "Заслуженный собирающийся корабль", NameRu = "Заслуженный собирающийся корабль",
             DeckCount = 3, Range = RangeClass.Mid, Cost = 20,
             DeckHpOverrides = new() { 1, 1, 1 }, Speed = 1, Space = 1,
-            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Regions = new() { Region.Tetracor, Region.West }, Factions = new() { Faction.Alliance },
             Description = "Начинает бой тремя отдельными палубами и собирается в новый трёхпалубный корабль после гибели двух из них.",
             DefaultWeapons = new()
             {
@@ -223,6 +248,36 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
+            Id = "merging_ship", Name = "Сливающийся корабль", NameRu = "Сливающийся корабль",
+            DeckCount = 2, Range = RangeClass.Mid, Cost = 25,
+            DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
+            Factions = new() { Faction.Alliance },
+            Abilities = new() { "merge_maneuver" },
+            Description = "Может в любое время маневрировать и объединяться с союзным кораблём в Уютный Совместный корабль.",
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
+        },
+        new ShipDefinition
+        {
+            Id = "famous_capturing_ship", Name = "Знаменитый захватывающий корабль", NameRu = "Знаменитый захватывающий корабль",
+            DeckCount = 3, Range = RangeClass.CloseMelee, Cost = 25,
+            DeckHpOverrides = new() { 4, 4, 4 }, Speed = 1, Space = 1, Regions = new() { Region.South },
+            Factions = new() { Faction.Alliance },
+            Abilities = new() { "capturing_shape", "grab_summon", "capture_reward" },
+            DeckOffsets = new()
+            {
+                new DeckOffset { Row = 0, Col = 0 },
+                new DeckOffset { Row = 0, Col = 2 },
+                new DeckOffset { Row = 1, Col = 1 },
+            },
+            Description = "Корабль без орудий с клеткой Grab внутри корпуса и наградой за захват вражеских кораблей.",
+            DefaultWeapons = new(),
+            AvailableUpgrades = new()
+            {
+                new UpgradeDefinition { Id = "capturing_ship_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если корабль дожил до абордажа, выпускает одну Пиратскую лодку.", Effect = "crew_boarding_pirate" },
+            }
+        },
+        new ShipDefinition
+        {
             Id = "pirates", Name = "Pirates", NameRu = "Пираты",
             DeckCount = 2, Range = RangeClass.Mid, Cost = 4,
             DeckHpOverrides = new() { 2, 2 }, Space = 1, Regions = new() { Region.South },
@@ -263,8 +318,20 @@ public static class ShipCatalog
             var hp = def.DeckHpOverrides != null && i < def.DeckHpOverrides.Count
                 ? def.DeckHpOverrides[i]
                 : def.DefaultArmor;
+            var configuredOffset = def.DeckOffsets != null && i < def.DeckOffsets.Count
+                ? def.DeckOffsets[i]
+                : null;
+            var offsetRow = configuredOffset?.Row ?? (def.Abilities.Contains("diagonal_shape") ? i : 0);
+            var offsetCol = configuredOffset?.Col ?? i;
 
-            ship.Decks.Add(new Deck { Index = i, MaxHp = hp, CurrentHp = hp });
+            ship.Decks.Add(new Deck
+            {
+                Index = i,
+                OffsetRow = offsetRow,
+                OffsetCol = offsetCol,
+                MaxHp = hp,
+                CurrentHp = hp,
+            });
         }
 
         // Add weapons
@@ -368,6 +435,8 @@ public static class ShipCatalog
             ship.Decks.Add(new Deck
             {
                 Index = 0,
+                OffsetRow = 0,
+                OffsetCol = 0,
                 MaxHp = 1,
                 CurrentHp = 1,
                 Module = "ballista",
@@ -389,7 +458,7 @@ public static class ShipCatalog
     public static Ship CreateAssembledShip(ShipDefinition def)
     {
         var ship = CreateShip(def);
-        ship.Name = "Знаменитый собирающийся корабль";
+        ship.Name = def.Name;
         ship.AssemblyGroupId = null;
         ship.AssemblyComponentIndex = -1;
         ship.IsAssemblyComponent = false;
@@ -405,7 +474,7 @@ public static class ShipCatalog
         switch (upgradeDef.Effect)
         {
             case "extra_ammo":
-                // Don't add ammo now — +2 White Stones added on boarding
+                // Don't add ammo now — +2 placement-selected projectiles are added on Boarding.
                 ship.Abilities.Add("extra_ammo_boarding");
                 break;
 
@@ -423,6 +492,30 @@ public static class ShipCatalog
             case "spawn_pirate_boat":
                 if (!ship.Abilities.Contains("spawn_pirate_boat"))
                     ship.Abilities.Add("spawn_pirate_boat");
+                break;
+
+            case "crew_boarding_pirate":
+                if (!ship.Abilities.Contains("crew_boarding_pirate"))
+                    ship.Abilities.Add("crew_boarding_pirate");
+                break;
+
+            case "mast_bow":
+                var bowDeck = ship.Decks.FirstOrDefault(deck => deck.Index == 0);
+                if (bowDeck == null) break;
+
+                bowDeck.Module = "mast";
+                if (!ship.Weapons.Any(weapon =>
+                        weapon.Type == WeaponType.Mast && weapon.DeckIndex == bowDeck.Index))
+                {
+                    ship.Weapons.Add(new Weapon
+                    {
+                        Type = WeaponType.Mast,
+                        Ammo = -1,
+                        MaxAmmo = -1,
+                        ShipId = ship.Id,
+                        DeckIndex = bowDeck.Index,
+                    });
+                }
                 break;
 
             case "greek_fire":

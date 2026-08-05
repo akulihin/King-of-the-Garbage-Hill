@@ -34,6 +34,7 @@ public static class FleetValidator
         var totalCost = 0;
         var regions = new HashSet<Region>();
         var freeSelectionsPerDefinition = new Dictionary<string, int>();
+        var doubleMastUpgradeCount = 0;
 
         // Count purchased ships per deck-count
         var purchasedPerDeck = new Dictionary<int, int> { { 1, 0 }, { 2, 0 }, { 3, 0 }, { 4, 0 } };
@@ -48,6 +49,10 @@ public static class FleetValidator
 
             if (sel.Upgrades?.Count != sel.Upgrades?.Distinct().Count())
                 return (false, $"Апгрейд корабля {def.Name} выбран несколько раз.");
+
+            if (def.Id == "double" && sel.Upgrades?.Contains("double_mast") == true &&
+                ++doubleMastUpgradeCount > 1)
+                return (false, "Мачту для Double можно купить только один раз.");
 
             if (sel.Upgrades?.Contains("tetra_discus") == true)
                 return (false, "Дискобол пока не реализован и недоступен для покупки.");

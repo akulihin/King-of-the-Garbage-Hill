@@ -50,11 +50,24 @@ public static class Madara
         public bool ThemeStarted { get; set; }
         public bool Sealed { get; set; }
         public bool EternalTsukuyomiActive { get; set; }
+        public bool EternalTsukuyomiOpeningCaptured { get; set; }
         public bool EternalTsukuyomiRoundPrepared { get; set; }
         public bool EternalTsukuyomiWinnerCaptured { get; set; }
         public Guid EternalTsukuyomiWinnerPlayerId { get; set; } = Guid.Empty;
+        public List<Guid> EternalTsukuyomiAuthoritativeOrder { get; set; } = new();
+        public Dictionary<Guid, EternalTsukuyomiStanding> EternalTsukuyomiStandings { get; set; } = new();
         public Dictionary<Guid, List<Guid>> EternalTsukuyomiIllusoryTargets { get; set; } = new();
     }
+
+    public sealed class EternalTsukuyomiStanding
+    {
+        public decimal Score { get; set; }
+        public bool HomelanderSevenPointsActive { get; set; }
+        public bool IsDead { get; set; }
+        public string DeathSource { get; set; } = "";
+    }
+
+    public readonly record struct IllusoryFight(Guid AttackerId, Guid DefenderId);
 
     public static bool HasReanimatedBody(CharacterClass character) =>
         character?.Name == CharacterName
@@ -91,7 +104,7 @@ public static class Madara
     public static bool IsEternalTsukuyomiEndingCaptured(GameClass game) =>
         Find(game)?.Passives.Madara.EternalTsukuyomiWinnerCaptured == true;
 
-    public static bool TryCaptureEternalTsukuyomiEnding(GameClass game)
+    public static bool CaptureEternalTsukuyomiRoundOpening(GameClass game)
     {
         if (game?.RoundNo != 10) return false;
 
@@ -101,27 +114,77 @@ public static class Madara
             return false;
 
         var state = madara.Passives.Madara;
-        if (!state.EternalTsukuyomiActive
-            && ordered.FirstOrDefault()?.GetPlayerId() != madara.GetPlayerId())
-            return false;
+        if (state.EternalTsukuyomiOpeningCaptured)
+            return state.EternalTsukuyomiActive;
 
         game.PlayersList = ordered;
         for (var index = 0; index < game.PlayersList.Count; index++)
-        {
             game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
-            game.PlayersList[index].Status.PlaceAtLeaderBoardHistory.Add(
-                new InGameStatus.PlaceAtLeaderBoardHistoryClass(
-                    game.RoundNo,
-                    index + 1));
-        }
 
-        state.EternalTsukuyomiActive = true;
-        state.EternalTsukuyomiWinnerCaptured = true;
+        state.EternalTsukuyomiOpeningCaptured = true;
+        state.EternalTsukuyomiAuthoritativeOrder = game.PlayersList
+            .Select(player => player.GetPlayerId())
+            .ToList();
+        state.EternalTsukuyomiStandings = game.PlayersList.ToDictionary(
+            player => player.GetPlayerId(),
+            player => new EternalTsukuyomiStanding
+            {
+                Score = player.Status.GetScore(),
+                HomelanderSevenPointsActive = player.Status.HomelanderSevenPointsActive,
+                IsDead = player.Passives.IsDead,
+                DeathSource = player.Passives.DeathSource,
+            });
         state.EternalTsukuyomiWinnerPlayerId =
             game.PlayersList.FirstOrDefault(player => !player.Passives.IsDead)?.GetPlayerId()
             ?? game.PlayersList.First().GetPlayerId();
-        PrepareEternalTsukuyomiRound(game);
-        game.IsFinished = true;
+
+        if (state.EternalTsukuyomiActive
+            || game.PlayersList.First().GetPlayerId() == madara.GetPlayerId())
+        {
+            state.EternalTsukuyomiActive = true;
+            state.EternalTsukuyomiWinnerCaptured = true;
+        }
+
+        return state.EternalTsukuyomiActive;
+    }
+
+    public static bool RestoreEternalTsukuyomiReality(GameClass game)
+    {
+        var madara = Find(game);
+        if (madara == null) return false;
+
+        var state = madara.Passives.Madara;
+        if (!state.EternalTsukuyomiWinnerCaptured
+            || state.EternalTsukuyomiAuthoritativeOrder.Count == 0)
+            return false;
+
+        var playersById = game.PlayersList.ToDictionary(player => player.GetPlayerId());
+        game.PlayersList = state.EternalTsukuyomiAuthoritativeOrder
+            .Where(playersById.ContainsKey)
+            .Select(playerId => playersById[playerId])
+            .Concat(game.PlayersList.Where(player =>
+                !state.EternalTsukuyomiAuthoritativeOrder.Contains(player.GetPlayerId())))
+            .ToList();
+
+        for (var index = 0; index < game.PlayersList.Count; index++)
+        {
+            var player = game.PlayersList[index];
+            if (state.EternalTsukuyomiStandings.TryGetValue(
+                    player.GetPlayerId(), out var standing))
+            {
+                player.Status.RestoreEternalTsukuyomiScore(
+                    standing.Score,
+                    standing.HomelanderSevenPointsActive);
+                player.Passives.IsDead = standing.IsDead;
+                player.Passives.DeathSource = standing.DeathSource;
+            }
+
+            player.Status.SetPlaceAtLeaderBoard(index + 1);
+            player.Status.PlaceAtLeaderBoardHistory.RemoveAll(entry => entry.GameRound == 10);
+            player.Status.PlaceAtLeaderBoardHistory.Add(
+                new InGameStatus.PlaceAtLeaderBoardHistoryClass(10, index + 1));
+        }
+
         return true;
     }
 
@@ -131,6 +194,9 @@ public static class Madara
 
         var madara = Find(game);
         var state = madara!.Passives.Madara;
+        if (!state.EternalTsukuyomiOpeningCaptured)
+            CaptureEternalTsukuyomiRoundOpening(game);
+        state.EternalTsukuyomiWinnerCaptured = true;
         if (!state.EternalTsukuyomiRoundPrepared)
         {
             state.EternalTsukuyomiRoundPrepared = true;
@@ -139,32 +205,15 @@ public static class Madara
                 EternalTsukuyomiPhrase,
                 "Infinite Tsukuyomi",
                 "Behold the perfect world without wars.") + "\n");
-            state.EternalTsukuyomiIllusoryTargets = game.PlayersList
-                .Where(player => player.GetPlayerId() != madara.GetPlayerId())
-                .ToDictionary(
+            state.EternalTsukuyomiIllusoryTargets = game.PlayersList.ToDictionary(
                     player => player.GetPlayerId(),
-                    player => state.EternalTsukuyomiWinnerCaptured
-                        ? new List<Guid>()
-                        : player.Status.WhoToAttackThisTurn
-                            .Where(targetId => targetId != player.GetPlayerId())
-                            .ToList());
+                    player => player.Status.WhoToAttackThisTurn
+                        .Where(targetId => targetId != player.GetPlayerId())
+                        .ToList());
         }
 
         foreach (var player in game.PlayersList)
         {
-            // The terminal capture opens no action window. Bug and a reserved Gordon keep their
-            // presentation state only so the final projection can select the authoritative view.
-            if (UnknownBug.Is(player))
-                continue;
-
-            if (GordonFreeman.IsAwakeForEternalTsukuyomi(player, game))
-            {
-                player.Status.IsSkip = false;
-                player.Status.IsSkipBreak = true;
-                player.Status.ConfirmedSkip = true;
-                continue;
-            }
-
             player.Status.IsSkip = true;
             player.Status.TurnInterference = player.GetPlayerId() == madara.GetPlayerId()
                 ? TurnInterferenceKind.Self
@@ -181,16 +230,18 @@ public static class Madara
         return true;
     }
 
-    public static IReadOnlyList<Guid> GetIllusoryTargets(
+    public static IReadOnlyList<IllusoryFight> GetIllusoryFights(
         GameClass game, GamePlayerBridgeClass viewer)
     {
         var madara = Find(game);
-        if (madara == null || viewer == null) return Array.Empty<Guid>();
+        if (madara == null || viewer == null) return Array.Empty<IllusoryFight>();
 
+        var viewerId = viewer.GetPlayerId();
         return madara.Passives.Madara.EternalTsukuyomiIllusoryTargets
-            .TryGetValue(viewer.GetPlayerId(), out var targets)
-            ? targets
-            : Array.Empty<Guid>();
+            .SelectMany(entry => entry.Value.Select(targetId =>
+                new IllusoryFight(entry.Key, targetId)))
+            .Where(fight => fight.AttackerId == viewerId || fight.DefenderId == viewerId)
+            .ToList();
     }
 
     public static bool CanUseTooGood(GamePlayerBridgeClass player) =>
@@ -513,8 +564,8 @@ public static class Madara
 
         var before = target.GameCharacter.GetMoral();
         if (before > 0)
-            target.GameCharacter.AddMoral(-before, SecondMeteorite);
-        target.GameCharacter.Justice.SetRealJusticeNow(0, SecondMeteorite);
+            target.GameCharacter.AddMoral(-before, SecondMeteorite, isLog: false);
+        target.GameCharacter.Justice.SetRealJusticeNow(0, SecondMeteorite, isLog: false);
         return target.GameCharacter.GetMoral() - before;
     }
 
@@ -640,6 +691,21 @@ public static class Madara
         if (IsMadara(viewer))
             return $"Все игроки пропустили ход...\n\n**{realWinner.DiscordUsername}** победил, играя за **{realWinner.GameCharacter.Name}**";
 
-        return $"**{viewer.DiscordUsername}** победил, играя за **{viewer.GameCharacter.Name}**";
+        var fightLines = GetIllusoryFights(game, viewer)
+            .Select(fight =>
+            {
+                var attacker = game.PlayersList.Find(player =>
+                    player.GetPlayerId() == fight.AttackerId);
+                var defender = game.PlayersList.Find(player =>
+                    player.GetPlayerId() == fight.DefenderId);
+                return attacker == null || defender == null
+                    ? ""
+                    : $"{attacker.DiscordUsername} <:war:561287719838547981> {defender.DiscordUsername} ⟶ {viewer.DiscordUsername}";
+            })
+            .Where(line => line.Length > 0)
+            .ToList();
+        var fights = fightLines.Count == 0 ? "" : string.Join("\n", fightLines) + "\n\n";
+        return fights +
+               $"**{viewer.DiscordUsername}** победил, играя за **{viewer.GameCharacter.Name}**";
     }
 }

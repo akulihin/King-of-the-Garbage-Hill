@@ -8,6 +8,17 @@ const store = useBattleshipStore()
 const phase = computed(() => store.phase)
 const isMyTurn = computed(() => store.isMyTurn)
 
+const isSelfTurnSkip = computed(() => {
+  const notice = store.turnSkipNotice
+  const myPlayerId = store.gameState?.myPlayerId
+  return !!notice && !!myPlayerId && notice.skippedPlayerId === myPlayerId
+})
+
+const isEnemyTurnSkip = computed(() => {
+  const notice = store.turnSkipNotice
+  return !!notice && notice.skippedPlayerId !== store.gameState?.myPlayerId
+})
+
 // ── Turn transition sweep ───────────────────────────────
 const turnTransitionActive = ref(false)
 
@@ -98,7 +109,7 @@ const phaseOverlayText = computed(() => {
   <!-- Automatic Penalty/Stun turn cancellation -->
   <Transition name="turn-skip">
     <div
-      v-if="store.turnSkipNotice"
+      v-if="store.turnSkipNotice && isSelfTurnSkip"
       class="turn-skip-overlay"
       :key="store.turnSkipNotice.id"
     >
@@ -111,6 +122,32 @@ const phaseOverlayText = computed(() => {
         <div class="turn-skip-title">{{ turnSkipTitle }}</div>
         <div class="turn-skip-reason">{{ turnSkipReason }}</div>
       </div>
+    </div>
+  </Transition>
+
+  <!-- Enemy skips stay non-blocking: a compact receipt plus a one-second checkmark. -->
+  <div
+    v-if="store.turnSkipNotice && isEnemyTurnSkip"
+    class="enemy-turn-skip-feedback"
+    :key="`enemy-skip-${store.turnSkipNotice.id}`"
+    role="status"
+    aria-live="polite"
+  >
+    <div class="enemy-turn-skip-note">
+      <span class="enemy-turn-skip-note-check" aria-hidden="true">✓</span>
+      {{ message('battleship.turnSkip.enemyCompact') }}
+    </div>
+    <div class="enemy-turn-skip-check" aria-hidden="true">✓</div>
+  </div>
+
+  <!-- Immediate feedback when the resolving action applies Penalty -->
+  <Transition name="penalty-flash">
+    <div
+      v-if="store.penaltyFeedbackId"
+      class="penalty-feedback-overlay"
+      :key="store.penaltyFeedbackId"
+    >
+      <div class="penalty-feedback-text">{{ message('battleship.penaltyFeedback.title') }}</div>
     </div>
   </Transition>
 
@@ -161,6 +198,39 @@ const phaseOverlayText = computed(() => {
 .streak-flash-enter-active { transition: opacity 50ms ease-out; }
 .streak-flash-leave-active { transition: opacity 100ms ease-out; }
 .streak-flash-enter-from, .streak-flash-leave-to { opacity: 0; }
+
+.penalty-feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: rgba(126, 0, 0, 0.42);
+  animation: penalty-feedback-pulse 1.4s ease-out forwards;
+}
+.penalty-feedback-text {
+  padding: 0.35em 0.75em;
+  border: 3px solid color-mix(in srgb, var(--accent-red) 78%, white);
+  border-radius: 14px;
+  background: rgba(24, 0, 0, 0.88);
+  color: #fff;
+  font-size: clamp(3rem, 13vw, 8rem);
+  font-weight: 1000;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 16px var(--accent-red), 0 4px 0 #490000;
+  box-shadow: 0 0 60px color-mix(in srgb, var(--accent-red) 80%, transparent);
+}
+.penalty-flash-enter-active,
+.penalty-flash-leave-active { transition: opacity 0.18s ease; }
+.penalty-flash-enter-from,
+.penalty-flash-leave-to { opacity: 0; }
+@keyframes penalty-feedback-pulse {
+  0% { opacity: 0; transform: scale(1.35); }
+  12% { opacity: 1; transform: scale(1); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.96); }
+}
 
 /* ═══════ Phase transition overlay ═══════ */
 .phase-overlay {
@@ -329,6 +399,60 @@ const phaseOverlayText = computed(() => {
 .turn-skip-leave-active { transition: opacity 120ms ease-out; }
 .turn-skip-leave-to { opacity: 0; }
 
+/* Enemy turn skips must not cover or block the board. */
+.enemy-turn-skip-feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 195;
+  pointer-events: none;
+}
+.enemy-turn-skip-note {
+  position: absolute;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, #86efac 52%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-card) 92%, #052e16);
+  color: #dcfce7;
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.34);
+  animation: enemy-turn-skip-note 1000ms ease-out forwards;
+}
+.enemy-turn-skip-note-check {
+  color: #86efac;
+  font-size: 1rem;
+  line-height: 1;
+}
+.enemy-turn-skip-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: #86efac;
+  font-size: clamp(5rem, 18vw, 11rem);
+  font-weight: 1000;
+  line-height: 1;
+  text-shadow:
+    0 0 18px color-mix(in srgb, #86efac 72%, transparent),
+    0 0 48px color-mix(in srgb, #22c55e 42%, transparent);
+  animation: enemy-turn-skip-check 1000ms cubic-bezier(.16, .8, .3, 1) forwards;
+}
+@keyframes enemy-turn-skip-note {
+  0% { transform: translateY(-10px); opacity: 0; }
+  16%, 72% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-4px); opacity: 0; }
+}
+@keyframes enemy-turn-skip-check {
+  0% { transform: translate(-50%, -50%) scale(0.45) rotate(-10deg); opacity: 0; }
+  18% { transform: translate(-50%, -50%) scale(1.08) rotate(0); opacity: 0.94; }
+  62% { transform: translate(-50%, -50%) scale(1); opacity: 0.82; }
+  100% { transform: translate(-50%, -54%) scale(1.18); opacity: 0; filter: blur(3px); }
+}
+
 /* ═══════ Boarding cinematic ═══════ */
 .boarding-cine-overlay {
   position: fixed;
@@ -381,6 +505,10 @@ const phaseOverlayText = computed(() => {
   }
   .turn-skip-symbol-slash {
     transform: rotate(-38deg) scaleX(1);
+  }
+  .enemy-turn-skip-note,
+  .enemy-turn-skip-check {
+    animation-timing-function: linear;
   }
 }
 </style>

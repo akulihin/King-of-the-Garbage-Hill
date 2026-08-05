@@ -343,7 +343,6 @@ export type GordonState = {
   crowbarProgress: number
   wakeUsed: boolean
   canWake: boolean
-  wakeReservedForTsukuyomi: boolean
   headcrabsRemoved: number
   zombieCount: number
   activeHeadcrabs: GordonHeadcrabState[]
@@ -1058,6 +1057,7 @@ export type BattleshipGameState = {
   isFinished: boolean
   winnerId: string | null
   currentTurnPlayerId: string | null
+  boardingPlayerId: string | null
   isMyTurn: boolean
   myPlayerId: string | null
   gameLog: string[]
@@ -1099,6 +1099,8 @@ export type BattleshipPlayerState = {
   summonSlotsUsed: number
   maxSummonSlots: number
   branderUsed: boolean
+  useSharedTetracatapultAmmo: boolean
+  useGhostSummons: boolean
   selectedShotType: string
   selectedWeaponId: string | null
   revealedCellCount: number
@@ -1110,6 +1112,7 @@ export type BattleshipPlayerState = {
   mandatoryBoardingBrander: boolean
   boardingDeploymentCapacity: number
   pendingManeuver: BattleshipPendingManeuver | null
+  voluntaryManeuvers?: BattleshipVoluntaryManeuver[]
   pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
   pendingAssembly: BattleshipPendingAssembly | null
   shotDelayRemainingMs: number
@@ -1131,6 +1134,9 @@ export type BattleshipAvailableWeapon = {
   shipName: string
   type: string
   ammo: number
+  maxAmmo: number
+  isShared: boolean
+  sources: string[]
   deckIndex: number
   aimRemaining: number
   shotType: string
@@ -1155,6 +1161,8 @@ export type BattleshipPendingManeuver = {
   shipName: string
   options: BattleshipManeuverOption[]
 }
+
+export type BattleshipVoluntaryManeuver = BattleshipPendingManeuver
 
 export type BattleshipManeuverOption = {
   direction: string
@@ -1212,6 +1220,7 @@ export type BattleshipCell = {
   summonType: string | null
   summonName?: string | null
   isBoardingSummon?: boolean
+  isGhostSummon?: boolean
   summonMoveDirection?: string | null
   boardingShipDeckCount?: number
   isScratched: boolean
@@ -1227,6 +1236,7 @@ export type BattleshipCell = {
   isDevastated?: boolean
   isCaptured?: boolean
   isFirePermanent?: boolean
+  isGrabCell?: boolean
   sunkShipName?: string | null
 }
 
@@ -1237,6 +1247,8 @@ export type BattleshipShip = {
   deckCount: number
   row: number
   col: number
+  grabRow?: number | null
+  grabCol?: number | null
   orientation: BattleshipOrientation
   isDestroyed: boolean
   isPlaced: boolean
@@ -1257,6 +1269,8 @@ export type BattleshipShip = {
 
 export type BattleshipDeck = {
   index: number
+  offsetRow?: number | null
+  offsetCol?: number | null
   maxHp: number
   currentHp: number
   isDestroyed: boolean
@@ -1288,6 +1302,7 @@ export type BattleshipSummon = {
   isBoardingShip: boolean
   sourceShipName?: string | null
   sourceShipDeckCount: number
+  isGhost: boolean
 }
 
 export type BattleshipFleetSelection = {
@@ -1335,6 +1350,7 @@ export type BattleshipShotResult = {
   shipSunk: boolean
   burned: boolean
   dodged: boolean
+  penaltyApplied: boolean
   row: number
   col: number
   turnContinues: boolean
@@ -2138,8 +2154,19 @@ class SignalRService {
     await this.connection?.invoke('BattleshipRemoveShip', gameId, shipId)
   }
 
-  async battleshipConfirmPlacement(gameId: string, loadouts: BattleshipWeaponLoadout[]): Promise<void> {
-    await this.connection?.invoke('BattleshipConfirmPlacement', gameId, loadouts)
+  async battleshipConfirmPlacement(
+    gameId: string,
+    loadouts: BattleshipWeaponLoadout[],
+    useSharedTetracatapultAmmo = true,
+    useGhostSummons = true,
+  ): Promise<void> {
+    await this.connection?.invoke(
+      'BattleshipConfirmPlacement',
+      gameId,
+      loadouts,
+      useSharedTetracatapultAmmo,
+      useGhostSummons,
+    )
   }
 
   async battleshipCancelPlacement(gameId: string): Promise<void> {

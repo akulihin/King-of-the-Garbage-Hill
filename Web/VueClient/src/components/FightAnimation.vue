@@ -34,6 +34,7 @@ const props = withDefaults(defineProps<{
   predictions?: Prediction[]
   isAdmin?: boolean
   proMode?: boolean
+  allowLetopisInPro?: boolean
   terminalMode?: boolean
   showDetailedFactors?: boolean
   characterCatalog?: CharacterInfo[]
@@ -53,6 +54,7 @@ const props = withDefaults(defineProps<{
   predictions: () => [],
   isAdmin: false,
   proMode: false,
+  allowLetopisInPro: false,
   terminalMode: false,
   showDetailedFactors: false,
   characterCatalog: () => [],
@@ -88,6 +90,7 @@ const emit = defineEmits<{
 
 /** Active tab: 'fights' = replay, 'all' = compact results list, 'letopis' = full text log, 'story' = AI story */
 const activeTab = ref<'fights' | 'all' | 'letopis' | 'story'>(props.proMode ? 'all' : 'fights')
+const canOpenLetopis = computed(() => !props.proMode || props.allowLetopisInPro)
 /** Tracks whether user manually switched tabs this round (prevents auto-transition) */
 const userSwitchedTab = ref(false)
 /** True when new fights arrived while user was on a non-fights tab */
@@ -98,7 +101,8 @@ const showStoryPopup = ref(false)
 const storyPopupShown = ref(false)
 
 function setTab(tab: 'fights' | 'all' | 'letopis' | 'story') {
-  if (props.proMode && (tab === 'fights' || tab === 'letopis')) return
+  if (props.proMode && tab === 'fights') return
+  if (tab === 'letopis' && !canOpenLetopis.value) return
   activeTab.value = tab
   userSwitchedTab.value = true
   if (tab === 'fights') hasUnseenFights.value = false
@@ -110,7 +114,7 @@ watch([() => props.rewriteHistoryLastChance, () => props.roundKey], ([isLastChan
   if (!isLastChance || !rewriteKey || lastAutoOpenedRewriteKey.value === rewriteKey) return
 
   lastAutoOpenedRewriteKey.value = rewriteKey
-  activeTab.value = props.proMode ? 'all' : 'letopis'
+  activeTab.value = canOpenLetopis.value ? 'letopis' : 'all'
   userSwitchedTab.value = true
 }, { immediate: true })
 
@@ -216,6 +220,34 @@ function jumpToFightReplay(f: FightEntry) {
 /** Fights shown in the replay — only own fights (admins see all) */
 const myFights = computed(() => props.fights.filter(isReplayFight))
 const streamWinningFights = computed(() => props.terminalMode ? props.fights.filter(isStreamWin) : [])
+/** A normal player's empty personal-fight tab is visually muted and yields to Results. */
+const hasEmptyPersonalFightTab = computed(() =>
+  !props.proMode && !props.terminalMode && myFights.value.length === 0)
+
+const EMPTY_FIGHTS_RESULTS_DELAY_MS = 3000
+let emptyFightTabTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearEmptyFightTabTimer() {
+  if (emptyFightTabTimer) {
+    clearTimeout(emptyFightTabTimer)
+    emptyFightTabTimer = null
+  }
+}
+
+watch([
+  activeTab,
+  hasEmptyPersonalFightTab,
+  () => props.roundIdentity || props.roundKey,
+], ([tab, isEmpty]) => {
+  clearEmptyFightTabTimer()
+  if (tab !== 'fights' || !isEmpty) return
+
+  emptyFightTabTimer = setTimeout(() => {
+    emptyFightTabTimer = null
+    if (activeTab.value === 'fights' && hasEmptyPersonalFightTab.value)
+      activeTab.value = 'all'
+  }, EMPTY_FIGHTS_RESULTS_DELAY_MS)
+}, { immediate: true })
 
 const fight = computed<FightEntry | null>(() => {
   if (!myFights.value.length) return null
@@ -736,6 +768,9 @@ watch([myFights, () => props.roundKey, perspectiveUsername], () => {
   if (!myFights.value.length) {
     clearTimer()
     clearR3Timers()
+    userSwitchedTab.value = false
+    activeTab.value = props.proMode ? 'all' : 'fights'
+    hasUnseenFights.value = false
     isPlaying.value = false
     skippedToEnd.value = false
     currentFightIdx.value = 0
@@ -797,6 +832,7 @@ watch(() => props.roundIdentity || props.roundKey, () => {
 onUnmounted(() => {
   clearTimer()
   clearR3Timers()
+  clearEmptyFightTabTimer()
   justiceUpTimers.forEach(clearTimeout)
   justiceUpTimers.clear()
   if (weighingAnimFrame) cancelAnimationFrame(weighingAnimFrame)
@@ -1570,9 +1606,9 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- Tab header -->
     <div class="fa-tab-header">
-      <button v-if="!proMode" class="fa-tab" :class="{ active: activeTab === 'fights' }" data-sfx-fight-tab="true" @click="setTab('fights')">Мои сражения<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
+      <button v-if="!proMode" class="fa-tab" :class="{ active: activeTab === 'fights', 'is-empty': hasEmptyPersonalFightTab }" :disabled="hasEmptyPersonalFightTab" data-sfx-fight-tab="true" @click="setTab('fights')">Мои сражения<span v-if="hasUnseenFights && activeTab !== 'fights'" class="fa-tab-dot"></span></button>
       <button class="fa-tab" :class="{ active: activeTab === 'all' }" data-sfx-fight-tab="true" @click="setTab('all')">Итоги</button>
-      <button v-if="!proMode" class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-fight-tab="true" @click="setTab('letopis')">Летопись</button>
+      <button v-if="canOpenLetopis" class="fa-tab" :class="{ active: activeTab === 'letopis' }" data-sfx-fight-tab="true" @click="setTab('letopis')">Летопись</button>
       <button v-if="gameStory" class="fa-tab fa-tab-story" :class="{ active: activeTab === 'story' }" data-sfx-fight-tab="true" @click="setTab('story')">История</button>
     </div>
 
@@ -1610,27 +1646,6 @@ function getDisplayCharName(orig: string, u: string): string {
 
     <!-- All Fights (compact results list) -->
     <div v-else-if="activeTab === 'all'" class="fa-all-fights">
-      <div
-        v-if="proMode && rewriteHistoryRounds.length"
-        class="fa-rewrite-history"
-        :class="{ 'is-last-chance': rewriteHistoryLastChance }"
-      >
-        <div v-for="roundNumber in rewriteHistoryRounds" :key="roundNumber" class="fa-rewrite-row">
-          <span class="fa-rewrite-round">{{ chronicleText(`Round #${roundNumber}`, `Раунд #${roundNumber}`) }}</span>
-          <button
-            type="button"
-            class="fa-rewrite-button"
-            :class="{ 'is-last-chance': rewriteHistoryLastChance }"
-            data-sfx-utility="true"
-            :disabled="rewriteHistoryPendingRound !== null"
-            @click="emit('rewrite-history', roundNumber)"
-          >
-            {{ rewriteHistoryPendingRound === roundNumber
-              ? chronicleText('REWRITING…', 'ПЕРЕПИСЫВАЕМ…')
-              : chronicleText('REWRITE HISTORY', 'ПЕРЕПИСАТЬ ИСТОРИЮ') }}
-          </button>
-        </div>
-      </div>
       <div v-if="!sortedFights.length" class="fa-empty">Бои еще не начались</div>
       <div v-else class="fa-all-list">
         <div v-for="(f, idx) in sortedFights" :key="fightRowKey(f, idx)"
@@ -2024,6 +2039,9 @@ function getDisplayCharName(orig: string, u: string): string {
 .fa-tab { flex: 1; padding: 4px 10px; border: none; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; }
 .fa-tab:hover { color: var(--text-primary); }
 .fa-tab.active { background: var(--bg-card); color: var(--accent-gold); }
+.fa-tab.is-empty { opacity: 0.4; filter: grayscale(0.85); cursor: not-allowed; }
+.fa-tab.is-empty:hover { color: var(--text-muted); }
+.fa-tab.is-empty.active { color: var(--text-muted); }
 .fa-tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-orange); margin-left: 4px; vertical-align: middle; animation: tab-dot-pulse 1.5s ease-in-out infinite; }
 @keyframes tab-dot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.7); } }
 

@@ -281,11 +281,14 @@ public class CheckIfReady : IServiceSingleton
         var questSettlementNow = DateTimeOffset.UtcNow;
         var eternalTsukuyomiEnding =
             Madara.IsEternalTsukuyomiEndingCaptured(game);
+        if (eternalTsukuyomiEnding)
+            Madara.RestoreEternalTsukuyomiReality(game);
         var omniManInvasionWinner = eternalTsukuyomiEnding
             ? null
             : OmniMan.GetInvasionWinner(game);
         var cosmicHorrorEnding = game.CthulhuState.HorrorFired;
         GamePlayerBridgeClass top3Player = null;
+        GamePlayerBridgeClass goblinZigWinner = null;
         foreach (var player in game.PlayersList)
             player.Status.ConfirmedSkip = true;
 
@@ -529,10 +532,6 @@ public class CheckIfReady : IServiceSingleton
             _logs.Critical(exception.StackTrace);
         }
 
-        foreach (var t in game.PlayersList)
-            t.Status.PlaceAtLeaderBoardHistory.Add(
-                new InGameStatus.PlaceAtLeaderBoardHistoryClass(game.RoundNo, t.Status.GetPlaceAtLeaderBoard()));
-
         // Premade: if Support and Carry both in top 2, Support wins
         var supportPlayer = game.PlayersList.FirstOrDefault(x =>
             x.GameCharacter.Passive.Any(p => p.PassiveName == "Premade") &&
@@ -558,43 +557,51 @@ public class CheckIfReady : IServiceSingleton
             }
         }
 
-        // Стая Гоблинов: a Ziggurat built at place 1 is the round-10 win — the Ziggurat won't let the
-        // Goblins fall from 1st place, so enforce the win here rather than sorting purely by score (finding M1).
-        var goblinZigWinner = game.PlayersList.FirstOrDefault(x =>
-            x.GameCharacter.Name == "Стая Гоблинов" &&
-            !x.Passives.IsDead &&
-            !x.Passives.PassiveAbilitiesDisabledByKimiko &&
-            x.Passives.GoblinZiggurat.BuiltPositions.Contains(1));
-        if (goblinZigWinner != null && goblinZigWinner.Status.GetPlaceAtLeaderBoard() != 1)
-        {
-            var topScoreGob = game.PlayersList.First().Status.GetScore();
-            var diffGob = topScoreGob - goblinZigWinner.Status.GetScore() + 1;
-            if (diffGob > 0)
-                goblinZigWinner.Status.AddBonusPoints(diffGob, "Гоблины тупые, но не идиоты");
-            // The overtake is the only path from a Ziggurat to a win — record that it actually
-            // happened so `c_goblin_summit` can tell it apart from winning on score (m57).
-            goblinZigWinner.Passives.GoblinZiggurat.EnforcedWinTriggered = true;
-            game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
-            for (var k = 0; k < game.PlayersList.Count; k++)
-                game.PlayersList[k].Status.SetPlaceAtLeaderBoard(k + 1);
-            game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
-        }
-
         JonSnow.HandleFinalPosition(game);
         Homelander.UpdateSevenPointsAvailability(game);
 
+        // Evaluate Sakura against the factual post-score table before another score-free guarantee
+        // can reorder it. If both guarantees qualify, the later Sakura placement keeps its existing
+        // final-settlement priority.
+        top3Player = game.CthulhuState.HorrorFired
+            ? null
+            : game.PlayersList.FirstOrDefault(x =>
+                Sakura.HasUncontestedSoloTopThree(game, x));
+
+        // Стая Гоблинов: only a visit to the place-1 Ziggurat during round 10 guarantees the win.
+        // The guarantee changes final table order without inventing score.
+        goblinZigWinner = game.PlayersList.FirstOrDefault(x =>
+            x.GameCharacter.Name == "Стая Гоблинов" &&
+            !x.Passives.IsDead &&
+            !x.Passives.PassiveAbilitiesDisabledByKimiko &&
+            x.Passives.GoblinZiggurat.TopPositionVisitedOnRoundTen);
+        if (goblinZigWinner != null)
+        {
+            var guaranteeChangedResult = goblinZigWinner.Status.GetPlaceAtLeaderBoard() != 1
+                || game.PlayersList.Any(other =>
+                    other.GetPlayerId() != goblinZigWinner.GetPlayerId()
+                    && !other.Passives.IsDead
+                    && other.Status.GetScore() >= goblinZigWinner.Status.GetScore());
+            goblinZigWinner.Passives.GoblinZiggurat.EnforcedWinTriggered = guaranteeChangedResult;
+            OmniMan.ForceFirstPlace(game, goblinZigWinner);
+            if (guaranteeChangedResult)
+                game.AddGlobalLogs($"Гоблины построили Зиккурат на вершине! {goblinZigWinner.DiscordUsername} побеждает!");
+        }
+
         // Одна из трех: solo-only and only across an uncontested top-three cutoff. If a fourth
         // living player has Sakura's score, she did not earn a complete top-three place.
-            top3Player = game.CthulhuState.HorrorFired
-                ? null
-                : game.PlayersList.FirstOrDefault(x =>
-                    Sakura.HasUncontestedSoloTopThree(game, x));
-            if (top3Player != null)
-            {
-                var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
-                if (oneOfThree != null) oneOfThree.Visible = true;
-                game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
-            }
+        if (top3Player != null)
+        {
+            var oneOfThree = top3Player.GameCharacter.Passive.Find(x => x.PassiveName == Sakura.OneOfThree);
+            if (oneOfThree != null) oneOfThree.Visible = true;
+            OmniMan.ForceFirstPlace(game, top3Player);
+            game.AddGlobalLogs("**Sakura:** Я одна из легендарной тройки. И этого вполне достаточно!");
+        }
+
+        foreach (var player in game.PlayersList)
+            player.Status.PlaceAtLeaderBoardHistory.Add(
+                new InGameStatus.PlaceAtLeaderBoardHistoryClass(
+                    game.RoundNo, player.Status.GetPlaceAtLeaderBoard()));
         }
         else if (eternalTsukuyomiEnding)
         {
@@ -611,13 +618,14 @@ public class CheckIfReady : IServiceSingleton
 
         var capturedWinnerId = Madara.Find(game)?.Passives.Madara
             .EternalTsukuyomiWinnerPlayerId ?? Guid.Empty;
+        var specialSoloWinner = top3Player ?? goblinZigWinner;
         var playerWhoWon = eternalTsukuyomiEnding
             ? game.PlayersList.Find(player =>
                   player.GetPlayerId() == capturedWinnerId)
               ?? game.PlayersList.Where(player => !player.Passives.IsDead).FirstOrDefault()
               ?? game.PlayersList.First()
             : omniManInvasionWinner
-              ?? top3Player
+              ?? specialSoloWinner
               ?? game.PlayersList.Where(x => !x.Passives.IsDead).FirstOrDefault()
               ?? game.PlayersList.First();
         if (!eternalTsukuyomiEnding
@@ -639,7 +647,8 @@ public class CheckIfReady : IServiceSingleton
         decimal team3Score = 0;
         var wonTeam = 0;
         game.WinnerPlayerIds.Clear();
-        if (game.Teams.Count > 0 && omniManInvasionWinner == null && !cosmicHorrorEnding)
+        if (game.Teams.Count > 0 && omniManInvasionWinner == null
+                                 && !cosmicHorrorEnding && !eternalTsukuyomiEnding)
         {
             isTeam = true;
             foreach (var player in game.PlayersList)
@@ -702,8 +711,8 @@ public class CheckIfReady : IServiceSingleton
         }
         else
         {
-            var isTie = omniManInvasionWinner == null
-                        && top3Player == null && game.PlayersList.FindAll(x => !x.Passives.IsDead
+            var isTie = !eternalTsukuyomiEnding && omniManInvasionWinner == null
+                        && specialSoloWinner == null && game.PlayersList.FindAll(x => !x.Passives.IsDead
                 && x.Status.GetScore() == playerWhoWon.Status.GetScore()).Count > 1;
             var winnerText = UnknownBug.Is(playerWhoWon)
                 ? $"\n**{playerWhoWon.DiscordUsername}** победил. Данные персонажа повреждены."
@@ -713,7 +722,7 @@ public class CheckIfReady : IServiceSingleton
                 game.WinnerPlayerIds.Add(playerWhoWon.GetPlayerId());
             if (!playerWhoWon.IsBot() && !playerWhoWon.IsWebPlayer && !playerWhoWon.PreferWeb)
                 if (omniManInvasionWinner != null
-                    || top3Player != null || game.PlayersList.FindAll(x => !x.Passives.IsDead
+                    || specialSoloWinner != null || game.PlayersList.FindAll(x => !x.Passives.IsDead
                         && x.Status.GetScore() == playerWhoWon.Status.GetScore())
                         .Count == 1)
                 {
@@ -745,10 +754,9 @@ public class CheckIfReady : IServiceSingleton
             var account = _accounts.GetAccount(player.DiscordId);
             player.GameId = 1000000;
 
-            // D3: Sakura's "Одна из трех" top-3 win pays FIRST-PLACE stats & rewards while her real place stands
-            // (place/MatchHistory stay by fact; TotalWins/mastery/ZBS/lootbox/character-Wins count as 1st).
-            var sakuraSoftWin = top3Player != null && player.GetPlayerId() == top3Player.GetPlayerId();
-            var rewardPlace = sakuraSoftWin ? 1 : player.Status.GetPlaceAtLeaderBoard();
+            // Score-free guaranteed wins move their holder to place 1 before settlement, so every
+            // place-based consumer reads one authoritative final table.
+            var rewardPlace = player.Status.GetPlaceAtLeaderBoard();
 
             // Character mastery points
             var masteryPointsToAdd = rewardPlace switch
@@ -785,7 +793,8 @@ public class CheckIfReady : IServiceSingleton
                     break;
             }
 
-            if (omniManInvasionWinner == null
+            if (!eternalTsukuyomiEnding && omniManInvasionWinner == null
+                && specialSoloWinner == null
                 && player.Status.GetScore() == playerWhoWon.Status.GetScore())
                 zbsPointsToGive = 100;
 
@@ -802,7 +811,7 @@ public class CheckIfReady : IServiceSingleton
                     team.TeamId == wonTeam && team.TeamPlayers.Contains(player.Status.PlayerId))
                 : !player.Passives.IsDead
                   && (rewardPlace == 1
-                      || (omniManInvasionWinner == null
+                      || (!eternalTsukuyomiEnding && omniManInvasionWinner == null && specialSoloWinner == null
                           && player.Status.GetScore() == playerWhoWon.Status.GetScore()));
             var governmentSalaryZbs = TheBoys.ShouldAwardGovernmentSalary(
                 player, game.WinnerPlayerIds.Contains(player.GetPlayerId()))
@@ -1433,7 +1442,6 @@ public class CheckIfReady : IServiceSingleton
                 if (!game.IsKratosEvent)
                 {
                     Madara.PrepareIncomingAttackers(game);
-                    Madara.PrepareEternalTsukuyomiRound(game);
                 }
 
 
@@ -1696,8 +1704,6 @@ public class CheckIfReady : IServiceSingleton
                     victim.Status.IsBlock = false;
                     victim.Status.IsSkip = false;
                     victim.Status.IsReady = true;
-                    victim.Status.AddInGamePersonalLogs(
-                        "Монстр: Ты не можешь сбежать от того, кто уже внутри.\n");
                 }
 
                 // Клоны Сусано: every locked, correct round-eight Madara prediction becomes a
@@ -1770,7 +1776,7 @@ public class CheckIfReady : IServiceSingleton
 
                 //moral
                 //прожать всю момаль
-                if (game.RoundNo == 10)
+                if (game.RoundNo == 10 && !Madara.IsEternalTsukuyomiRound(game))
                     foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
                         while (player.GameCharacter.GetMoral() >= 5)
                             await _gameReaction.HandleMoralForScore(player);

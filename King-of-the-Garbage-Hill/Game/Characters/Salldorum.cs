@@ -23,7 +23,6 @@ public class Salldorum
         public int BuriedAtPosition { get; set; } = -1;  // leaderboard position 1-6
         public int BuriedOnRound { get; set; } = -1;
         public bool FirstBlockUsed { get; set; } = false;
-        public int FirstConsumedRound { get; set; } = -1;
         public int DrinkCount { get; set; } = 0;
         public int SpeedBonusPending { get; set; } = 0;
     }
@@ -102,21 +101,20 @@ public class Salldorum
     public static bool TryDrinkTimeCapsule(
         GamePlayerBridgeClass player,
         GameClass game,
-        bool recoveredFromHistory = false)
+        bool freeHistoryActivation = false)
     {
         var capsule = player.Passives.SalldorumTimeCapsule;
-        var canDrink = capsule.Buried || (recoveredFromHistory && capsule.DrinkCount == 1);
+        var canDrink = freeHistoryActivation ? capsule.FirstBlockUsed : capsule.Buried;
         if (!canDrink || capsule.DrinkCount >= 2)
             return false;
 
-        capsule.Buried = false;
+        if (!freeHistoryActivation)
+            capsule.Buried = false;
         capsule.DrinkCount++;
-        if (capsule.FirstConsumedRound < 0)
-            capsule.FirstConsumedRound = game.RoundNo;
         capsule.SpeedBonusPending += 5;
 
         player.Status.AddBonusPoints(2, "Временная капсула");
-        if (recoveredFromHistory)
+        if (freeHistoryActivation)
             player.Status.AddInGamePersonalLogs("Временная капсула: Кола найдена в переписанной истории!\n");
         else
             game.Phrases.SalldorumTimeCapsulePickup.SendLog(player, false);
@@ -421,12 +419,8 @@ public class Salldorum
         var wasAtCapsule = capsule.FirstBlockUsed
                            && chronicler.PositionHistory.Count >= roundNumber
                            && chronicler.PositionHistory[roundNumber - 1] == capsule.BuriedAtPosition;
-        var canRecoverConsumedCapsule = capsule.DrinkCount == 1
-                                        && capsule.FirstConsumedRound > roundNumber;
-        if (wasAtCapsule && (capsule.Buried || canRecoverConsumedCapsule))
-        {
-            TryDrinkTimeCapsule(player, game, recoveredFromHistory: true);
-        }
+        if (wasAtCapsule)
+            TryDrinkTimeCapsule(player, game, freeHistoryActivation: true);
 
         player.Status.AddInGamePersonalLogs(
             $"Великий летописец: История раунда {roundNumber} переписана! " +

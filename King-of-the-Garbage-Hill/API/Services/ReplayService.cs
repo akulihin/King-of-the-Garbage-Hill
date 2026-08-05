@@ -80,9 +80,12 @@ public class ReplayService : IServiceSingleton
 
         try
         {
-            round.GlobalLogs = game.GetGlobalLogs();
-            round.AllGlobalLogs = game.GetAllGlobalLogs();
-            round.FightLog = game.WebFightLog.Select(DeepCopyFightEntry).ToList();
+            round.GlobalLogs = StripDopaShadowLogs(game.GetGlobalLogs(), game);
+            round.AllGlobalLogs = StripDopaShadowLogs(game.GetAllGlobalLogs(), game);
+            round.FightLog = game.WebFightLog
+                .Where(fight => !fight.ShadowAction)
+                .Select(DeepCopyFightEntry)
+                .ToList();
             round.Players = CapturePlayers(game, gameUpdateMess);
         }
         catch (Exception ex)
@@ -105,8 +108,8 @@ public class ReplayService : IServiceSingleton
         try
         {
             round.Players = CapturePlayers(game, gameUpdateMess, includeCurrentScoreEntries: true);
-            round.PostSetupGlobalLogs = game.GetGlobalLogs();
-            round.PostSetupAllGlobalLogs = game.GetAllGlobalLogs();
+            round.PostSetupGlobalLogs = StripDopaShadowLogs(game.GetGlobalLogs(), game);
+            round.PostSetupAllGlobalLogs = StripDopaShadowLogs(game.GetAllGlobalLogs(), game);
             UpsertRound(round, game);
         }
         catch (Exception ex)
@@ -142,11 +145,11 @@ public class ReplayService : IServiceSingleton
             if (round.PostSetupGlobalLogs != null)
                 round.FinalSettlementGlobalLogs = ExtractAppendedLogs(
                     round.PostSetupGlobalLogs,
-                    game.GetGlobalLogs());
+                    StripDopaShadowLogs(game.GetGlobalLogs(), game));
             if (round.PostSetupAllGlobalLogs != null)
                 round.FinalSettlementAllGlobalLogs = ExtractAppendedLogs(
                     round.PostSetupAllGlobalLogs,
-                    game.GetAllGlobalLogs());
+                    StripDopaShadowLogs(game.GetAllGlobalLogs(), game));
 
             round.Players = finalPlayers;
             UpsertRound(round, game);
@@ -474,5 +477,16 @@ public class ReplayService : IServiceSingleton
             StormWeighingDelta = f.StormWeighingDelta,
             StormFlipped = f.StormFlipped,
         };
+    }
+
+    private static string StripDopaShadowLogs(string logs, GameClass game)
+    {
+        if (string.IsNullOrEmpty(logs) || game?.DopaShadowGlobalLogSnippets == null)
+            return logs;
+
+        foreach (var snippet in game.DopaShadowGlobalLogSnippets)
+            if (!string.IsNullOrEmpty(snippet))
+                logs = logs.Replace(snippet, "", StringComparison.Ordinal);
+        return logs;
     }
 }

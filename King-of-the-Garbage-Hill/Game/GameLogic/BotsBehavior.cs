@@ -1977,9 +1977,10 @@ public class BotsBehavior : IServiceSingleton
                     case "Dopa":
                         var dopaTacticAtk = bot.Passives.DopaMetaChoice.ChosenTactic;
                         var dopaVisionAtk = bot.Passives.DopaVision;
-                        // Vision synergy: prefer targets being attacked by others
-                        var attackersOnDopaTarget = allTargets
-                            .Count(x => x.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+                        // Vision synergy: every repeated aimed fight is a separate proc.
+                        var attacksOnDopaTarget = allTargets.Sum(x =>
+                            x.Player.Status.WhoToAttackThisTurn.Count(targetId =>
+                                targetId == target.GetPlayerId()));
 
                         switch (dopaTacticAtk)
                         {
@@ -1989,14 +1990,14 @@ public class BotsBehavior : IServiceSingleton
                                     target.AttackPreference += 7;
                                 if (target.PlaceAtLeaderBoard() is 3 or 4)
                                     target.AttackPreference += 3;
-                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                if (attacksOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
                                     target.AttackPreference += 4;
                                 break;
                             case "Фарм":
                                 // Passive income: maximize Vision procs (+4 pts each)
-                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                if (attacksOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
                                 {
-                                    target.AttackPreference += 10;
+                                    target.AttackPreference += 10 * attacksOnDopaTarget;
                                     if (Smart(bot, game)) target.AttackPreference = Math.Max(target.AttackPreference, 30);
                                 }
                                 // Safe fights preferred
@@ -2011,7 +2012,7 @@ public class BotsBehavior : IServiceSingleton
                                     target.AttackPreference += 5;
                                 if (target.Player.GameCharacter.GetPsyche() <= 3)
                                     target.AttackPreference += 3;
-                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                if (attacksOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
                                     target.AttackPreference += 4;
                                 break;
                             case "Роум":
@@ -2027,7 +2028,7 @@ public class BotsBehavior : IServiceSingleton
                                     target.AttackPreference -= 3;
                                 if (target.Player.GameCharacter.GetMoral() > 5)
                                     target.AttackPreference += 3;
-                                if (attackersOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
+                                if (attacksOnDopaTarget > 0 && dopaVisionAtk.Cooldown == 0)
                                     target.AttackPreference += 4;
                                 break;
                             default:
@@ -3570,8 +3571,10 @@ public class BotsBehavior : IServiceSingleton
                 {
                     // Try to trigger Vision: find target that is fighting our first target
                     var firstTargetId = bot.Status.WhoToAttackThisTurn.FirstOrDefault();
-                    var visionTarget = secondTargets.Find(x =>
-                        x.Player.Status.WhoToAttackThisTurn.Contains(firstTargetId));
+                    var visionTarget = secondTargets
+                        .OrderByDescending(x => x.Player.Status.WhoToAttackThisTurn.Count(targetId =>
+                            targetId == firstTargetId))
+                        .FirstOrDefault(x => x.Player.Status.WhoToAttackThisTurn.Contains(firstTargetId));
 
                     if (visionTarget != null && bot.Passives.DopaVision.Cooldown == 0)
                     {
@@ -3579,10 +3582,11 @@ public class BotsBehavior : IServiceSingleton
                     }
                     else
                     {
-                        // Fallback: prefer target being attacked by most others (busy = more Vision potential)
+                        // Fallback: prefer the target with the most aimed fight rows.
                         var bestTarget = secondTargets
-                            .OrderByDescending(x => allTargets.Count(a =>
-                                a.Player.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId())))
+                            .OrderByDescending(x => allTargets.Sum(a =>
+                                a.Player.Status.WhoToAttackThisTurn.Count(targetId =>
+                                    targetId == x.GetPlayerId())))
                             .First();
                         await AttackPlayer(bot, bestTarget.Player.Status.GetPlaceAtLeaderBoard());
                     }

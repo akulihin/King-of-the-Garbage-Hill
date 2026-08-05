@@ -9,6 +9,7 @@ withDefaults(defineProps<{
 function logEntryClass(entry: string): string {
   if (entry.includes('Призванное существо погибло в ядовитом конусе!')) return 'log-poison'
   if (entry.startsWith('[Мачта]')) return 'log-mast'
+  if (entry.endsWith('захвачен , My Lord.')) return 'log-grab-private'
   if (entry.includes('потопил') || entry.includes('потоплен') || entry.includes('сгорел') || entry.includes('сгорел!')) return 'log-sunk'
   if (entry.includes('уничтожил палубу') || entry.includes('разрушил модуль')) return 'log-destroy'
   if (entry.includes('поцарапал')) return 'log-scratch'
@@ -112,6 +113,12 @@ function logEntryClass(entry: string): string {
 .log-devastate { --log-color: var(--accent-purple); }
 
 .log-capture { --log-color: color-mix(in srgb, var(--accent-purple) 75%, white); }
+
+.log-grab-private {
+  --log-color: #9f1239;
+  color: #9f1239;
+  font-weight: 800;
+}
 
 .log-ram { --log-color: var(--accent-gold); }
 

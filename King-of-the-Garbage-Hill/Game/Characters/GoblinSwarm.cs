@@ -63,15 +63,16 @@ public class GoblinSwarm
     {
         public List<int> BuiltPositions { get; set; } = new();       // Leaderboard places with ziggurats
         public List<string> LearnedPassives { get; set; } = new();   // Passive names learned
+        public List<Guid> AttackedPlayerIds { get; set; } = new();  // Enemies available as learning sources
         public bool WantsToBuild { get; set; } = false;              // Block was used this round — build pending
         public int PendingBuildPosition { get; set; } = 0;           // Position at Block submission
         public bool IsInZiggurat { get; set; } = false;              // Currently on a ziggurat position
-        public int ZigguratStayRoundsLeft { get; set; } = 0;        // Rounds of position lock remaining
+        public int OccupiedZigguratPosition { get; set; } = 0;       // 0 when the previous opened turn was outside
+        public int ZigguratStayRoundsLeft { get; set; } = 0;         // Score sorts still blocked by the latest entry
+        public bool TopPositionVisitedOnRoundTen { get; set; } = false;
 
-        // True only when HandleLastRound's Ziggurat overtake actually fired (the Goblins were not 1st
-        // on score and the Ziggurat pushed them to 1st). Distinguishes an enforced win from a plain
-        // score win, which BuiltPositions.Contains(1) cannot do — it stays true for the rest of the
-        // match once a place-1 Ziggurat exists (m57).
+        // True only when the round-10 place-1 visit changed the result (overtake or tie-break).
+        // A plain score win still does not satisfy the enforced-win achievement (m57).
         public bool EnforcedWinTriggered { get; set; } = false;
     }
 }

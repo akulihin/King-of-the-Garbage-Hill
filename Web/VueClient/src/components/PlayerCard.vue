@@ -265,7 +265,6 @@ function gordonHalfLifeStatus(gordon: GordonState): string {
 
 function gordonWakeStatus(gordon: GordonState): string {
   if (gordon.canWake) return t('G-MAN: WAKE READY', 'G-MAN: МОЖНО ПРОСНУТЬСЯ')
-  if (gordon.wakeReservedForTsukuyomi) return t('G-MAN: STANDBY', 'G-MAN: ОЖИДАНИЕ')
   if (gordon.wakeUsed) return t('G-MAN: USED', 'G-MAN: ИСПОЛЬЗОВАН')
   return t('G-MAN: DORMANT', 'G-MAN: СПИТ')
 }

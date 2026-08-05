@@ -188,6 +188,11 @@ public static class GameStateMapper
             dto.GlobalLogs = SanitizePrivateCharacterText(dto.GlobalLogs);
             dto.AllGlobalLogs = SanitizePrivateCharacterText(dto.AllGlobalLogs);
         }
+        if (requestingPlayer?.GameCharacter.Name != Dopa.CharacterName)
+        {
+            dto.GlobalLogs = StripLogSnippets(dto.GlobalLogs, game.DopaShadowGlobalLogSnippets);
+            dto.AllGlobalLogs = StripLogSnippets(dto.AllGlobalLogs, game.DopaShadowGlobalLogSnippets);
+        }
         if (requestingPlayer?.IsProMode == true && !isAdmin)
         {
             dto.GlobalLogs = MaskProActionLabels(dto.GlobalLogs);
@@ -202,9 +207,11 @@ public static class GameStateMapper
             : null;
         var streamUsername = streamTarget?.DiscordUsername;
         dto.FightLog = game.WebFightLog
-                .Where(f => !f.HiddenFromNonAdmin || fightAdmin
-                            || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername))
-                            || (streamUsername != null && f.WinnerName == streamUsername))
+                .Where(f => f.ShadowAction
+                    ? myUsername != null && f.AttackerName == myUsername
+                    : !f.HiddenFromNonAdmin || fightAdmin
+                        || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername))
+                        || (streamUsername != null && f.WinnerName == streamUsername))
                 .Select(f => ScopeFightEntry(f, myUsername, fightAdmin,
                     streamUsername != null && f.WinnerName == streamUsername,
                     !viewerIsTerminal
@@ -606,7 +613,6 @@ public static class GameStateMapper
                                 CrowbarProgress = gordon.ResolvedFights % 3,
                                 WakeUsed = gordon.WakeUsed,
                                 CanWake = GordonFreeman.CanWake(player, game),
-                                WakeReservedForTsukuyomi = gordon.WakeReservedForEternalTsukuyomi,
                                 HeadcrabsRemoved = gordon.HeadcrabsRemoved,
                                 ZombieCount = game.PlayersList.Count(candidate =>
                                     candidate.Passives.GordonHeadcrab.IsZombie),
@@ -1310,14 +1316,9 @@ public static class GameStateMapper
         var madara = Madara.Find(game);
         if (madara == null) return;
 
-        if (Madara.IsMadara(requestingPlayer)
-            || UnknownBug.Is(requestingPlayer)
-            || GordonFreeman.SeesEternalTsukuyomiReality(requestingPlayer, game))
+        if (Madara.IsMadara(requestingPlayer))
         {
-            // Madara, reserved Gordon and immune unknown_bug see the captured authoritative
-            // ending. No one receives or executes a round-10 action at this terminal boundary.
-            if (!UnknownBug.Is(requestingPlayer))
-                dto.FightLog.Clear();
+            dto.FightLog.Clear();
             return;
         }
 
@@ -1360,30 +1361,32 @@ public static class GameStateMapper
             });
         }
 
-        var illusoryTargets = Madara.GetIllusoryTargets(game, requestingPlayer)
-            .Select(targetId => game.PlayersList.Find(player => player.GetPlayerId() == targetId))
-            .Where(target => target != null)
-            .ToList();
-        if (illusoryTargets.Count == 0)
-            illusoryTargets.Add(madara);
-
-        dto.FightLog = illusoryTargets
-            .Select(target => new FightEntryDto
+        dto.FightLog = Madara.GetIllusoryFights(game, requestingPlayer)
+            .Select(illusoryFight =>
             {
-                AttackerName = requestingPlayer.DiscordUsername,
-                AttackerCharName = requestingPlayer.GameCharacter.Name,
-                AttackerAvatar = GetLocalAvatarUrl(
-                    requestingPlayer.GameCharacter.AvatarCurrent ?? requestingPlayer.GameCharacter.Avatar),
-                DefenderName = target!.DiscordUsername,
-                DefenderCharName = target.GameCharacter.Name,
-                DefenderAvatar = GetLocalAvatarUrl(
-                    target.GameCharacter.AvatarCurrent ?? target.GameCharacter.Avatar),
-                Outcome = "win",
-                WinnerName = requestingPlayer.DiscordUsername,
-                TotalPointsWon = 1,
-                Round1PointsWon = 1,
+                var attacker = game.PlayersList.Find(player => player.GetPlayerId() == illusoryFight.AttackerId);
+                var defender = game.PlayersList.Find(player => player.GetPlayerId() == illusoryFight.DefenderId);
+                if (attacker == null || defender == null) return null;
+
+                var viewerAttacked = attacker.GetPlayerId() == requestingPlayer.GetPlayerId();
+                return new FightEntryDto
+                {
+                    AttackerName = attacker.DiscordUsername,
+                    AttackerCharName = attacker.GameCharacter.Name,
+                    AttackerAvatar = GetLocalAvatarUrl(
+                        attacker.GameCharacter.AvatarCurrent ?? attacker.GameCharacter.Avatar),
+                    DefenderName = defender.DiscordUsername,
+                    DefenderCharName = defender.GameCharacter.Name,
+                    DefenderAvatar = GetLocalAvatarUrl(
+                        defender.GameCharacter.AvatarCurrent ?? defender.GameCharacter.Avatar),
+                    Outcome = viewerAttacked ? "win" : "loss",
+                    WinnerName = requestingPlayer.DiscordUsername,
+                    TotalPointsWon = viewerAttacked ? 1 : -1,
+                    Round1PointsWon = viewerAttacked ? 1 : -1,
+                };
             })
-            .Select(fight => MaskPrivateFightIdentity(fight, UnknownBug.Is(requestingPlayer)))
+            .Where(fight => fight != null)
+            .Select(fight => MaskPrivateFightIdentity(fight!, UnknownBug.Is(requestingPlayer)))
             .ToList();
     }
 
@@ -1813,9 +1816,7 @@ public static class GameStateMapper
         if (string.IsNullOrEmpty(logs))
             return logs;
 
-        if (hiddenSnippets != null && hiddenSnippets.Count > 0)
-            foreach (var snippet in hiddenSnippets)
-                logs = logs.Replace(snippet, "");
+        logs = StripLogSnippets(logs, hiddenSnippets);
 
         // Genius: strip character-revealing logs for Kira
         if (requestingPlayer != null
@@ -1826,6 +1827,17 @@ public static class GameStateMapper
                 logs = logs.Replace(snippet, "");
         }
 
+        return logs;
+    }
+
+    private static string StripLogSnippets(string logs, IEnumerable<string> snippets)
+    {
+        if (string.IsNullOrEmpty(logs) || snippets == null)
+            return logs;
+
+        foreach (var snippet in snippets)
+            if (!string.IsNullOrEmpty(snippet))
+                logs = logs.Replace(snippet, "", StringComparison.Ordinal);
         return logs;
     }
 
@@ -1849,6 +1861,8 @@ public static class GameStateMapper
 
         // Section 1: Fight History (global logs already contain round headers like "Раунд #N")
         var globalLogs = game.GetAllGlobalLogs() ?? "";
+        if (requestingPlayer?.GameCharacter.Name != Dopa.CharacterName)
+            globalLogs = StripLogSnippets(globalLogs, game.DopaShadowGlobalLogSnippets);
         if (!string.IsNullOrWhiteSpace(globalLogs))
         {
             sb.AppendLine("**--- Fight History ---**");

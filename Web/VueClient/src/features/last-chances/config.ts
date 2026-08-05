@@ -48,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 12
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 14
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -220,6 +220,16 @@ const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_PER_ROOM = 0.01
 const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_INTERVAL_MS = 10_000
 const DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 100
 const DEFAULT_LAST_CHANCES_CHANCE_EROSION_STEP = 5
+const LEGACY_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 900
+const DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 925
+const LEGACY_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS = 200
+const DEFAULT_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS = 200 / 3
+const LEGACY_LAST_CHANCES_COCKROACH_ATTACK_RANGE = 14
+const DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_RANGE = 28
+const LEGACY_LAST_CHANCES_COCKROACH_ATTACK_COOLDOWN_MS = 900
+const DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_COOLDOWN_MS = 450
+const LEGACY_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS = 200
+const DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS = 100
 
 export const DEFAULT_LAST_CHANCES_COMBAT: LastChancesCombatDefinition = {
   attackStopsMovement: true,
@@ -1804,6 +1814,39 @@ function backfillCurrentAttemptAttritionFields(
 }
 
 /**
+ * Schema v14 applies the Cockroach Mother balance pass to authentic shipped values while
+ * preserving every browser override that already customized one of these fields. The stable
+ * enemy IDs keep the change isolated from unrelated enemies and custom catalogs.
+ */
+function backfillCockroachBalanceFields(migrated: UnknownRecord): void {
+  if (!Array.isArray(migrated.enemies)) return
+  for (const enemyValue of migrated.enemies) {
+    const enemy = asRecordOrNull(enemyValue)
+    if (enemy?.id === 'cockroach-mother') {
+      const mother = asRecordOrNull(enemy.cockroachMother)
+      if (mother?.blastRadius === LEGACY_LAST_CHANCES_COCKROACH_BLAST_RADIUS) {
+        mother.blastRadius = DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS
+      }
+      continue
+    }
+    if (enemy?.id !== 'swarm-cockroach') continue
+    const swarm = asRecordOrNull(enemy.swarm)
+    if (swarm?.spawnIntervalMs === LEGACY_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS) {
+      swarm.spawnIntervalMs = DEFAULT_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS
+    }
+    if (enemy.attackRange === LEGACY_LAST_CHANCES_COCKROACH_ATTACK_RANGE) {
+      enemy.attackRange = DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_RANGE
+    }
+    if (enemy.attackCooldownMs === LEGACY_LAST_CHANCES_COCKROACH_ATTACK_COOLDOWN_MS) {
+      enemy.attackCooldownMs = DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_COOLDOWN_MS
+    }
+    if (enemy.attackWindupMs === LEGACY_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS) {
+      enemy.attackWindupMs = DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS
+    }
+  }
+}
+
+/**
  * Schema v11 restores the bow under its original stable catalog ID. A schema-v10 browser
  * override may contain a hand-authored catalog or the retired `twohand-bow` definition, so
  * replace only that one record (or append it when absent). The user's loadout, catalog order,
@@ -1824,6 +1867,30 @@ function upsertCurrentLongbow(
     migrated.weapons[existingIndex] = cloneUnknown(currentLongbow)
   } else {
     migrated.weapons.push(cloneUnknown(currentLongbow))
+  }
+}
+
+/**
+ * Schema v13 carries the corrected Двуручное копьё v2 contract. Replace only that stable
+ * catalog record so an older browser override receives the horizontal parry, force rebalance,
+ * pointer-driven «Строй» and movement-direction effects without adopting the shipped loadout
+ * or disturbing any unrelated custom weapon.
+ */
+function upsertCurrentSpearV2(
+  migrated: UnknownRecord,
+  currentDefinition?: LastChancesConfig,
+): void {
+  if (!Array.isArray(migrated.weapons)) return
+  const currentSpear = currentDefinition?.weapons
+    .find(weapon => weapon.id === 'twohand-spear-v2')
+  if (!currentSpear) return
+  const existingIndex = migrated.weapons.findIndex(
+    weapon => asRecordOrNull(weapon)?.id === 'twohand-spear-v2',
+  )
+  if (existingIndex >= 0) {
+    migrated.weapons[existingIndex] = cloneUnknown(currentSpear)
+  } else {
+    migrated.weapons.push(cloneUnknown(currentSpear))
   }
 }
 
@@ -2069,15 +2136,22 @@ export function migrateLastChancesConfig(
   backfillPlayerMovementFields(migrated)
   backfillRunTuningFields(migrated)
   backfillCurrentAttemptAttritionFields(migrated, version as number)
+  backfillCockroachBalanceFields(migrated)
   repairSchemaV8GuaranteedSpawns(migrated)
   backfillAuthoredOpening(migrated, currentDefinition)
   backfillCockroachMotherLair(migrated, currentDefinition)
   if (version === 10) {
     upsertCurrentLongbow(migrated, currentDefinition)
+    upsertCurrentSpearV2(migrated, currentDefinition)
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
-  if (version === 11) {
+  if (version === 11 || version === 12) {
+    upsertCurrentSpearV2(migrated, currentDefinition)
+    migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
+    return migrated
+  }
+  if (version === 13) {
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -2085,6 +2159,7 @@ export function migrateLastChancesConfig(
   // while applying the same isolated v11 bow upsert used for a v10 browser override.
   if (version === 7 || version === 8 || version === 9) {
     upsertCurrentLongbow(migrated, currentDefinition)
+    upsertCurrentSpearV2(migrated, currentDefinition)
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -4041,6 +4116,32 @@ function validateWeapons(
         weapon.trait === 'ouroborosFang' || weapon.trait === 'longbowPersistence',
       )
     }
+    if (weapon.id === 'twohand-spear-v2') {
+      const secondary = typeof weapon.secondaryAttacks === 'object'
+        && weapon.secondaryAttacks !== null
+        && !Array.isArray(weapon.secondaryAttacks)
+        ? weapon.secondaryAttacks as UnknownRecord
+        : null
+      const stance = secondary
+        && typeof secondary.hold === 'object'
+        && secondary.hold !== null
+        && !Array.isArray(secondary.hold)
+        ? secondary.hold as UnknownRecord
+        : null
+      const collider = stance
+        && typeof stance.collider === 'object'
+        && stance.collider !== null
+        && !Array.isArray(stance.collider)
+        ? stance.collider as UnknownRecord
+        : null
+      if (collider?.shape !== 'capsule') {
+        errors.push(`${path}.secondaryAttacks.hold.collider.shape must be capsule for non-rotating Строй`)
+      }
+      if (typeof collider?.rotationDegrees === 'number'
+        && Math.abs(collider.rotationDegrees) > Number.EPSILON) {
+        errors.push(`${path}.secondaryAttacks.hold.collider.rotationDegrees must be 0 or omitted for Строй`)
+      }
+    }
     const equipMode = inferredEquipMode(weapon)
     if ((equipMode === 'twoHanded'
       || (equipMode === 'hybrid' && weapon.primaryHandOnly !== true))
@@ -4792,12 +4893,17 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     && root.schemaVersion !== 5 && root.schemaVersion !== 6
     && root.schemaVersion !== 7 && root.schemaVersion !== 8
     && root.schemaVersion !== 9 && root.schemaVersion !== 10
-    && root.schemaVersion !== 11 && root.schemaVersion !== 12) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, or 12')
+    && root.schemaVersion !== 11 && root.schemaVersion !== 12
+    && root.schemaVersion !== 13 && root.schemaVersion !== 14) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14')
   }
-  const schemaVersion = root.schemaVersion === 12
-    ? 12
-    : root.schemaVersion === 11
+  const schemaVersion = root.schemaVersion === 14
+    ? 14
+    : root.schemaVersion === 13
+      ? 13
+      : root.schemaVersion === 12
+      ? 12
+      : root.schemaVersion === 11
       ? 11
       : root.schemaVersion === 10
         ? 10
