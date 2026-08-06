@@ -30,7 +30,7 @@ interface FleetSlot {
 // Initialize all 10 slots with defaults
 function defaultId(deckCount: number, faction: string | undefined): string {
   if (deckCount === 4)
-    return faction === 'Alliance' ? 'famous_diagonal_ship' : 'tetranavis'
+    return faction === 'Alliance' ? 'alliance_flagship' : 'tetranavis'
   return ({ 1: 'single', 2: 'double', 3: 'triple' } as Record<number, string>)[deckCount]
 }
 
@@ -137,14 +137,15 @@ function removeShip(globalIndex: number) {
 function toggleUpgrade(globalIndex: number, upgradeId: string) {
   const slot = slots.value[globalIndex]
   if (!slot) return
+  const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
+  if (!upgrade || upgrade.isPreinstalled) return
   const idx = slot.upgrades.indexOf(upgradeId)
   if (idx >= 0) {
     slot.upgrades.splice(idx, 1)
   } else {
     if (upgradeId === 'double_mast' && slots.value.some((candidate, candidateIndex) =>
       candidateIndex !== globalIndex && candidate.upgrades.includes('double_mast'))) return
-    const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
-    if (!upgrade || upgrade.cost > coinsLeft.value) return
+    if (upgrade.cost > coinsLeft.value) return
     slot.upgrades.push(upgradeId)
   }
 }
@@ -152,11 +153,12 @@ function toggleUpgrade(globalIndex: number, upgradeId: string) {
 function canToggleUpgrade(globalIndex: number, upgradeId: string): boolean {
   const slot = slots.value[globalIndex]
   if (!slot) return false
+  const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
+  if (!upgrade || upgrade.isPreinstalled) return false
   if (slot.upgrades.includes(upgradeId)) return true
   if (upgradeId === 'double_mast' && slots.value.some((candidate, candidateIndex) =>
     candidateIndex !== globalIndex && candidate.upgrades.includes('double_mast'))) return false
-  const upgrade = getShipDef(slot.definitionId)?.availableUpgrades.find(u => u.id === upgradeId)
-  return !!upgrade && upgrade.cost <= coinsLeft.value
+  return upgrade.cost <= coinsLeft.value
 }
 
 function upgradeDescription(upgrade: { name: string; description: string; cost: number }): string {
@@ -164,6 +166,12 @@ function upgradeDescription(upgrade: { name: string; description: string; cost: 
   return /цена\s*:/i.test(description)
     ? description
     : `${description} Цена: ${upgrade.cost} монет.`
+}
+
+function catalogDescription(definition: BattleshipShipCatalogEntry): string {
+  if (definition.abilities.includes('matryoshka_stage_4'))
+    return message('battleship.ability.matryoshka.description')
+  return definition.description ?? ''
 }
 
 type BoilerChoice = 'GreekFire' | 'Brander' | 'EvilGreekFire'
@@ -232,6 +240,8 @@ async function confirmFleet() {
 
 // Full descriptions (tooltips) — pre-existing strings, kept verbatim
 function abilityLabel(a: string): string {
+  if (a.startsWith('matryoshka_stage_'))
+    return message('battleship.ability.matryoshka.description')
   switch (a) {
     case 'ballista_immune': return 'Иммунитет к баллисте'
     case 'burn_resist': return 'Огнеупорность — не горит'
@@ -258,6 +268,8 @@ function abilityLabel(a: string): string {
 
 // Short human-readable chip labels (instead of raw keys like explode_on_hit)
 function abilityShortLabel(a: string): string {
+  if (a.startsWith('matryoshka_stage_'))
+    return message('battleship.ability.matryoshka.label')
   switch (a) {
     case 'ballista_immune': return t('Ballista immune', 'Иммунитет к баллисте')
     case 'burn_resist': return t('Fireproof', 'Огнеупорный')
@@ -359,6 +371,13 @@ function catalogForDeck(dc: number) {
             <template v-for="upg in getShipDef(slot.definitionId)!.availableUpgrades" :key="upg.id">
               <template v-if="isBoilerUpgrade(upg.id)"><!-- handled below --></template>
               <button
+                v-else-if="upg.isPreinstalled"
+                class="upgrade-btn upgrade-disabled"
+                disabled
+              >
+                {{ upg.nameRu || upg.name }}
+              </button>
+              <button
                 v-else-if="upg.id === 'tetra_discus'"
                 class="upgrade-btn upgrade-disabled"
                 disabled
@@ -426,7 +445,7 @@ function catalogForDeck(dc: number) {
                 | {{ def.cost }}м
               </span>
             </div>
-            <div v-if="def.description" class="ship-desc">{{ def.description }}</div>
+            <div v-if="catalogDescription(def)" class="ship-desc">{{ catalogDescription(def) }}</div>
             <div v-if="def.abilities.length" class="ship-abilities">
               <span v-for="a in def.abilities" :key="a" class="ability-tag" @mouseenter="showTip($event, abilityLabel(a))" @mousemove="moveTip" @mouseleave="hideTip">{{ abilityShortLabel(a) }}</span>
             </div>

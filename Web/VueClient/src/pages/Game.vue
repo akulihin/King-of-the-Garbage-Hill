@@ -9,7 +9,7 @@ import PlayerCard from 'src/components/PlayerCard.vue'
 import SkillsPanel from 'src/components/SkillsPanel.vue'
 import { formatPassiveDescription } from 'src/services/textFormatting'
 import { translateText } from 'src/i18n'
-import { localizedText, type LocalizedText } from 'src/platform/localization'
+import { localizedText, message, type LocalizedText } from 'src/platform/localization'
 import {
   isStanEdgarThresholdDialogue,
   orderStanEdgarDismissalLogs,
@@ -18,6 +18,7 @@ import FightAnimation from 'src/components/FightAnimation.vue'
 import MediaMessages from 'src/components/MediaMessages.vue'
 import RoundTimer from 'src/components/RoundTimer.vue'
 import Blackjack21 from 'src/components/Blackjack21.vue'
+import RankedEloCelebration from 'src/components/RankedEloCelebration.vue'
 import AchievementPopup from 'src/components/AchievementPopup.vue'
 import TerminalCommitOverlay from 'src/components/TerminalCommitOverlay.vue'
 import HalfLife3Transition from 'src/components/HalfLife3Transition.vue'
@@ -26,7 +27,7 @@ import DeepVeil from 'src/components/DeepVeil.vue'
 import OmniManInvasion from 'src/components/OmniManInvasion.vue'
 import OmniManUndergroundTrain from 'src/components/OmniManUndergroundTrain.vue'
 import TurnGuidanceOverlay from 'src/components/TurnGuidanceOverlay.vue'
-import type { Player } from 'src/services/signalr'
+import type { FightEntry, Player } from 'src/services/signalr'
 import {
   playAttackSelection,
   playAnyMoveTurn10PlusLayer,
@@ -80,6 +81,8 @@ const router = useRouter()
 
 const gameIdNum = computed(() => Number(props.gameId))
 let gameOverOverlayTimer: ReturnType<typeof setTimeout> | null = null
+let rankedEloDelayTimer: ReturnType<typeof setTimeout> | null = null
+let rankedEloOverlayTimer: ReturnType<typeof setTimeout> | null = null
 let finishPresentationFallbackTimer: ReturnType<typeof setTimeout> | null = null
 let terminalCommitTimer: ReturnType<typeof setTimeout> | null = null
 let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
@@ -295,6 +298,8 @@ onUnmounted(() => {
   stopErenRumblingWarning()
   clearPrevLogTimer()
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
+  if (rankedEloDelayTimer) clearTimeout(rankedEloDelayTimer)
+  if (rankedEloOverlayTimer) clearTimeout(rankedEloOverlayTimer)
   if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
   if (terminalCommitTimer) clearTimeout(terminalCommitTimer)
   if (halfLifeReleaseTimer) clearTimeout(halfLifeReleaseTimer)
@@ -853,8 +858,21 @@ watch(() => store.gameState?.roundNo, (newRound, oldRound) => {
 })
 
 // ── Game Over cinematic sequence ──────────────────────────────────
-const showGameOverOverlay = ref(false)
+type FinishCinematicPhase = 'idle' | 'podium' | 'ranked-gap' | 'ranked-elo'
+const finishCinematicPhase = ref<FinishCinematicPhase>('idle')
+const showGameOverOverlay = computed(() => finishCinematicPhase.value === 'podium')
+const showRankedEloOverlay = computed(() => finishCinematicPhase.value === 'ranked-elo')
+const finishCinematicActive = computed(() => finishCinematicPhase.value !== 'idle')
 const finishPresentationPending = ref(false)
+const finishWaitingForInvasion = ref(false)
+const finishedPresentationStarted = ref(false)
+const rankedEloShown = ref(false)
+const finishCinematicGameId = ref<number | null>(null)
+const rankedEloSettlement = computed(() => store.gameState?.rankedEloSettlement ?? null)
+const rankedEloTone = computed(() => {
+  const delta = rankedEloSettlement.value?.delta ?? 0
+  return delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral'
+})
 const gameOverPodium = computed(() => {
   if (!store.gameState?.isFinished) return []
   return [...store.gameState.players]
@@ -890,8 +908,72 @@ function playFinishedWinnerThemes() {
   if (winners.some(player => player.character.name === 'Эрен Йегер')) playErenGameWinTheme()
 }
 
+function signedElo(value: number): string {
+  if (value > 0) return `+${value}`
+  if (value < 0) return `−${Math.abs(value)}`
+  return '±0'
+}
+
+function clearFinishCinematicTimers() {
+  if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
+  if (rankedEloDelayTimer) clearTimeout(rankedEloDelayTimer)
+  if (rankedEloOverlayTimer) clearTimeout(rankedEloOverlayTimer)
+  if (finishPresentationFallbackTimer) clearTimeout(finishPresentationFallbackTimer)
+  gameOverOverlayTimer = null
+  rankedEloDelayTimer = null
+  rankedEloOverlayTimer = null
+  finishPresentationFallbackTimer = null
+}
+
+function resetFinishCinematic(gameId: number | null) {
+  clearFinishCinematicTimers()
+  finishCinematicGameId.value = gameId
+  finishCinematicPhase.value = 'idle'
+  finishPresentationPending.value = false
+  finishWaitingForInvasion.value = false
+  finishedPresentationStarted.value = false
+  rankedEloShown.value = false
+}
+
+function isCurrentFinishGame(gameId: number | null): gameId is number {
+  return gameId !== null
+    && store.gameState?.gameId === gameId
+    && gameIdNum.value === gameId
+}
+
+function beginRankedEloStage() {
+  const presentationGameId = finishCinematicGameId.value
+  if (!isCurrentFinishGame(presentationGameId)) {
+    finishCinematicPhase.value = 'idle'
+    return
+  }
+  if (!rankedEloSettlement.value || rankedEloShown.value) {
+    finishCinematicPhase.value = 'idle'
+    return
+  }
+
+  rankedEloShown.value = true
+  finishCinematicPhase.value = 'ranked-elo'
+  if (rankedEloOverlayTimer) clearTimeout(rankedEloOverlayTimer)
+  rankedEloOverlayTimer = setTimeout(() => {
+    if (finishCinematicGameId.value !== presentationGameId) return
+    finishCinematicPhase.value = 'idle'
+    rankedEloOverlayTimer = null
+  }, 4500)
+}
+
 function revealFinishedGame() {
-  if (!store.gameState?.isFinished) return
+  const presentationGameId = finishCinematicGameId.value
+  if (!isCurrentFinishGame(presentationGameId) || !store.gameState?.isFinished) return
+  if (omniManInvasionVisible.value) {
+    finishWaitingForInvasion.value = true
+    finishPresentationPending.value = true
+    return
+  }
+  if (finishedPresentationStarted.value) return
+
+  finishedPresentationStarted.value = true
+  finishWaitingForInvasion.value = false
   finishPresentationPending.value = false
   if (finishPresentationFallbackTimer) {
     clearTimeout(finishPresentationFallbackTimer)
@@ -900,20 +982,37 @@ function revealFinishedGame() {
 
   playFinishedWinnerThemes()
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    showGameOverOverlay.value = false
+    beginRankedEloStage()
     return
   }
 
-  showGameOverOverlay.value = true
+  finishCinematicPhase.value = 'podium'
   if (gameOverOverlayTimer) clearTimeout(gameOverOverlayTimer)
   gameOverOverlayTimer = setTimeout(() => {
-    showGameOverOverlay.value = false
+    if (finishCinematicGameId.value !== presentationGameId) return
     gameOverOverlayTimer = null
+    if (!rankedEloSettlement.value) {
+      finishCinematicPhase.value = 'idle'
+      return
+    }
+
+    finishCinematicPhase.value = 'ranked-gap'
+    if (rankedEloDelayTimer) clearTimeout(rankedEloDelayTimer)
+    rankedEloDelayTimer = setTimeout(() => {
+      if (finishCinematicGameId.value !== presentationGameId) return
+      rankedEloDelayTimer = null
+      beginRankedEloStage()
+    }, 1100)
   }, 5000)
 }
 
-watch(() => store.gameState?.isFinished, (finished, prev) => {
-  if (!finished || prev) return
+function queueFinishedPresentation() {
+  if (
+    !isCurrentFinishGame(finishCinematicGameId.value)
+    || !store.gameState?.isFinished
+    || finishedPresentationStarted.value
+    || finishPresentationPending.value
+  ) return
 
   const hasFinalFight = (store.gameState?.fightLog?.length ?? 0) > 0
   const isEternalTsukuyomiIllusion = store.myPlayer?.status.scoreBreakdown?.entries
@@ -927,11 +1026,44 @@ watch(() => store.gameState?.isFinished, (finished, prev) => {
   fightReplayEnded.value = false
   finishPresentationPending.value = true
   finishPresentationFallbackTimer = setTimeout(revealFinishedGame, 15000)
-})
+}
+
+watch(
+  [
+    () => store.gameState?.gameId ?? null,
+    () => store.gameState?.isFinished ?? false,
+    gameIdNum,
+  ],
+  ([stateGameId, finished, routeGameId]) => {
+    const scopedGameId = stateGameId !== null && stateGameId === routeGameId
+      ? stateGameId
+      : null
+    if (finishCinematicGameId.value !== scopedGameId)
+      resetFinishCinematic(scopedGameId)
+    if (scopedGameId !== null && finished)
+      queueFinishedPresentation()
+  },
+  { immediate: true },
+)
 
 watch(fightReplayEnded, (ended) => {
   if (ended && finishPresentationPending.value)
     revealFinishedGame()
+})
+
+watch(omniManInvasionVisible, (visible) => {
+  if (!visible && finishWaitingForInvasion.value)
+    revealFinishedGame()
+})
+
+watch(rankedEloSettlement, (settlement) => {
+  if (
+    settlement
+    && store.gameState?.isFinished
+    && finishedPresentationStarted.value
+    && !rankedEloShown.value
+    && finishCinematicPhase.value === 'idle'
+  ) beginRankedEloStage()
 })
 
 /** Map Discord custom emoji names to local /art/emojis/ images (mirrors C# EmojiMap). */
@@ -1184,19 +1316,44 @@ const currentLogEntries = computed(() => currentLogEntriesAll.value.filter((e: P
 
 
 /** Extract fight bonuses for myPlayer from fightLog (aggregated per type) */
+type FightParticipantSide = 'attacker' | 'defender'
+
+function fightHasStructuredIdentity(fight: FightEntry): boolean {
+  return Boolean(fight.attackerPlayerId || fight.defenderPlayerId || fight.winnerPlayerId)
+}
+
+function uniqueRosterPlayer(players: Player[], username: string): Player | null {
+  const matches = players.filter((player: Player) => player.discordUsername === username)
+  return matches.length === 1 ? matches[0] : null
+}
+
+function fightSideMatches(
+  fight: FightEntry,
+  side: FightParticipantSide,
+  player: Player,
+  roster: Player[],
+): boolean {
+  const playerId = side === 'attacker' ? fight.attackerPlayerId : fight.defenderPlayerId
+  if (playerId) return playerId === player.playerId
+  if (fightHasStructuredIdentity(fight)) return false
+  const username = side === 'attacker' ? fight.attackerName : fight.defenderName
+  return uniqueRosterPlayer(roster, username)?.playerId === player.playerId
+}
+
 const myFightBonuses = computed(() => {
   if (!fightReplayEnded.value) return []
   const log = store.gameState?.fightLog || []
-  const myName = store.myPlayer?.discordUsername
-  if (!myName || !log.length) return []
+  const me = store.myPlayer
+  const roster = store.gameState?.players ?? []
+  if (!me || !log.length) return []
 
   let totalSkill = 0
   let totalJustice = 0
   let totalMoral = 0
 
   for (const f of log) {
-    const isAttacker = f.attackerName === myName
-    const isDefender = f.defenderName === myName
+    const isAttacker = fightSideMatches(f, 'attacker', me, roster)
+    const isDefender = fightSideMatches(f, 'defender', me, roster)
     if (!isAttacker && !isDefender) continue
 
     if (isAttacker) {
@@ -1473,6 +1630,11 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
       </div>
     </Transition>
 
+    <RankedEloCelebration
+      v-if="showRankedEloOverlay && rankedEloSettlement"
+      :settlement="rankedEloSettlement"
+    />
+
     <!-- Connection lost overlay -->
     <Transition name="fade">
       <div v-if="!store.isConnected && !showLogin" class="connection-lost-overlay">
@@ -1691,7 +1853,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
             >
               <span class="half-life-lambda">λ</span> Halflife 3
             </button>
-            <button class="act-btn auto" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Auto Move" @click="store.autoMove()">
+            <button v-if="!store.gameState.isRanked" class="act-btn auto" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Auto Move" @click="store.autoMove()">
               <span class="gi gi-lg gi-auto">AUTO</span> Move
             </button>
             <button v-if="me?.status.isReady && !me?.status.isSkip" class="act-btn undo" :disabled="transitionPaused" title="Change Mind" @click="store.changeMind()">
@@ -1808,7 +1970,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
             </button>
             <RoundTimer v-if="!store.gameState.isFinished && !transitionPaused" />
             <!-- Finish game -->
-            <button v-if="me && !store.gameState.isFinished"
+            <button v-if="me && !store.gameState.isFinished && !store.gameState.isRanked"
               class="btn btn-ghost btn-sm finish-btn"
               @click="showFinishConfirm = !showFinishConfirm">
               Finish
@@ -1880,7 +2042,9 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
 
           <!-- Blackjack mini-game for players killed by Death Note -->
           <Blackjack21
-            v-if="store.myPlayer?.isDead && store.myPlayer?.deathSource === 'Kira' && store.blackjackState"
+            v-if="store.myPlayer?.isDead
+              && store.myPlayer?.deathSource === 'Kira'
+              && store.blackjackState?.gameId === store.gameState.gameId"
             :game-id="store.gameState.gameId"
           />
         </div>
@@ -1957,14 +2121,27 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
 
         <!-- "Back to Lobby" after game ends -->
         <div v-if="store.gameState.isFinished" class="finished-actions" style="order: 999">
+          <div
+            v-if="rankedEloSettlement"
+            class="ranked-elo-summary"
+            :class="`is-${rankedEloTone}`"
+          >
+            <span>{{ message('kotgh.ranked.elo.summary') }}</span>
+            <strong>
+              {{ rankedEloSettlement.ratingBefore }}
+              <i aria-hidden="true">→</i>
+              {{ rankedEloSettlement.ratingAfter }}
+            </strong>
+            <em>{{ signedElo(rankedEloSettlement.delta) }}</em>
+          </div>
           <button class="btn btn-primary btn-lg" @click="goToLobby">
-            Back to Lobby
+            {{ rankedEloSettlement ? message('kotgh.ranked.elo.back') : 'Back to Lobby' }}
           </button>
         </div>
 
         <!-- Achievement unlock popup -->
         <AchievementPopup
-          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !finishPresentationPending && !showGameOverOverlay && !store.isLootBoxFlowActive"
+          v-if="store.newlyUnlockedAchievements.length > 0 && store.gameState.isFinished && !finishPresentationPending && !finishCinematicActive && !store.isLootBoxFlowActive"
           :achievements="store.newlyUnlockedAchievements"
           :is-saving="store.isAcknowledgingAchievements"
           :save-error="store.achievementAcknowledgeError"
@@ -2481,8 +2658,54 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
 
 .finished-actions {
   display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   justify-content: center;
   padding: 6px 0;
+}
+
+.ranked-elo-summary {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 10px;
+  color: #b8bfca;
+  background: rgba(7, 9, 13, 0.7);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
+  font: 800 12px/1.2 var(--font-mono);
+}
+
+.ranked-elo-summary.is-positive { color: #60df8d; }
+.ranked-elo-summary.is-negative { color: #ff6978; }
+.ranked-elo-summary.is-neutral { color: #b8bfca; }
+
+.ranked-elo-summary > span {
+  color: rgba(229, 233, 241, 0.7);
+  font-family: var(--font-body, sans-serif);
+}
+
+.ranked-elo-summary strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #f6f7fa;
+  font-size: 14px;
+}
+
+.ranked-elo-summary strong i {
+  color: rgba(229, 233, 241, 0.42);
+  font-style: normal;
+}
+
+.ranked-elo-summary em {
+  min-width: 32px;
+  font-size: 14px;
+  font-style: normal;
+  text-align: right;
 }
 
 

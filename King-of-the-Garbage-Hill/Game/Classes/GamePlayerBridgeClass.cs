@@ -23,6 +23,7 @@ public class GamePlayerBridgeClass
         Status.GameCharacter = GameCharacter;
         FightCharacter = GameCharacter.DeepCopy();
         RoundFightCharacter = FightCharacter.DeepCopy();
+        RememberCurrentPassiveSources();
 
         DiscordId = discordId;
         GameId = gameId;
@@ -46,6 +47,27 @@ public class GamePlayerBridgeClass
     /// </summary>
     public CharacterClass RoundFightCharacter { get; set; }
     public CharacterClass GameCharacter { get; set; }
+
+    /// <summary>
+    /// Canonical sources this seat has owned during the match. Pro history uses provenance rather
+    /// than the current card list, so removing a passive cannot turn an own receipt into a foreign
+    /// one or reveal an old foreign receipt.
+    /// </summary>
+    public HashSet<string> ProOwnedPassiveSourceNames { get; set; } = new(StringComparer.Ordinal);
+
+    public void RememberCurrentPassiveSources()
+    {
+        if (GameCharacter?.Passive == null) return;
+        lock (ProOwnedPassiveSourceNames)
+            foreach (var passive in GameCharacter.Passive)
+                ProOwnedPassiveSourceNames.Add(passive.PassiveName);
+    }
+
+    public string[] GetRememberedPassiveSources()
+    {
+        lock (ProOwnedPassiveSourceNames)
+            return ProOwnedPassiveSourceNames.ToArray();
+    }
 
     public PassivesClass Passives { get; set; }
 
@@ -155,7 +177,8 @@ public class GamePlayerBridgeClass
         GameClass game,
         int howMuchToRemove,
         string skillName,
-        bool suppressDefaultGlobalLog = false)
+        bool suppressDefaultGlobalLog = false,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (game == null || howMuchToRemove >= 0)
         {
@@ -187,7 +210,10 @@ public class GamePlayerBridgeClass
 
         if (!suppressDefaultGlobalLog)
             game.AddGlobalLogs($"\n{DiscordUsername} психанул");
-        playerCharacter.AddPsyche(howMuchToRemove, skillName);
+        playerCharacter.AddPsyche(
+            howMuchToRemove,
+            skillName,
+            sourceVisibility: sourceVisibility);
         return true;
     }
 

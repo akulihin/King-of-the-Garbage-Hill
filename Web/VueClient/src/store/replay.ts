@@ -246,6 +246,7 @@ export const useReplayStore = defineStore('replay', () => {
       timePassedSeconds: 0,
       gameVersion: data.gameVersion,
       gameMode: data.gameMode,
+      isRanked: false,
       isFinished: true, // hides all action buttons
       isAramPickPhase: false,
       isDraftPickPhase: false,

@@ -16,6 +16,10 @@ export type GameState = {
   timePassedSeconds: number
   gameVersion: string
   gameMode: string
+  /** Authoritative Ranked match flag; Pro mode alone does not imply Ranked. */
+  isRanked: boolean
+  /** Owner-only result, populated for the Ranked creator in the finished state. */
+  rankedEloSettlement?: RankedEloSettlement | null
   isFinished: boolean
   isAramPickPhase: boolean
   isDraftPickPhase: boolean
@@ -66,6 +70,16 @@ export type GameState = {
   fightLog: FightEntry[]
   /** Achievements newly unlocked this game (populated on game finish) */
   newlyUnlockedAchievements?: AchievementEntry[]
+}
+
+export type RankedEloSettlement = {
+  ratingBefore: number
+  ratingAfter: number
+  delta: number
+  finalPlace: number
+  placementDelta: number
+  shinigamiPenalty: number
+  blackjackRecovery: number
 }
 
 export type Player = {
@@ -466,6 +480,8 @@ export type GeraltState = {
 // ── Blackjack Types ───────────────────────────────────────────────
 
 export type BlackjackTableState = {
+  /** Parent KOTGH game identity; prevents a late table push from crossing game views. */
+  gameId: number
   phase: string
   currentPlayerIndex: number
   dealerName: string
@@ -474,6 +490,17 @@ export type BlackjackTableState = {
   lastMessage: BlackjackMessage | null
   wordCategories: WordCategory[]
   players: BlackjackPlayerState[]
+  /** Viewer-specific Ranked recovery state; absent outside an eligible Shinigami game. */
+  rankedEloRecovery?: RankedEloRecovery | null
+}
+
+export type RankedEloRecovery = {
+  ratingBeforePenalty: number
+  currentRating: number
+  penalty: number
+  recovered: number
+  remaining: number
+  settled: boolean
 }
 
 export type BlackjackPlayerState = {
@@ -718,11 +745,13 @@ export type MediaMessage = {
 
 export type FightEntry = {
   // Participants
+  attackerPlayerId?: string
   attackerName: string
   attackerDisplayName?: LocalizedText
   attackerCharName: string
   attackerCharDisplayName?: LocalizedText
   attackerAvatar: string
+  defenderPlayerId?: string
   defenderName: string
   defenderDisplayName?: LocalizedText
   defenderCharName: string
@@ -731,6 +760,7 @@ export type FightEntry = {
 
   // Outcome: "win" (attacker wins), "loss" (defender wins), "block", "skip"
   outcome: string
+  winnerPlayerId?: string
   winnerName: string | null
 
   // Class info for Nemesis/Versatility display
@@ -1107,10 +1137,12 @@ export type BattleshipPlayerState = {
   stunShotExpiry: number
   hasPenalty: boolean
   hasShotThisTurn: boolean
+  hasPendingMatryoshka: boolean
   hasPendingBoardingDeployment: boolean
   mandatoryBoardingSummonSlots: number
   mandatoryBoardingBrander: boolean
   boardingDeploymentCapacity: number
+  pendingMatryoshka: BattleshipPendingMatryoshka | null
   pendingManeuver: BattleshipPendingManeuver | null
   voluntaryManeuvers?: BattleshipVoluntaryManeuver[]
   pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
@@ -1187,6 +1219,20 @@ export type BattleshipCursedBoatDirectionOption = {
 export type BattleshipPendingAssembly = {
   groupId: string
   options: BattleshipAssemblyOption[]
+}
+
+export type BattleshipPendingMatryoshka = {
+  parentShipId: string
+  childName: string
+  childDeckCount: number
+  options: BattleshipMatryoshkaOption[]
+}
+
+export type BattleshipMatryoshkaOption = {
+  row: number
+  col: number
+  orientation: BattleshipOrientation
+  cells: { row: number; col: number }[]
 }
 
 export type BattleshipAssemblyOption = {
@@ -1337,6 +1383,7 @@ export type BattleshipUpgrade = {
   nameRu: string
   cost: number
   description: string
+  isPreinstalled: boolean
 }
 
 export type BattleshipShotResult = {
@@ -2228,6 +2275,23 @@ class SignalRService {
     orientation: BattleshipOrientation,
   ): Promise<void> {
     await this.connection?.invoke('BattleshipAssembleShip', gameId, groupId, row, col, orientation)
+  }
+
+  async battleshipDeployMatryoshka(
+    gameId: string,
+    parentShipId: string,
+    row: number,
+    col: number,
+    orientation: BattleshipOrientation,
+  ): Promise<void> {
+    await this.connection?.invoke(
+      'BattleshipDeployMatryoshka',
+      gameId,
+      parentShipId,
+      row,
+      col,
+      orientation,
+    )
   }
 
   async battleshipForfeit(gameId: string): Promise<void> {

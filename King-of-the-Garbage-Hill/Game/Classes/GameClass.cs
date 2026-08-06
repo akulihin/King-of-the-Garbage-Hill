@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.2.13";
+        GameVersion = "Версия: 5.2.17";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -72,6 +72,14 @@ public class GameClass
     /// <summary>Solo Pro account versus five strict level-3 bots with ELO settlement.</summary>
     public bool IsRanked { get; set; }
     public ulong CreatorId { get; set; }
+    /// <summary>Creator rating captured before any match-local Ranked debits or rewards.</summary>
+    public int? RankedEloRatingAtStart { get; set; }
+    /// <summary>True after the Ranked creator's one-time Shinigami-world debit is applied.</summary>
+    public bool RankedShinigamiPenaltyApplied { get; set; }
+    /// <summary>Match-local amount recovered through the one permitted winning game of 21.</summary>
+    public int RankedBlackjackRecoveryAwarded { get; set; }
+    /// <summary>Final owner-only rating receipt populated before the finished-state broadcast.</summary>
+    public RankedEloSettlementClass RankedEloSettlement { get; set; }
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
 
@@ -107,14 +115,32 @@ public class GameClass
     /// <summary>Text snippets in GlobalLogs that should be stripped for non-admin players (e.g. Saitama hidden fights).</summary>
     public List<string> HiddenGlobalLogSnippets { get; set; } = new();
 
+    /// <summary>
+    /// Persistent counterpart for AllGameGlobalLogs, finished chronicles, stories and public replays.
+    /// The current-round list is cleared before the next calculation; this ledger is not.
+    /// </summary>
+    public List<string> AllHiddenGlobalLogSnippets { get; set; } = new();
+
     /// <summary>Dopa shadow-fight snippets retained for owner-only live projection and public-replay redaction.</summary>
     public List<string> DopaShadowGlobalLogSnippets { get; set; } = new();
 
     /// <summary>Text snippets that should be stripped from GlobalLogs for Kira's "Genius" passive (character-revealing info).</summary>
     public List<string> KiraHiddenLogSnippets { get; set; } = new();
 
+    /// <summary>
+    /// Public in Casual, but visible only to the named owner (and admins) for a Pro viewer.
+    /// This keeps exact owner feedback without publishing a hidden foreign value to Pro seats.
+    /// </summary>
+    public List<ProOwnerGlobalLogClass> ProOwnerGlobalLogSnippets { get; set; } = new();
+
     /// <summary>Player IDs revealed by Коммуникация or Толя (for Pink Ward animation on frontend).</summary>
     public List<Guid> PinkWardRevealedPlayerIds { get; set; } = new();
+
+    /// <summary>
+    /// Per-target reveal owners. Casual keeps the public shimmer; Pro receives it only when the
+    /// requester actually caused that reveal and therefore already owns the exact information.
+    /// </summary>
+    public Dictionary<Guid, List<Guid>> PinkWardRevealOwnerIds { get; set; } = new();
 
 
 
@@ -123,6 +149,55 @@ public class GameClass
     {
         GlobalLogs += str + newLine;
         AllGameGlobalLogs += str + newLine;
+    }
+
+    public void AddProOwnerGlobalLogs(string str, Guid ownerPlayerId, string newLine = "\n")
+    {
+        AddGlobalLogs(str, newLine);
+        ProOwnerGlobalLogSnippets.Add(new ProOwnerGlobalLogClass
+        {
+            Text = str,
+            OwnerPlayerId = ownerPlayerId,
+        });
+    }
+
+    public void AddHiddenGlobalLogSnippet(string snippet)
+    {
+        if (string.IsNullOrEmpty(snippet)) return;
+        if (!HiddenGlobalLogSnippets.Contains(snippet))
+            HiddenGlobalLogSnippets.Add(snippet);
+        if (!AllHiddenGlobalLogSnippets.Contains(snippet))
+            AllHiddenGlobalLogSnippets.Add(snippet);
+    }
+
+    public string ApplyProGlobalLogVisibility(
+        string logs,
+        GamePlayerBridgeClass viewer,
+        bool forceProVisibility = false)
+    {
+        if (string.IsNullOrEmpty(logs)
+            || (!forceProVisibility && viewer?.IsProMode != true)
+            || (!forceProVisibility && viewer?.PlayerType == 2))
+            return logs;
+
+        foreach (var scoped in ProOwnerGlobalLogSnippets)
+            if ((viewer == null || scoped.OwnerPlayerId != viewer.GetPlayerId())
+                && !string.IsNullOrEmpty(scoped.Text))
+                logs = logs.Replace(scoped.Text, "", StringComparison.Ordinal);
+        return logs;
+    }
+
+    public void RecordPinkWardReveal(Guid targetPlayerId, Guid ownerPlayerId)
+    {
+        if (!PinkWardRevealedPlayerIds.Contains(targetPlayerId))
+            PinkWardRevealedPlayerIds.Add(targetPlayerId);
+        if (!PinkWardRevealOwnerIds.TryGetValue(targetPlayerId, out var owners))
+        {
+            owners = new List<Guid>();
+            PinkWardRevealOwnerIds[targetPlayerId] = owners;
+        }
+        if (!owners.Contains(ownerPlayerId))
+            owners.Add(ownerPlayerId);
     }
 
     public void AddGlobalLogsRaw(string str)
@@ -158,6 +233,23 @@ public class GameClass
         public int TeamId { get; set; }
         public List<Guid> TeamPlayers { get; set; }
         public List<string> TeamPlayersUsernames { get; set; }
+    }
+
+    public class ProOwnerGlobalLogClass
+    {
+        public string Text { get; set; } = "";
+        public Guid OwnerPlayerId { get; set; }
+    }
+
+    public sealed class RankedEloSettlementClass
+    {
+        public int RatingBefore { get; set; }
+        public int RatingAfter { get; set; }
+        public int Delta { get; set; }
+        public int FinalPlace { get; set; }
+        public int PlacementDelta { get; set; }
+        public int ShinigamiPenalty { get; set; }
+        public int BlackjackRecovery { get; set; }
     }
 
     internal List<Guid> GetTeammates(GamePlayerBridgeClass player)

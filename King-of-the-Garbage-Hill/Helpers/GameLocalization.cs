@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Discord;
+using King_of_the_Garbage_Hill.Localization;
 
 namespace King_of_the_Garbage_Hill.Helpers;
 
@@ -20,6 +21,8 @@ public static class GameLocalization
 
     private static readonly ConcurrentDictionary<ulong, string> UserLanguages = new();
     private static readonly Lazy<Catalog> EnglishCatalog = new(LoadEnglishCatalog);
+    private static readonly Lazy<MessageCatalog> StructuredMessages =
+        new(() => new MessageCatalog());
 
     // Translation is a pure function of (text, language, catalog), and the projection layer re-translates
     // the same bounded strings (character/passive/class names, stat labels) for every player of every round.
@@ -106,6 +109,14 @@ public static class GameLocalization
 
     public static string TextForUser(ulong userId, string text) => Text(text, GetUserLanguage(userId));
 
+    public static string MessageForUser(
+        ulong userId,
+        string key,
+        IReadOnlyDictionary<string, string> arguments = null) =>
+        StructuredMessages.Value.Render(
+            new LocalizedMessage(key, arguments),
+            GetUserLanguage(userId));
+
     /// <summary>
     /// Localizes ordinary text for the web client while preserving replay-safe bilingual phrase
     /// records for Vue to resolve whenever the viewer changes language.
@@ -153,7 +164,11 @@ public static class GameLocalization
     {
         if (resolveBilingualPhrases &&
             (text.Contains(PhrasePayload.Marker, StringComparison.Ordinal) ||
-             text.Contains(PhrasePayload.TextMarker, StringComparison.Ordinal)))
+             text.Contains(PhrasePayload.TextMarker, StringComparison.Ordinal) ||
+             text.Contains(PhrasePayload.OwnerMarker, StringComparison.Ordinal) ||
+             text.Contains(PhrasePayload.PublicMarker, StringComparison.Ordinal) ||
+             text.Contains(PhrasePayload.ProNeutralMarker, StringComparison.Ordinal) ||
+             text.Contains(PhrasePayload.ProNeutralSourceMarker, StringComparison.Ordinal)))
         {
             var protectedText = PhrasePayload.Protect(text, language, out var renderedPhrases);
             return PhrasePayload.Restore(

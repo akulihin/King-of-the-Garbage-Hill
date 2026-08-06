@@ -260,10 +260,8 @@ public static class BattleshipCompositeShipFactory
             var cell = player.Board.GetCell(position.Row, position.Col);
             if (cell == null) continue;
 
-            // Vacated source coordinates keep their anonymous historical observation until the
-            // composite finally dies, just like an ordinary hidden maneuver.
-            if (cell.IsRevealed && !cell.WasShipHit)
-                cell.WasRevealedShip = true;
+            // Existing exact observations remain in the cell snapshot. Coordinate-level reveal
+            // alone may describe water and must never manufacture an observed ship.
             cell.IsHit = false;
         }
 

@@ -51,9 +51,9 @@ public static class ShipCatalog
             AvailableUpgrades = new()
             {
                 new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "crew_boarding_pirate" },
-                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 4, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных выбранных снаряда.", Effect = "extra_ammo" },
+                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 6, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных выбранных снаряда.", Effect = "extra_ammo" },
                 new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палубы 1", Cost = 4, Description = "Увеличивает прочность первой палубы на 4, но не выше 9.", Effect = "armor_deck_0" },
-                new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1" },
+                new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1", IsPreinstalled = true },
                 new UpgradeDefinition { Id = "triple_armor_3", Name = "Armor Deck 3", NameRu = "Броня палубы 3", Cost = 4, Description = "Увеличивает прочность третьей палубы на 4, но не выше 9.", Effect = "armor_deck_2" },
             }
         },
@@ -61,7 +61,7 @@ public static class ShipCatalog
         {
             Id = "tetranavis", Name = "Tetranavis", NameRu = "Тетранавис",
             DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true,
-            DeckHpOverrides = new() { 2, 4, 2, 2 }, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
+            DeckHpOverrides = new() { 2, 2, 4, 2 }, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
             Description = "Четырёхпалубный флагман: Котельная, Мачта, Тетракамнемёт и Баллиста.",
             DefaultWeapons = new()
             {
@@ -80,8 +80,16 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
+            Id = "alliance_flagship", Name = "Alliance Flagship", NameRu = "Флагман Альянса",
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true,
+            DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
+            Factions = new() { Faction.Alliance },
+            Description = ""
+        },
+        new ShipDefinition
+        {
             Id = "famous_diagonal_ship", Name = "Знаменитый диагональный корабль", NameRu = "Знаменитый диагональный корабль",
-            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true, IsHome = true,
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 10, IsHome = true,
             DeckHpOverrides = new() { 4, 4, 4, 4 }, Speed = 1, Space = 1,
             Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
             Abilities = new() { "diagonal_shape" },
@@ -107,6 +115,14 @@ public static class ShipCatalog
                 new UpgradeDefinition { Id = "tetra_boiler_brander", Name = "Brander", NameRu = "Брандер", Cost = 4, Description = "Котельная позволяет один раз за матч призвать Брандер.", Effect = "brander" },
             }
         },
+        new ShipDefinition
+        {
+            Id = "russian_matryoshka", Name = "Русская Матрешка", NameRu = "Русская Матрешка",
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 10,
+            DefaultArmor = 2, Speed = 1, Space = 1,
+            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Abilities = new() { "matryoshka_stage_4" },
+        },
 
         // ── Upgraded (cost coins) ships ─────────────────────────────
         new ShipDefinition
@@ -116,7 +132,7 @@ public static class ShipCatalog
             DeckHpOverrides = new() { 1, 1, 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2,
             Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
             Abilities = new() { "double_shot_while_alive", "overheat_after_20_shots" },
-            Description = "Домашняя альтернатива диагональному флагману: даёт второй выстрел за ход, а после 20 выстрелов владельца взрывается в радиусе 2.",
+            Description = "Даёт второй выстрел за ход, а после 20 выстрелов владельца взрывается в радиусе 2.",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
@@ -464,6 +480,34 @@ public static class ShipCatalog
         ship.IsAssemblyComponent = false;
         ship.Abilities.Remove("assembly_component");
         return ship;
+    }
+
+    /// <summary>Create the next Russian Matryoshka hull; every Mid deck receives a Ballista.</summary>
+    public static Ship CreateMatryoshkaStageShip(int deckCount)
+    {
+        var name = deckCount switch
+        {
+            3 => "Мать Матрешка",
+            2 => "Матрена",
+            1 => "Матренушка",
+            _ => throw new ArgumentOutOfRangeException(nameof(deckCount)),
+        };
+        var definition = new ShipDefinition
+        {
+            Id = $"russian_matryoshka_stage_{deckCount}",
+            Name = name,
+            NameRu = name,
+            DeckCount = deckCount,
+            Range = RangeClass.Mid,
+            DefaultArmor = 2,
+            Speed = 1,
+            Space = 1,
+            Regions = new() { Region.Tetracor },
+            Abilities = deckCount > 1
+                ? new() { $"matryoshka_stage_{deckCount}" }
+                : new(),
+        };
+        return CreateShip(definition);
     }
 
     private static void ApplyUpgrade(Ship ship, ShipDefinition def, string upgradeId)

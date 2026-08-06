@@ -43,13 +43,17 @@ const phase = computed(() => store.phase)
 const isMyTurn = computed(() => store.isMyTurn)
 const myPlayer = computed(() => store.myPlayer)
 const enemyPlayer = computed(() => store.enemyPlayer)
+const pendingMatryoshka = computed(() => myPlayer.value?.pendingMatryoshka ?? null)
+const matryoshkaSubmitting = ref(false)
+const matryoshkaResolutionPending = computed(() =>
+  !!myPlayer.value?.hasPendingMatryoshka || !!enemyPlayer.value?.hasPendingMatryoshka)
 const boardingPlacementPending = computed(() =>
   !!myPlayer.value?.hasPendingBoardingDeployment || !!enemyPlayer.value?.hasPendingBoardingDeployment)
 const waitingRamReturnActive = computed(() =>
   myPlayer.value?.summons?.some(summon =>
     summon.isAlive && summon.type === 'Ram' && summon.waitingForTurnBack) ?? false)
 const summonPriorityLockActive = computed(() =>
-  boardingPlacementPending.value || waitingRamReturnActive.value)
+  matryoshkaResolutionPending.value || boardingPlacementPending.value || waitingRamReturnActive.value)
 const myFleet = computed(() => store.myFleet)
 const gameLog = computed(() => store.gameLog)
 const pendingManeuver = computed(() =>
@@ -83,7 +87,39 @@ const cursedBoatShipCells = computed(() => pendingCursedBoatDirection.value
 const cursedBoatTargetCells = computed(() =>
   pendingCursedBoatDirection.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
 const mandatoryInteractionActive = computed(() =>
-  !!pendingManeuver.value || !!pendingCursedBoatDirection.value || !!pendingAssembly.value)
+  matryoshkaResolutionPending.value || !!pendingManeuver.value
+  || !!pendingCursedBoatDirection.value || !!pendingAssembly.value)
+const matryoshkaChoices = computed(() => {
+  const options = pendingMatryoshka.value?.options ?? []
+  return options.map((option, optionIndex) => {
+    const target = option.cells.find(cell =>
+      options.every((other, otherIndex) =>
+        otherIndex === optionIndex
+        || !other.cells.some(otherCell => otherCell.row === cell.row && otherCell.col === cell.col)))
+      ?? { row: option.row, col: option.col }
+    return { option, target }
+  })
+})
+const matryoshkaTargetCells = computed(() =>
+  matryoshkaSubmitting.value ? [] : matryoshkaChoices.value.map(choice => choice.target))
+const matryoshkaWreckCells = computed(() => {
+  const unique = new Map<string, { row: number; col: number }>()
+  for (const option of pendingMatryoshka.value?.options ?? []) {
+    for (const cell of option.cells) unique.set(`${cell.row},${cell.col}`, cell)
+  }
+  return [...unique.values()]
+})
+const matryoshkaOptionCells = computed(() =>
+  pendingMatryoshka.value?.options.flatMap((option, optionIndex) =>
+    option.cells.map(cell => ({ ...cell, option: optionIndex }))) ?? [])
+const matryoshkaChildName = computed(() => {
+  switch (pendingMatryoshka.value?.childDeckCount) {
+    case 3: return message('battleship.matryoshka.stage3Name')
+    case 2: return message('battleship.matryoshka.stage2Name')
+    case 1: return message('battleship.matryoshka.stage1Name')
+    default: return pendingMatryoshka.value?.childName ?? ''
+  }
+})
 const availableVoluntaryManeuvers = computed<BattleshipVoluntaryManeuver[]>(() => {
   const livingMergeShips = new Set(myFleet.value
     .filter(ship => ship.definitionId === 'merging_ship' && !ship.isDestroyed && ship.isPlaced)
@@ -135,8 +171,8 @@ watch(
   { immediate: true },
 )
 
-watch(mandatoryInteractionActive, (active) => {
-  if (active) store.cancelSummonDeploy()
+watch(mandatoryInteractionActive, (active, wasActive) => {
+  if (active || wasActive) store.cancelSummonDeploy()
 }, { immediate: true })
 
 watch(waitingRamReturnActive, (active) => {
@@ -224,12 +260,13 @@ const pirateRestoreActive = computed(() =>
   && !store.summonDeployMode.pendingId
   && pirateRestoreCells.value.length > 0)
 
-// Penalty zone: rows 0-2 highlighted when enemy summons present (#3)
+// Penalty zone: rows 0-2 highlighted when penalized enemy summons are present (#3)
 const penaltyZoneRows = computed<number[]>(() => {
   if (!hasEnemySummonOnMyBoard.value) return []
   const myId = store.gameState?.myPlayerId
   const hasInPenaltyZone = store.myBoard?.cells.some(c =>
-    c.hasSummon && !c.isGhostSummon && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
+    c.hasSummon && !c.isGhostSummon && !c.isBoardingSummon
+      && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
   ) ?? false
   return hasInPenaltyZone ? [0, 1, 2] : []
 })
@@ -265,15 +302,15 @@ const canDeploySummon = computed(() => canDeploySummonType(store.summonType))
 const deployableSummons = computed(() => availableSummons.value.filter(canDeploySummonType))
 
 function enterSummonDeployMode() {
-  if (!canDeploySummon.value || voluntaryManeuverActive.value) return
+  if (mandatoryInteractionActive.value || !canDeploySummon.value || voluntaryManeuverActive.value) return
   store.summonDeployMode = { type: store.summonType }
 }
 
 function enterReentrySummonDeployMode(summon: BattleshipSummon) {
   if (
-    voluntaryManeuverActive.value
-    ||
-    !summon.isAlive
+    mandatoryInteractionActive.value
+    || voluntaryManeuverActive.value
+    || !summon.isAlive
     || summon.type !== 'Ram'
     || !summon.waitingForTurnBack
   ) return
@@ -288,7 +325,8 @@ function enterReentrySummonDeployMode(summon: BattleshipSummon) {
 }
 
 function enterPendingSummonDeployMode(ps: BattleshipPendingSummon) {
-  if (waitingRamReturnActive.value || voluntaryManeuverActive.value) return
+  if (mandatoryInteractionActive.value
+    || waitingRamReturnActive.value || voluntaryManeuverActive.value) return
   if (boardingPlacementPending.value && !ps.isMandatoryBoarding) return
   store.summonDeployMode = {
     type: ps.type,
@@ -410,7 +448,8 @@ const enemyHighlight = computed(() => {
 
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
-  if (pendingManeuver.value || pendingAssembly.value || voluntaryManeuverActive.value) return
+  if (matryoshkaResolutionPending.value || pendingManeuver.value
+    || pendingAssembly.value || voluntaryManeuverActive.value) return
   if (pendingCursedBoatDirection.value) {
     const option = pendingCursedBoatDirection.value.options
       .find(value => value.row === row && value.col === col)
@@ -445,6 +484,27 @@ async function handleEnemyCellClick(row: number, col: number) {
 async function handleMyBoardCellClick(row: number, col: number) {
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
   const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
+  if (pendingMatryoshka.value) {
+    if (matryoshkaSubmitting.value) return
+    const choice = matryoshkaChoices.value
+      .find(value => value.target.row === row && value.target.col === col)
+    if (choice) {
+      matryoshkaSubmitting.value = true
+      try {
+        await store.deployMatryoshka(
+          pendingMatryoshka.value.parentShipId,
+          choice.option.row,
+          choice.option.col,
+          choice.option.orientation,
+        )
+      }
+      finally {
+        matryoshkaSubmitting.value = false
+      }
+    }
+    return
+  }
+  if (matryoshkaResolutionPending.value) return
   if (
     pirateRestoreActive.value
     && cell?.shipId
@@ -514,7 +574,8 @@ function handleEnemyHover(row: number, col: number) {
 }
 
 async function handleWeaponSelect(weaponType: string, shotType: string, weaponId: string) {
-  if (boardingPlacementPending.value || waitingRamReturnActive.value || voluntaryManeuverActive.value) return
+  if (mandatoryInteractionActive.value || boardingPlacementPending.value
+    || waitingRamReturnActive.value || voluntaryManeuverActive.value) return
   await store.selectWeapon(weaponType, shotType, weaponId)
 }
 
@@ -836,11 +897,19 @@ onUnmounted(() => {
     :class="{
       'catapult-ready': catapultReady && !mandatoryInteractionActive,
       'mandatory-lock': mandatoryInteractionActive,
+      'matryoshka-waiting': matryoshkaResolutionPending && !pendingMatryoshka,
       'capture-attention': captureFocusActive,
       'voluntary-maneuver-selection': voluntaryManeuverActive,
     }"
   >
-    <div v-if="pendingAssembly" class="bs-banner bs-banner--warning maneuver-banner assembly-banner">
+    <div
+      v-if="pendingMatryoshka"
+      class="bs-banner bs-banner--warning maneuver-banner matryoshka-banner"
+      :aria-busy="matryoshkaSubmitting"
+    >
+      {{ matryoshkaChildName }} — I / II
+    </div>
+    <div v-else-if="pendingAssembly" class="bs-banner bs-banner--warning maneuver-banner assembly-banner">
       Обязательная сборка: выберите положение трёхпалубного корабля.
       <button
         class="bs-btn bs-btn--sm assembly-rotate"
@@ -870,7 +939,7 @@ onUnmounted(() => {
       :shot-delay-active="store.shotDelayActive"
       :shot-delay-remaining="shotDelayRemaining"
       :phase="phase"
-      :disabled="boardingPlacementPending || waitingRamReturnActive || voluntaryManeuverActive"
+      :disabled="mandatoryInteractionActive || boardingPlacementPending || waitingRamReturnActive || voluntaryManeuverActive"
       @select-weapon="handleWeaponSelect"
     />
 
@@ -880,6 +949,7 @@ onUnmounted(() => {
       :phase="phase"
       :shot-count="store.shotCount"
       :can-deploy-summon="canDeploySummon"
+      :disabled="mandatoryInteractionActive"
       :boarding-placement-pending="boardingPlacementPending"
       :waiting-ram-return-active="waitingRamReturnActive"
       :deployable-summons="deployableSummons"
@@ -947,7 +1017,8 @@ onUnmounted(() => {
       :class="{
         'board-shake': store.screenShake,
         'boarding-zoom': boardingZoomActive,
-        'maneuver-focus': !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive,
+        'maneuver-focus': !!pendingMatryoshka || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive,
+        'matryoshka-focus': !!pendingMatryoshka,
         'assembly-focus': !!pendingAssembly,
         'cursed-focus': !!pendingCursedBoatDirection,
         'capture-focus': captureFocusActive,
@@ -971,7 +1042,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="!!pendingCursedBoatDirection || (!pendingManeuver && !pendingAssembly && !voluntaryManeuverActive && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
+            :clickable="!!pendingCursedBoatDirection || (!pendingMatryoshka && !pendingManeuver && !pendingAssembly && !voluntaryManeuverActive && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -1018,10 +1089,11 @@ onUnmounted(() => {
             :last-shot-cell="myLastShot"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
-            :maneuver-active="pirateRestoreActive || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive"
-            :maneuver-ship-cells="maneuverShipCells"
-            :maneuver-target-cells="pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
+            :clickable="!!pendingMatryoshka || pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
+            :maneuver-active="!!pendingMatryoshka || pirateRestoreActive || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive"
+            :maneuver-ship-cells="pendingMatryoshka ? matryoshkaWreckCells : maneuverShipCells"
+            :maneuver-target-cells="pendingMatryoshka ? matryoshkaTargetCells : pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
+            :replacement-option-cells="matryoshkaOptionCells"
             :capture-focus="captureFocusActive"
             :capture-ship-cells="capturedShipCells"
             @cell-click="handleMyBoardCellClick"
@@ -1113,6 +1185,11 @@ onUnmounted(() => {
 .mandatory-lock > :not(.combat-layout):not(.maneuver-banner):not(.pc-tooltip) {
   filter: grayscale(1) brightness(0.48);
   opacity: 0.5;
+  pointer-events: none;
+}
+.matryoshka-waiting .combat-layout {
+  filter: grayscale(1) brightness(0.52);
+  opacity: 0.54;
   pointer-events: none;
 }
 .maneuver-focus .board-enemy {

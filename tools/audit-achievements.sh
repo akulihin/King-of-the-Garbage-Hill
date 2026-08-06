@@ -92,6 +92,10 @@ c_young_gleb_meta
 c_young_gleb_ward
 g_auto_pilot
 g_bottom_feeder
+g_captain_obvious_coup
+g_captain_obvious_credit
+g_captain_obvious_fall
+g_captain_obvious_hold
 g_class_advantage
 g_clean_sweep
 g_maximum_sentence
@@ -206,8 +210,8 @@ done <<< "$expected"
 global_count=$(printf '%s\n' "$definitions" | rg -c '^g_' || true)
 character_count=$(printf '%s\n' "$definitions" | rg -c '^c_' || true)
 interaction_count=$(printf '%s\n' "$definitions" | rg -c '^x_' || true)
-if [ "$global_count" -ne 12 ] || [ "$character_count" -ne 83 ] || [ "$interaction_count" -ne 16 ]; then
-  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 12/83/16)"
+if [ "$global_count" -ne 16 ] || [ "$character_count" -ne 83 ] || [ "$interaction_count" -ne 16 ]; then
+  echo "BAD category counts: global=$global_count character=$character_count interaction=$interaction_count (expected 16/83/16)"
   fail=1
 fi
 
@@ -249,4 +253,4 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-echo "audit-achievements: 111 definitions (12 global / 83 character / 16 interaction), 41 normal/hard character pairs plus Dopa's Permaban bonus card and special-purpose interaction-only roster entries, all unique and evaluated."
+echo "audit-achievements: 115 definitions (16 global / 83 character / 16 interaction), 41 normal/hard character pairs plus Dopa's Permaban bonus card and special-purpose interaction-only roster entries, all unique and evaluated."

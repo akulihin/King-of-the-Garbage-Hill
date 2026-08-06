@@ -164,6 +164,58 @@ const r3NeedlePos = ref(0)
 const r3NeedleSettled = ref(false)
 
 // ── My username and character (for filtering) ──────────────────────────
+type FightSide = 'attacker' | 'defender'
+
+function uniquePlayerByUsername(username: string): Player | null {
+  if (!username) return null
+  const matches = props.players.filter((player: Player) => player.discordUsername === username)
+  return matches.length === 1 ? matches[0] : null
+}
+
+function hasStructuredFightIdentity(f: FightEntry): boolean {
+  return Boolean(f.attackerPlayerId || f.defenderPlayerId || f.winnerPlayerId)
+}
+
+function fightSideName(f: FightEntry, side: FightSide): string {
+  return side === 'attacker' ? f.attackerName : f.defenderName
+}
+
+function fightSidePlayerId(f: FightEntry, side: FightSide): string | null {
+  const playerId = side === 'attacker' ? f.attackerPlayerId : f.defenderPlayerId
+  if (playerId) return playerId
+  if (hasStructuredFightIdentity(f)) return null
+  return uniquePlayerByUsername(fightSideName(f, side))?.playerId ?? null
+}
+
+function fightSideMatchesPlayer(f: FightEntry, side: FightSide, player: Player | null): boolean {
+  return Boolean(player && fightSidePlayerId(f, side) === player.playerId)
+}
+
+function fightWinnerSide(f: FightEntry): FightSide | null {
+  if (f.winnerPlayerId) {
+    if (f.attackerPlayerId === f.winnerPlayerId) return 'attacker'
+    if (f.defenderPlayerId === f.winnerPlayerId) return 'defender'
+  }
+  if (f.outcome === 'win') return 'attacker'
+  if (f.outcome === 'loss') return 'defender'
+  return null
+}
+
+function fightWinnerMatchesPlayer(f: FightEntry, player: Player | null): boolean {
+  if (!player) return false
+  if (f.winnerPlayerId) return f.winnerPlayerId === player.playerId
+  if (hasStructuredFightIdentity(f)) {
+    const winnerSide = fightWinnerSide(f)
+    return winnerSide !== null && fightSideMatchesPlayer(f, winnerSide, player)
+  }
+  return uniquePlayerByUsername(f.winnerName ?? '')?.playerId === player.playerId
+}
+
+function fightSideKey(f: FightEntry, side: FightSide): string {
+  const playerId = fightSidePlayerId(f, side)
+  return playerId ? `player:${playerId}` : ''
+}
+
 const myPlayer = computed(() => props.players.find((pl: Player) => pl.playerId === props.myPlayerId) ?? null)
 const myUsername = computed(() => myPlayer.value?.discordUsername ?? '')
 const streamTarget = computed(() => {
@@ -176,19 +228,19 @@ const perspectiveUsername = computed(() => {
   if (props.terminalMode) return streamTarget.value?.discordUsername ?? ''
   return myUsername.value
 })
+const perspectivePlayer = computed(() => props.terminalMode ? streamTarget.value : myPlayer.value)
 const myCharacterName = computed(() => {
   if (props.terminalMode) return streamTarget.value?.character.name ?? ''
   return myPlayer.value?.character.name ?? ''
 })
 
 function isViewerFight(f: FightEntry): boolean {
-  if (!myUsername.value) return false
-  return f.attackerName === myUsername.value || f.defenderName === myUsername.value
+  return fightSideMatchesPlayer(f, 'attacker', myPlayer.value)
+    || fightSideMatchesPlayer(f, 'defender', myPlayer.value)
 }
 
 function isStreamWin(f: FightEntry): boolean {
-  if (!perspectiveUsername.value) return false
-  return f.winnerName === perspectiveUsername.value
+  return fightWinnerMatchesPlayer(f, streamTarget.value)
     && f.outcome !== 'block'
     && f.outcome !== 'skip'
 }
@@ -279,20 +331,49 @@ const isMyFight = computed(() => {
 
 /** True when we are the defender — need to flip left/right so we're always on the left */
 const isFlipped = computed(() => {
-  if (!fight.value || !perspectiveUsername.value) return false
+  if (!fight.value || !perspectivePlayer.value) return false
   // Admin viewing someone else's fight: don't flip, show as-is (attacker left)
-  if (props.isAdmin && !props.terminalMode && fight.value.attackerName !== myUsername.value && fight.value.defenderName !== myUsername.value) return false
-  return fight.value.defenderName === perspectiveUsername.value
+  if (props.isAdmin && !props.terminalMode && !isViewerFight(fight.value)) return false
+  return fightSideMatchesPlayer(fight.value, 'defender', perspectivePlayer.value)
 })
 
 // ── Display accessors (flipped when we are defender) ────────────────
 /** "Left" player = us, "Right" player = opponent */
 const leftName = computed(() => isFlipped.value ? fight.value!.defenderName : fight.value!.attackerName)
-const leftCharName = computed(() => isFlipped.value ? fight.value!.defenderCharName : fight.value!.attackerCharName)
-const leftAvatar = computed(() => isFlipped.value ? fight.value!.defenderAvatar : fight.value!.attackerAvatar)
 const rightName = computed(() => isFlipped.value ? fight.value!.attackerName : fight.value!.defenderName)
-const rightCharName = computed(() => isFlipped.value ? fight.value!.attackerCharName : fight.value!.defenderCharName)
-const rightAvatar = computed(() => isFlipped.value ? fight.value!.attackerAvatar : fight.value!.defenderAvatar)
+const leftSide = computed<FightSide>(() => isFlipped.value ? 'defender' : 'attacker')
+const rightSide = computed<FightSide>(() => isFlipped.value ? 'attacker' : 'defender')
+const leftPlayerId = computed(() => fight.value ? fightSidePlayerId(fight.value, leftSide.value) : null)
+const rightPlayerId = computed(() => fight.value ? fightSidePlayerId(fight.value, rightSide.value) : null)
+const allowLegacyCurrentFightIdentity = computed(() => fight.value ? !hasStructuredFightIdentity(fight.value) : false)
+const leftRawCharName = computed(() => isFlipped.value ? fight.value!.defenderCharName : fight.value!.attackerCharName)
+const rightRawCharName = computed(() => isFlipped.value ? fight.value!.attackerCharName : fight.value!.defenderCharName)
+const leftRawAvatar = computed(() => isFlipped.value ? fight.value!.defenderAvatar : fight.value!.attackerAvatar)
+const rightRawAvatar = computed(() => isFlipped.value ? fight.value!.attackerAvatar : fight.value!.defenderAvatar)
+const leftCharName = computed(() => getDisplayCharName(
+  leftRawCharName.value,
+  leftName.value,
+  leftPlayerId.value ?? undefined,
+  allowLegacyCurrentFightIdentity.value,
+))
+const rightCharName = computed(() => getDisplayCharName(
+  rightRawCharName.value,
+  rightName.value,
+  rightPlayerId.value ?? undefined,
+  allowLegacyCurrentFightIdentity.value,
+))
+const leftAvatar = computed(() => getDisplayAvatar(
+  leftRawAvatar.value,
+  leftName.value,
+  leftPlayerId.value ?? undefined,
+  allowLegacyCurrentFightIdentity.value,
+))
+const rightAvatar = computed(() => getDisplayAvatar(
+  rightRawAvatar.value,
+  rightName.value,
+  rightPlayerId.value ?? undefined,
+  allowLegacyCurrentFightIdentity.value,
+))
 const leftDisplayName = computed(() => {
   const current = fight.value!
   const localized = isFlipped.value ? current.defenderDisplayName : current.attackerDisplayName
@@ -301,6 +382,11 @@ const leftDisplayName = computed(() => {
 const leftCharDisplayName = computed(() => {
   const current = fight.value!
   const localized = isFlipped.value ? current.defenderCharDisplayName : current.attackerCharDisplayName
+  if (isPlayerMasked(
+    leftName.value,
+    leftPlayerId.value ?? undefined,
+    allowLegacyCurrentFightIdentity.value,
+  )) return leftCharName.value
   return localized?.[currentLocale.value] ?? leftCharName.value
 })
 const rightDisplayName = computed(() => {
@@ -311,6 +397,11 @@ const rightDisplayName = computed(() => {
 const rightCharDisplayName = computed(() => {
   const current = fight.value!
   const localized = isFlipped.value ? current.attackerCharDisplayName : current.defenderCharDisplayName
+  if (isPlayerMasked(
+    rightName.value,
+    rightPlayerId.value ?? undefined,
+    allowLegacyCurrentFightIdentity.value,
+  )) return rightCharName.value
   return localized?.[currentLocale.value] ?? rightCharName.value
 })
 /** Did the left (us) win? */
@@ -760,7 +851,12 @@ function restartCurrentFight() {
 
 watch([myFights, () => props.roundKey, perspectiveUsername], () => {
   const fp = `${props.roundKey}|${perspectiveUsername.value}|${myFights.value
-    .map((f: FightEntry) => `${f.attackerName}-${f.defenderName}-${f.outcome}`)
+    .map((f: FightEntry) => [
+      f.attackerPlayerId ?? `legacy:${f.attackerName}`,
+      f.defenderPlayerId ?? `legacy:${f.defenderName}`,
+      f.winnerPlayerId ?? `legacy:${f.winnerName ?? ''}`,
+      f.outcome,
+    ].join('-'))
     .join('|')}`
   if (fp === lastAnimatedRound.value) return
 
@@ -1427,43 +1523,33 @@ const r3WeWon = computed(() => {
 })
 
 /** All-fights row: loser on left, winner on right */
+function allFightParticipant(f: FightEntry, side: FightSide, isWinner: boolean) {
+  const attacker = side === 'attacker'
+  const name = attacker ? f.attackerName : f.defenderName
+  const localized = attacker ? f.attackerDisplayName : f.defenderDisplayName
+  return {
+    name,
+    label: localized?.[currentLocale.value] ?? name,
+    avatar: attacker ? f.attackerAvatar : f.defenderAvatar,
+    playerId: fightSidePlayerId(f, side) ?? undefined,
+    allowLegacyFallback: !hasStructuredFightIdentity(f),
+    key: fightSideKey(f, side),
+    isWinner,
+  }
+}
+
 function allFightLeft(f: FightEntry) {
   if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
-    return {
-      name: f.defenderName,
-      label: f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName,
-      avatar: f.defenderAvatar,
-      isWinner: false,
-    }
+    return allFightParticipant(f, 'defender', false)
   }
-  const loserIsAttacker = f.winnerName !== f.attackerName
-  return {
-    name: loserIsAttacker ? f.attackerName : f.defenderName,
-    label: loserIsAttacker
-      ? (f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName)
-      : (f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName),
-    avatar: loserIsAttacker ? f.attackerAvatar : f.defenderAvatar,
-    isWinner: false,
-  }
+  const winnerSide = fightWinnerSide(f) ?? 'attacker'
+  return allFightParticipant(f, winnerSide === 'attacker' ? 'defender' : 'attacker', false)
 }
 function allFightRight(f: FightEntry) {
   if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') {
-    return {
-      name: f.attackerName,
-      label: f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName,
-      avatar: f.attackerAvatar,
-      isWinner: false,
-    }
+    return allFightParticipant(f, 'attacker', false)
   }
-  const winnerIsAttacker = f.winnerName === f.attackerName
-  return {
-    name: winnerIsAttacker ? f.attackerName : f.defenderName,
-    label: winnerIsAttacker
-      ? (f.attackerDisplayName?.[currentLocale.value] ?? f.attackerName)
-      : (f.defenderDisplayName?.[currentLocale.value] ?? f.defenderName),
-    avatar: winnerIsAttacker ? f.attackerAvatar : f.defenderAvatar,
-    isWinner: true,
-  }
+  return allFightParticipant(f, fightWinnerSide(f) ?? 'attacker', true)
 }
 
 function fightParticipantLabel(fightEntry: FightEntry, attacker: boolean): string {
@@ -1483,28 +1569,39 @@ const injectedFights = computed<DisplayFight[]>(() => {
   if (!props.terminalMode || !myPlayer.value || !myUsername.value) return []
 
   return streamWinningFights.value.map((source, index) => {
-    const loserIsAttacker = source.winnerName !== source.attackerName
+    const loserSide: FightSide = fightWinnerSide(source) === 'attacker' ? 'defender' : 'attacker'
+    const loserIsAttacker = loserSide === 'attacker'
     const loserName = loserIsAttacker ? source.attackerName : source.defenderName
+    const loserDisplayName = loserIsAttacker ? source.attackerDisplayName : source.defenderDisplayName
     const loserCharName = loserIsAttacker ? source.attackerCharName : source.defenderCharName
+    const loserCharDisplayName = loserIsAttacker ? source.attackerCharDisplayName : source.defenderCharDisplayName
     const loserAvatar = loserIsAttacker ? source.attackerAvatar : source.defenderAvatar
+    const loserPlayerId = fightSidePlayerId(source, loserSide) ?? undefined
 
     return {
       ...source,
+      attackerPlayerId: myPlayer.value!.playerId,
       attackerName: myUsername.value,
+      attackerDisplayName: undefined,
       attackerCharName: myPlayer.value!.character.name,
+      attackerCharDisplayName: undefined,
       attackerAvatar: myPlayer.value!.character.avatarCurrent
         || myPlayer.value!.character.avatar
         || missingAvatarUrl,
+      defenderPlayerId: loserPlayerId,
       defenderName: loserName,
+      defenderDisplayName: loserDisplayName,
       defenderCharName: loserCharName,
+      defenderCharDisplayName: loserCharDisplayName,
       defenderAvatar: loserAvatar,
       outcome: 'win',
+      winnerPlayerId: myPlayer.value!.playerId,
       winnerName: myUsername.value,
       drops: 0,
       droppedPlayerName: '',
       portalGunSwap: false,
       injected: true,
-      injectedKey: `${source.attackerName}-${source.defenderName}-${index}`,
+      injectedKey: `${source.attackerPlayerId ?? source.attackerName}-${source.defenderPlayerId ?? source.defenderName}-${index}`,
     }
   })
 })
@@ -1517,7 +1614,7 @@ function fightRowKey(f: FightEntry, index: number): string {
   const displayFight = f as DisplayFight
   return displayFight.injectedKey
     ? `injected-${displayFight.injectedKey}`
-    : `fight-${f.attackerName}-${f.defenderName}-${index}`
+    : `fight-${f.attackerPlayerId ?? f.attackerName}-${f.defenderPlayerId ?? f.defenderName}-${index}`
 }
 
 const sortedFights = computed<DisplayFight[]>(() => {
@@ -1534,9 +1631,15 @@ const perfectRoundPlayers = computed(() => {
   const wins = new Set<string>()
   const losses = new Set<string>()
   for (const f of props.fights) {
-    if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown' || !f.winnerName) continue
-    wins.add(f.winnerName)
-    losses.add(f.winnerName === f.attackerName ? f.defenderName : f.attackerName)
+    if (f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown') continue
+    const winnerSide = fightWinnerSide(f)
+    if (!winnerSide) continue
+    const loserSide: FightSide = winnerSide === 'attacker' ? 'defender' : 'attacker'
+    const winnerKey = fightSideKey(f, winnerSide)
+    const loserKey = fightSideKey(f, loserSide)
+    if (!winnerKey || !loserKey) continue
+    wins.add(winnerKey)
+    losses.add(loserKey)
   }
   const perfect = new Set<string>()
   for (const w of wins) { if (!losses.has(w)) perfect.add(w) }
@@ -1544,7 +1647,7 @@ const perfectRoundPlayers = computed(() => {
 })
 
 function isMyAttack(f: FightEntry): boolean {
-  return f.attackerName === myUsername.value
+  return fightSideMatchesPlayer(f, 'attacker', myPlayer.value)
     && f.outcome !== 'block' && f.outcome !== 'skip'
 }
 
@@ -1554,25 +1657,30 @@ const charCatalogMap = computed(() => {
   for (const c of props.characterCatalog) { map[c.name] = c }
   return map
 })
-function findPlayer(u: string): Player | null {
-  return props.players.find((p: Player) => p.discordUsername === u) || null
+function findPlayer(u: string, playerId?: string, allowLegacyFallback = true): Player | null {
+  if (playerId) return props.players.find((p: Player) => p.playerId === playerId) ?? null
+  if (!allowLegacyFallback) return null
+  return uniquePlayerByUsername(u)
 }
-function isPlayerMasked(u: string): boolean {
+function isPlayerMasked(u: string, playerId?: string, allowLegacyFallback = true): boolean {
   if (showDetails.value) return false
-  const p = findPlayer(u)
-  if (!p) return false
+  const p = findPlayer(u, playerId, allowLegacyFallback)
+  if (!p) {
+    if (playerId || !allowLegacyFallback) return true
+    return props.players.filter((candidate: Player) => candidate.discordUsername === u).length > 1
+  }
   if (p.playerId === props.myPlayerId) return false
   return p.character.name === '???'
 }
-function getPredictionForPlayer(u: string): string {
-  const p = findPlayer(u)
+function getPredictionForPlayer(u: string, playerId?: string, allowLegacyFallback = true): string {
+  const p = findPlayer(u, playerId, allowLegacyFallback)
   if (!p || !props.predictions) return ''
   const pred = props.predictions.find((pr: Prediction) => pr.playerId === p.playerId)
   return pred?.characterName ?? ''
 }
-function getDisplayAvatar(orig: string, u: string): string {
-  if (!isPlayerMasked(u)) return orig
-  const predName = getPredictionForPlayer(u)
+function getDisplayAvatar(orig: string, u: string, playerId?: string, allowLegacyFallback = true): string {
+  if (!isPlayerMasked(u, playerId, allowLegacyFallback)) return orig
+  const predName = getPredictionForPlayer(u, playerId, allowLegacyFallback)
   if (predName && charCatalogMap.value[predName]) return charCatalogMap.value[predName].avatar
   return 'https://r2.ozvmusic.com/kotgh/art/avatars/unknown_fixvalues.png'
 }
@@ -1583,11 +1691,14 @@ function handleAvatarError(event: Event, username: string): void {
   const image = event.target as HTMLImageElement
   if (image.src !== missingAvatarUrl) image.src = missingAvatarUrl
 }
-function getDisplayCharName(orig: string, u: string): string {
-  if (!isPlayerMasked(u)) return orig
-  const predName = getPredictionForPlayer(u)
+function getDisplayCharName(orig: string, u: string, playerId?: string, allowLegacyFallback = true): string {
+  if (!isPlayerMasked(u, playerId, allowLegacyFallback)) return orig
+  const predName = getPredictionForPlayer(u, playerId, allowLegacyFallback)
   if (predName) return predName + ' (?)'
   return '???'
+}
+function keepDisplayValue(orig: string, _username: string): string {
+  return orig
 }
 </script>
 
@@ -1653,20 +1764,20 @@ function getDisplayCharName(orig: string, u: string): string {
           @click="jumpToFightReplay(f)">
           <!-- Left name (loser / defender for block-skip) -->
           <span class="fa-all-name fa-all-name-left" :class="{ 'name-winner': allFightLeft(f).isWinner }" :title="allFightLeft(f).label">
-            <span v-if="allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name)" class="perfect-icon">✦</span>{{ allFightLeft(f).label }}
+            <span v-if="allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).key)" class="perfect-icon">✦</span>{{ allFightLeft(f).label }}
           </span>
           <!-- Center block: avatar | label | avatar -->
           <div class="fa-all-mid">
-            <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name)"
-              class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).name) }"
+            <img :src="getDisplayAvatar(allFightLeft(f).avatar, allFightLeft(f).name, allFightLeft(f).playerId, allFightLeft(f).allowLegacyFallback)"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightLeft(f).isWinner, 'ava-perfect': allFightLeft(f).isWinner && perfectRoundPlayers.has(allFightLeft(f).key) }"
               @error="(event: Event) => handleAvatarError(event, allFightLeft(f).name)">
             <span class="fa-all-center" :class="{
               'center-neutral': f.outcome === 'block' || f.outcome === 'skip' || f.outcome === 'unknown',
               'center-drop': f.drops > 0 && f.outcome !== 'block' && f.outcome !== 'skip' && f.outcome !== 'unknown',
               'center-arrow': f.outcome !== 'block' && f.outcome !== 'skip' && f.outcome !== 'unknown' && f.drops === 0
             }">{{ allFightCenterLabel(f) }}</span>
-            <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name)"
-              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name) }"
+            <img :src="getDisplayAvatar(allFightRight(f).avatar, allFightRight(f).name, allFightRight(f).playerId, allFightRight(f).allowLegacyFallback)"
+              class="fa-all-ava" :class="{ 'ava-winner': allFightRight(f).isWinner, 'ava-perfect': allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).key) }"
               @error="(event: Event) => handleAvatarError(event, allFightRight(f).name)">
             <span
               v-if="f.stormAppeared"
@@ -1677,7 +1788,7 @@ function getDisplayCharName(orig: string, u: string): string {
           </div>
           <!-- Right name (winner / attacker for block-skip) -->
           <span class="fa-all-name fa-all-name-right" :class="{ 'name-winner': allFightRight(f).isWinner }" :title="allFightRight(f).label">
-            {{ allFightRight(f).label }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).name)" class="perfect-icon">✦</span>
+            {{ allFightRight(f).label }}<span v-if="allFightRight(f).isWinner && perfectRoundPlayers.has(allFightRight(f).key)" class="perfect-icon">✦</span>
           </span>
           <!-- Portal badge -->
           <span v-if="f.portalGunSwap" class="fa-portal-badge">PORTAL</span>
@@ -1765,9 +1876,9 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight-shake="fightShake"
         :is-portal-swap="isPortalSwap"
         :clash-phase="clashPhase"
-        :get-display-avatar="getDisplayAvatar"
+        :get-display-avatar="keepDisplayValue"
         :handle-avatar-error="handleAvatarError"
-        :get-display-char-name="getDisplayCharName"
+        :get-display-char-name="keepDisplayValue"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"
         :enemy-fof-badge-text="enemyFofBadgeText"
@@ -1824,9 +1935,9 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight-result="fightResult"
         :fight-shake="fightShake"
         :is-portal-swap="isPortalSwap"
-        :get-display-avatar="getDisplayAvatar"
+        :get-display-avatar="keepDisplayValue"
         :handle-avatar-error="handleAvatarError"
-        :get-display-char-name="getDisplayCharName"
+        :get-display-char-name="keepDisplayValue"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"
         :enemy-fof-badge-text="enemyFofBadgeText"
@@ -1883,9 +1994,9 @@ function getDisplayCharName(orig: string, u: string): string {
         :fight-result="fightResult"
         :fight-shake="fightShake"
         :is-portal-swap="isPortalSwap"
-        :get-display-avatar="getDisplayAvatar"
+        :get-display-avatar="keepDisplayValue"
         :handle-avatar-error="handleAvatarError"
-        :get-display-char-name="getDisplayCharName"
+        :get-display-char-name="keepDisplayValue"
         :fof-badge-text="fofBadgeText"
         :is-fof-buff="isFofBuff"
         :enemy-fof-badge-text="enemyFofBadgeText"

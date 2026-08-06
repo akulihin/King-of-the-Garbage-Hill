@@ -375,7 +375,8 @@ public static class DoomGuy
             victim,
             player,
             abilityPoints * InfernalEnergyStealRate,
-            InfernalEnergy);
+            InfernalEnergy,
+            FeedbackSourceVisibility.ProNeutralTarget);
         state.InfernalEnergyVictims.Add(defeatedPlayerId);
         return true;
     }

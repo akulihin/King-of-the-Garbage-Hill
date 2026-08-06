@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using King_of_the_Garbage_Hill.API.DTOs;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
@@ -39,13 +41,15 @@ public static class BotInformation
 
         foreach (var fight in game.WebFightLog)
         {
-            var viewerParticipated = fight.AttackerName == viewer.DiscordUsername
-                                     || fight.DefenderName == viewer.DiscordUsername;
+            var viewerParticipated = FightSideMatches(
+                                         fight, viewer, game, fight.AttackerPlayerId, fight.AttackerName)
+                                     || FightSideMatches(
+                                         fight, viewer, game, fight.DefenderPlayerId, fight.DefenderName);
             if (fight.HiddenFromNonAdmin && !viewerParticipated)
                 continue;
 
-            var attacker = game.PlayersList.Find(player => player.DiscordUsername == fight.AttackerName);
-            var defender = game.PlayersList.Find(player => player.DiscordUsername == fight.DefenderName);
+            var attacker = ResolveFightPlayer(game, fight, fight.AttackerPlayerId, fight.AttackerName);
+            var defender = ResolveFightPlayer(game, fight, fight.DefenderPlayerId, fight.DefenderName);
             if (attacker == null || defender == null)
                 continue;
 
@@ -77,7 +81,8 @@ public static class BotInformation
             if (!viewerParticipated)
                 continue;
 
-            var viewerWasAttacker = fight.AttackerName == viewer.DiscordUsername;
+            var viewerWasAttacker = FightSideMatches(
+                fight, viewer, game, fight.AttackerPlayerId, fight.AttackerName);
             var opponent = viewerWasAttacker ? defender : attacker;
             var observed = memory.Opponent(opponent.GetPlayerId());
             AddRoundCount(observed.FightsWithViewerByRound, completedRound);
@@ -99,15 +104,60 @@ public static class BotInformation
         memory.LastCapturedRound = completedRound;
     }
 
+    private static bool FightSideMatches(
+        FightEntryDto fight,
+        GamePlayerBridgeClass viewer,
+        GameClass game,
+        Guid? sidePlayerId,
+        string legacyUsername)
+    {
+        if (viewer == null)
+            return false;
+        if (HasStructuredFightIds(fight))
+            return sidePlayerId == viewer.GetPlayerId();
+        return !string.IsNullOrEmpty(legacyUsername)
+               && string.Equals(legacyUsername, viewer.DiscordUsername, StringComparison.Ordinal)
+               && game.PlayersList.Count(player =>
+                   string.Equals(player.DiscordUsername, legacyUsername, StringComparison.Ordinal)) == 1;
+    }
+
+    private static GamePlayerBridgeClass ResolveFightPlayer(
+        GameClass game,
+        FightEntryDto fight,
+        Guid? sidePlayerId,
+        string legacyUsername)
+    {
+        if (HasStructuredFightIds(fight))
+            return sidePlayerId.HasValue
+                ? game.PlayersList.Find(player => player.GetPlayerId() == sidePlayerId.Value)
+                : null;
+
+        var matches = game.PlayersList.Where(player =>
+            string.Equals(player.DiscordUsername, legacyUsername, StringComparison.Ordinal)).ToList();
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    private static bool HasStructuredFightIds(FightEntryDto fight) =>
+        fight.AttackerPlayerId.HasValue
+        || fight.DefenderPlayerId.HasValue
+        || fight.WinnerPlayerId.HasValue;
+
     public static string VisibleCurrentGlobalLogs(GamePlayerBridgeClass viewer, GameClass game)
     {
-        var logs = game.GetGlobalLogs();
+        var logs = game.ApplyProGlobalLogVisibility(game.GetGlobalLogs(), viewer);
         foreach (var hidden in game.HiddenGlobalLogSnippets)
             logs = logs.Replace(hidden, "", StringComparison.Ordinal);
 
         if (viewer.GameCharacter.Passive.Any(passive => passive.PassiveName == "Гений"))
             foreach (var hidden in game.KiraHiddenLogSnippets)
                 logs = logs.Replace(hidden, "", StringComparison.Ordinal);
+
+        if (viewer.IsProMode && viewer.PlayerType != 2)
+            logs = logs
+                .Replace("(Блок)", "(?)", StringComparison.Ordinal)
+                .Replace("(Скип)", "(?)", StringComparison.Ordinal)
+                .Replace("(Block)", "(?)", StringComparison.Ordinal)
+                .Replace("(Skip)", "(?)", StringComparison.Ordinal);
 
         return logs
             .Replace(UnknownBug.CharacterName, "???", StringComparison.Ordinal)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.Game.GameLogic;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -118,6 +119,7 @@ public class TheBoys
 
             Homelander.RunWithoutProtection(target, () =>
             {
+                target.RememberCurrentPassiveSources();
                 target.GameCharacter.Passive.Clear();
                 target.FightCharacter.Passive.Clear();
             });
@@ -126,7 +128,9 @@ public class TheBoys
             boys.Status.AddInGamePersonalLogs(
                 $"Живое Оружие: способности {target.DiscordUsername} отключены до конца игры.\n");
             target.Status.AddInGamePersonalLogs(
-                "Живое Оружие: Kimiko лишила вас пассивных способностей до конца игры.\n");
+                GameLocalization.MessageForUser(
+                    target.DiscordId,
+                    "kotgh.gameplay.livingWeapon.target") + "\n");
         }
     }
 
@@ -164,7 +168,8 @@ public class TheBoys
             KillingCoupleCombination);
 
         var persistentJusticeBefore = enemy.GameCharacter.Justice.GetRealJusticeNow();
-        enemy.GameCharacter.Justice.SetRealJusticeNow(0, KillingCoupleCombination);
+        enemy.GameCharacter.Justice.SetRealJusticeNow(
+            0, KillingCoupleCombination, isLog: false);
         var stolenJustice =
             persistentJusticeBefore - enemy.GameCharacter.Justice.GetRealJusticeNow();
         if (stolenJustice <= 0) return;

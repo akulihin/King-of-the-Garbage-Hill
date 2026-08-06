@@ -220,8 +220,14 @@ public static class PhrasePayload
 {
     public const string Marker = "|>PhraseV2<|";
     public const string TextMarker = "|>PhraseTextV2<|";
+    public const string OwnerMarker = "|>PhraseOwnerV2<|";
+    public const string PublicMarker = "|>PhrasePublicV2<|";
+    public const string ProNeutralMarker = "|>PhraseProNeutralV2<|";
+    public const string ProNeutralSourceMarker = "|>PhraseProNeutralSourceV2<|";
+    private const string PayloadTerminator = "|<|";
     private static readonly Regex PayloadPattern = new(
-        @"\|>Phrase(?<text>Text)?V2<\|(?<token>[A-Za-z0-9_-]+)", RegexOptions.Compiled);
+        @"\|>Phrase(?<kind>ProNeutralSource|ProNeutral|Text|Owner|Public)?V2<\|(?<token>[A-Za-z0-9_-]+)(?:\|<\|)?",
+        RegexOptions.Compiled);
 
     public static string Encode(string russianName, string russianText, string englishName, string englishText)
         => EncodeCore(Marker, russianName, russianText, englishName, englishText);
@@ -229,21 +235,74 @@ public static class PhrasePayload
     public static string EncodeText(string russianName, string russianText, string englishName, string englishText)
         => EncodeCore(TextMarker, russianName, russianText, englishName, englishText);
 
+    public static string EncodePublic(string russianName, string russianText, string englishName, string englishText)
+        => EncodeCore(PublicMarker, russianName, russianText, englishName, englishText);
+
+    public static string EncodeProNeutral(
+        string russianName,
+        string russianText,
+        string englishName,
+        string englishText,
+        bool isStat = false) =>
+        EncodeCore(
+            ProNeutralMarker,
+            isStat ? $"|>Stat<|{russianName}" : russianName,
+            russianText,
+            isStat ? $"|>Stat<|{englishName}" : englishName,
+            englishText);
+
+    public static string EncodeProNeutralSource(string russianName, string englishName) =>
+        EncodeCore(ProNeutralSourceMarker, russianName, "", englishName, "");
+
+    /// <summary>
+    /// Stores an authored owner-only line without changing its visible wording for the owner.
+    /// A forced Pro projection can replace the whole body with the supplied neutral receipt (or
+    /// omit it when the neutral text is empty), even when the original body contains player names.
+    /// </summary>
+    public static string EncodeOwnerOnly(
+        string russianName,
+        string russianText,
+        string englishName,
+        string englishText,
+        string hiddenRussian,
+        string hiddenEnglish,
+        Guid audienceOwnerId)
+    {
+        var json = JsonSerializer.Serialize(new[]
+        {
+            russianName,
+            russianText,
+            englishName,
+            englishText,
+            hiddenRussian,
+            hiddenEnglish,
+            audienceOwnerId.ToString("D"),
+        });
+        return OwnerMarker + EncodeToken(json);
+    }
+
     private static string EncodeCore(
         string marker, string russianName, string russianText, string englishName, string englishText)
     {
         var json = JsonSerializer.Serialize(new[] { russianName, russianText, englishName, englishText });
-        return marker + Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
+        return marker + EncodeToken(json);
+    }
+
+    private static string EncodeToken(string json) =>
+        Convert.ToBase64String(Encoding.UTF8.GetBytes(json))
             .TrimEnd('=')
             .Replace('+', '-')
-            .Replace('/', '_');
-    }
+            .Replace('/', '_') + PayloadTerminator;
 
     public static string Resolve(string text, string language, bool includeLegacyMarker = true)
     {
         if (string.IsNullOrEmpty(text) ||
             (!text.Contains(Marker, StringComparison.Ordinal) &&
-             !text.Contains(TextMarker, StringComparison.Ordinal))) return text;
+             !text.Contains(TextMarker, StringComparison.Ordinal) &&
+             !text.Contains(OwnerMarker, StringComparison.Ordinal) &&
+             !text.Contains(PublicMarker, StringComparison.Ordinal) &&
+             !text.Contains(ProNeutralMarker, StringComparison.Ordinal) &&
+             !text.Contains(ProNeutralSourceMarker, StringComparison.Ordinal))) return text;
         var english = GameLocalization.Normalize(language) == GameLocalization.English;
         return PayloadPattern.Replace(text, match =>
         {
@@ -252,13 +311,25 @@ public static class PhrasePayload
                 var values = Decode(match.Groups["token"].Value);
                 var name = english ? values[2] : values[0];
                 var phrase = english ? values[3] : values[1];
-                var marker = includeLegacyMarker && !match.Groups["text"].Success ? "|>Phrase<|" : "";
+                if (match.Groups["kind"].Value == "Owner") return phrase;
+                var kind = match.Groups["kind"].Value;
+                if (kind == "ProNeutralSource") return name;
+                var marker = includeLegacyMarker
+                             && kind is not ("Text" or "Owner" or "ProNeutral")
+                    ? "|>Phrase<|"
+                    : "";
                 return $"{marker}{name}: {phrase}";
             }
             catch (Exception exception)
             {
                 Console.WriteLine($"[i18n] Invalid bilingual phrase payload: {exception.Message}");
-                return "|>Phrase<|Ability: Ability triggered.";
+                return match.Groups["kind"].Value switch
+                {
+                    "Owner" => "Ability triggered.",
+                    "ProNeutralSource" => "❓",
+                    "Text" or "ProNeutral" => "Ability: Ability triggered.",
+                    _ => "|>Phrase<|Ability: Ability triggered.",
+                };
             }
         });
     }
@@ -274,6 +345,81 @@ public static class PhrasePayload
         });
         renderedPhrases = rendered;
         return protectedText;
+    }
+
+    /// <summary>
+    /// Temporarily removes encoded phrase payloads from a string while presentation-only raw text
+    /// filters run. Foreign passive names such as a one-letter <c>L</c> must never corrupt the
+    /// base64 token of an unrelated structured phrase.
+    /// </summary>
+    public static string ProtectEncoded(
+        string text,
+        out IReadOnlyList<string> encodedPhrases)
+    {
+        var protectedPhrases = new List<string>();
+        var protectedText = PayloadPattern.Replace(text, match =>
+        {
+            var index = protectedPhrases.Count;
+            protectedPhrases.Add(match.Value);
+            return $"\uE010{index}\uE011";
+        });
+        encodedPhrases = protectedPhrases;
+        return protectedText;
+    }
+
+    public static string RestoreEncoded(
+        string text,
+        IReadOnlyList<string> encodedPhrases) =>
+        Regex.Replace(text, "\\uE010(\\d+)\\uE011", match =>
+            int.TryParse(match.Groups[1].Value, out var index) && index < encodedPhrases.Count
+                ? encodedPhrases[index]
+                : "");
+
+    /// <summary>
+    /// Rewrites only authored phrase bodies while keeping canonical source labels, payload markers
+    /// and audience metadata opaque. Story generation uses this to replace Discord nicknames inside
+    /// dynamic phrases without letting a short nickname rewrite a load-bearing passive name.
+    /// </summary>
+    public static string RewriteBodies(string text, Func<string, string> rewrite)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+        return PayloadPattern.Replace(text, match =>
+        {
+            try
+            {
+                var values = Decode(match.Groups["token"].Value);
+                var kind = match.Groups["kind"].Value;
+                values[1] = RewriteBody(values[1], values[0], kind, rewrite);
+                values[3] = RewriteBody(values[3], values[2], kind, rewrite);
+                var marker = kind switch
+                {
+                    "Text" => TextMarker,
+                    "Owner" => OwnerMarker,
+                    "Public" => PublicMarker,
+                    "ProNeutral" => ProNeutralMarker,
+                    "ProNeutralSource" => ProNeutralSourceMarker,
+                    _ => Marker,
+                };
+                return marker + EncodeToken(JsonSerializer.Serialize(values));
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+    }
+
+    private static string RewriteBody(
+        string body,
+        string source,
+        string kind,
+        Func<string, string> rewrite)
+    {
+        if (kind != "Owner") return rewrite(body);
+        var prefix = source + ":";
+        return body.StartsWith(prefix, StringComparison.Ordinal)
+            ? prefix + rewrite(body[prefix.Length..])
+            : rewrite(body);
     }
 
     public static string Restore(string text, IReadOnlyList<string> renderedPhrases) =>
@@ -300,18 +446,69 @@ public static class PhrasePayload
     }
 
     public static string MaskPassiveNames(
-        string text, IReadOnlySet<string> canonicalNames, bool hidePhraseBody)
+        string text,
+        IReadOnlySet<string> canonicalNames,
+        bool hidePhraseBody,
+        Guid? viewerPlayerId = null,
+        bool enforceOwnerAudience = false,
+        bool forcePublicProjection = false)
     {
-        if (string.IsNullOrEmpty(text) || canonicalNames.Count == 0) return text;
+        if (string.IsNullOrEmpty(text)) return text;
         return PayloadPattern.Replace(text, match =>
         {
             try
             {
                 var values = Decode(match.Groups["token"].Value);
+                var kind = match.Groups["kind"].Value;
+                if (kind == "Public") return match.Value;
+                if (kind is "ProNeutral" or "ProNeutralSource")
+                {
+                    if (!enforceOwnerAudience || values[0].EndsWith("❓", StringComparison.Ordinal))
+                        return match.Value;
+                    var proNeutralMarker = kind == "ProNeutral"
+                        ? ProNeutralMarker
+                        : ProNeutralSourceMarker;
+                    var russianPrefix = values[0].StartsWith("|>Stat<|", StringComparison.Ordinal)
+                        ? "|>Stat<|"
+                        : "";
+                    var englishPrefix = values[2].StartsWith("|>Stat<|", StringComparison.Ordinal)
+                        ? "|>Stat<|"
+                        : "";
+                    return EncodeCore(
+                        proNeutralMarker,
+                        russianPrefix + "❓",
+                        values[1],
+                        englishPrefix + "❓",
+                        values[3]);
+                }
+                if (kind == "Owner" && enforceOwnerAudience)
+                {
+                    // Four-field Owner payloads are already-sanitized projections. A fresh
+                    // seven-field record carries the one player ID allowed to read its body.
+                    if (values.Length == 4 && values[0] == "❓") return match.Value;
+                    var isAudienceOwner = !forcePublicProjection
+                                          && values.Length == 7
+                                          && viewerPlayerId.HasValue
+                                          && Guid.TryParse(values[6], out var audienceOwnerId)
+                                          && audienceOwnerId == viewerPlayerId.Value;
+                    if (isAudienceOwner) return match.Value;
+
+                    var hiddenRussian = values.Length >= 6 ? values[4] : "Способность сработала.";
+                    var hiddenEnglish = values.Length >= 6 ? values[5] : "Ability triggered.";
+                    return EncodeCore(
+                        OwnerMarker, "❓", hiddenRussian, "❓", hiddenEnglish);
+                }
                 if (!canonicalNames.Contains(values[0])) return match.Value;
-                var marker = match.Groups["text"].Success ? TextMarker : Marker;
+                if (kind == "Owner")
+                {
+                    var hiddenRussian = values.Length >= 6 ? values[4] : "Способность сработала.";
+                    var hiddenEnglish = values.Length >= 6 ? values[5] : "Ability triggered.";
+                    return EncodeCore(
+                        OwnerMarker, "❓", hiddenRussian, "❓", hiddenEnglish);
+                }
+                var marker = kind == "Text" ? TextMarker : Marker;
                 return hidePhraseBody
-                    ? EncodeCore(marker, "Неизвестно", "Способность сработала.", "Unknown", "Ability triggered.")
+                    ? EncodeCore(marker, "❓", "Способность сработала.", "❓", "Ability triggered.")
                     : EncodeCore(marker, $"❓ {values[0]}", values[1], $"❓ {values[2]}", values[3]);
             }
             catch
@@ -326,7 +523,8 @@ public static class PhrasePayload
         var base64 = token.Replace('-', '+').Replace('_', '/');
         base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
         var values = JsonSerializer.Deserialize<string[]>(Encoding.UTF8.GetString(Convert.FromBase64String(base64)));
-        if (values is not { Length: 4 }) throw new InvalidDataException("Expected four phrase fields.");
+        if (values is not { Length: 4 or 6 or 7 } || values.Any(value => value is null))
+            throw new InvalidDataException("Expected four, six or seven non-null string phrase fields.");
         return values;
     }
 }

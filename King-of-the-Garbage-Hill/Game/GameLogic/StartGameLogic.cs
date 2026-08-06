@@ -64,6 +64,36 @@ public class StartGameLogic : IServiceSingleton
             AreMutuallyExclusiveCharacters(assignedName, character.Name));
     }
 
+    private static readonly IReadOnlyDictionary<string, int> RankedBotRollMultipliers =
+        new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["Осьминожка"] = 2,
+            ["Тигр"] = 2,
+            ["Братишка"] = 2,
+            ["Загадочный Спартанец в маске"] = 2,
+            ["Вампур"] = 2,
+            ["Weedwick"] = 2,
+            ["Краборак"] = 2,
+            ["DeepList"] = 3,
+            ["mylorik"] = 3,
+            ["Глеб"] = 3,
+            ["LeCrisp"] = 3,
+            ["Толя"] = 3,
+            ["Sirinoks"] = 3,
+            ["Darksci"] = 3,
+            ["Злой Школьник"] = 3,
+            ["AWDKA"] = 3,
+            ["HardKitty"] = 4,
+        };
+
+    public static bool CanNaturallyAssignToBot(CharacterClass character) =>
+        character != null
+        && (character.Tier >= 3
+            || string.Equals(character.Name, "Кира", StringComparison.Ordinal));
+
+    private static int GetRankedBotRollMultiplier(string characterName) =>
+        RankedBotRollMultipliers.GetValueOrDefault(characterName, 1);
+
     private static (string Name, bool IsLootBoxReward) PeekNextCharacterAssignment(
         DiscordAccountClass account)
     {
@@ -145,7 +175,8 @@ public class StartGameLogic : IServiceSingleton
         string mode = "normal", List<string> forcedCharacters = null,
         DiscordAccountClass accountForFirstBotSlot = null,
         bool recordNaturalUnknownBugRoll = true,
-        bool ignoreNextCharacterAssignments = false)
+        bool ignoreNextCharacterAssignments = false,
+        bool applyRankedBotWeights = false)
     {
         var allCharacters2 = _charactersPull.GetRollableCharacters();
         var allCharacters = _charactersPull.GetRollableCharacters();
@@ -209,7 +240,9 @@ public class StartGameLogic : IServiceSingleton
                 continue;
 
             var character = unfilteredCharacters.Find(x => x.Name == assignment.Name);
-            if (character == null || reservedCharacters.Any(existing =>
+            if (character == null
+                || account.IsBot() && !CanNaturallyAssignToBot(character)
+                || reservedCharacters.Any(existing =>
                     existing.Name == character.Name
                     || AreMutuallyExclusiveCharacters(existing.Name, character.Name)))
                 continue;
@@ -225,10 +258,26 @@ public class StartGameLogic : IServiceSingleton
 
         double topLaner = 1;
         var forcedIndex = 0;
-        foreach (var account in participantAccounts.Select(account =>
-                     account ?? _helperFunctions.GetFreeBot(playersList)))
+        var claimedBotAccounts = new List<DiscordAccountClass>();
+        var explicitAccountPlayingStates = new Dictionary<DiscordAccountClass, bool>();
+        try
         {
-            account.IsPlaying = true;
+        foreach (var participantAccount in participantAccounts)
+        {
+            var account = participantAccount;
+            if (account == null)
+            {
+                account = _helperFunctions.GetFreeBot(playersList);
+                claimedBotAccounts.Add(account);
+            }
+
+            lock (account)
+            {
+                if (participantAccount != null
+                    && !explicitAccountPlayingStates.ContainsKey(account))
+                    explicitAccountPlayingStates[account] = account.IsPlaying;
+                account.IsPlaying = true;
+            }
 
             try
             {
@@ -334,6 +383,8 @@ public class StartGameLogic : IServiceSingleton
                 if (Cthulhu.Is(character)
                     && !Cthulhu.CanNaturallyRoll(playersList, reservedCharacters, team))
                     continue;
+                if (account.IsBot() && !CanNaturallyAssignToBot(character))
+                    continue;
 
                 // The newcomer roll is an exact 30% branch. Do not leave DooM Guy in the
                 // weighted fallback pool when that branch misses, or the real chance exceeds 30%.
@@ -343,9 +394,9 @@ public class StartGameLogic : IServiceSingleton
                     : character.Tier;
                 var range = GetRangeFromTier(rollTier);
                 if (mode != "bot" && character.Tier == 4 && account.IsBot()) range *= 3;
-                if (character.Tier < 3 && account.IsBot()
-                    && character.Name != "Кира") continue;
                 if (character.Name == "Кира" && account.IsBot()) range = GetRangeFromTier(1) / 2;
+                if (applyRankedBotWeights && account.IsBot())
+                    range *= GetRankedBotRollMultiplier(character.Name);
                 if (character.Name == TheBoys.CharacterName)
                     range *= theBoysRosterRollMultiplier;
                 if (character.Passive.Any(x => x.PassiveName == "Top Laner")) range = (int)(range * topLaner);
@@ -433,6 +484,23 @@ public class StartGameLogic : IServiceSingleton
         }
 
         return playersList;
+        }
+        catch
+        {
+            foreach (var claimedBotAccount in claimedBotAccounts)
+            {
+                lock (claimedBotAccount)
+                    claimedBotAccount.IsPlaying = false;
+            }
+
+            foreach (var (explicitAccount, wasPlaying) in explicitAccountPlayingStates)
+            {
+                lock (explicitAccount)
+                    explicitAccount.IsPlaying = wasPlaying;
+            }
+
+            throw;
+        }
     }
 
     public List<CharacterClass> RollDraftOptions(DiscordAccountClass account,
@@ -534,10 +602,25 @@ public class StartGameLogic : IServiceSingleton
         var passives = _charactersPull.GetAramPassives();
         passives = SecureRandom.Shuffle(passives);   // single game RNG (seeded-sim deterministic)
 
-        foreach (var account in players.Select(player =>
-                     player != null ? _accounts.GetAccount(player.Id) : _helperFunctions.GetFreeBot(playersList)))
+        var claimedBotAccounts = new List<DiscordAccountClass>();
+        var explicitAccountPlayingStates = new Dictionary<DiscordAccountClass, bool>();
+        try
         {
-            account.IsPlaying = true;
+        foreach (var player in players)
+        {
+            var account = player != null
+                ? _accounts.GetAccount(player.Id)
+                : _helperFunctions.GetFreeBot(playersList);
+            if (player == null)
+                claimedBotAccounts.Add(account);
+
+            lock (account)
+            {
+                if (player != null
+                    && !explicitAccountPlayingStates.ContainsKey(account))
+                    explicitAccountPlayingStates[account] = account.IsPlaying;
+                account.IsPlaying = true;
+            }
             account.CharacterPlayedLastTime = "ARAM";
             var intelligence = _gameReaction.GetRandomStat();
             var strength = _gameReaction.GetRandomStat();
@@ -575,6 +658,23 @@ public class StartGameLogic : IServiceSingleton
         }
 
         return playersList;
+        }
+        catch
+        {
+            foreach (var claimedBotAccount in claimedBotAccounts)
+            {
+                lock (claimedBotAccount)
+                    claimedBotAccount.IsPlaying = false;
+            }
+
+            foreach (var (explicitAccount, wasPlaying) in explicitAccountPlayingStates)
+            {
+                lock (explicitAccount)
+                    explicitAccount.IsPlaying = wasPlaying;
+            }
+
+            throw;
+        }
     }
 
     public EmbedBuilder GetStatsEmbed(DiscordAccountClass account)

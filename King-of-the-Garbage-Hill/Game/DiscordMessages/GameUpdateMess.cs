@@ -960,7 +960,8 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         _helperFunctions.SubstituteUserWithBot(button.User.Id);
         var globalAccount = _global.Client.GetUser(button.User.Id);
         var account = _accounts.GetAccount(globalAccount);
-        account.IsPlaying = false;
+        lock (account)
+            account.IsPlaying = false;
 
 
         //  await socketMsg.DeleteAsync();
@@ -977,25 +978,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
 
     public string SortLogs(string textOriginal, GamePlayerBridgeClass player, GameClass game)
     {
-        var ownPassiveNames = player.GameCharacter.Passive
-            .Select(passive => passive.PassiveName)
-            .ToHashSet(StringComparer.Ordinal);
-        var hiddenPassiveNames = game.PlayersList
-            .Where(other => other.GetPlayerId() != player.GetPlayerId())
-            .SelectMany(other => other.GameCharacter.Passive)
-            .Where(passive =>
-                !ownPassiveNames.Contains(passive.PassiveName) &&
-                passive.PassiveName != "Запах мусора" && passive.PassiveName != "Чернильная завеса" &&
-                passive.PassiveName != "Еврей" && passive.PassiveName != "2kxaoc")
-            .Select(passive => passive.PassiveName)
-            .ToHashSet(StringComparer.Ordinal);
         var shouldMaskProSources = player.IsProMode && player.PlayerType != 2;
         var text = shouldMaskProSources
-            ? PhrasePayload.MaskPassiveNames(textOriginal, hiddenPassiveNames, hidePhraseBody: true)
+            ? ProModeVisibility.MaskPersonalText(textOriginal, player, game, hidePhraseBody: true)
             : textOriginal;
-        if (shouldMaskProSources)
-            text = hiddenPassiveNames.Aggregate(text, (current, passiveName) =>
-                current.Replace(passiveName, "❓", StringComparison.Ordinal));
         text = PhrasePayload.Resolve(text, GameLocalization.GetUserLanguage(player.DiscordId));
 
         var separationLine = false;
@@ -1265,6 +1251,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (game.IsFinished && Madara.IsEternalTsukuyomiActive(game)
             && !Madara.IsMadara(player))
             globalLogs = Madara.GetProjectedFinalLogs(game, player);
+        globalLogs = game.ApplyProGlobalLogVisibility(globalLogs, player);
         // Hide fight logs from non-admin players
         if (player.PlayerType != 2)
             foreach (var snippet in game.HiddenGlobalLogSnippets)
@@ -1909,7 +1896,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             components.WithButton(new ButtonBuilder(
                 "Проснуться", "gordon-wake", ButtonStyle.Primary));
 
-        if (game.GameMode != "Aram" && player.GameCharacter.Tier > 3)
+        if (!game.IsRanked && game.GameMode != "Aram" && player.GameCharacter.Tier > 3)
         {
             components.WithButton(GetAutoMoveButton(player, game));
         }

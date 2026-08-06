@@ -656,7 +656,10 @@ export interface LastChancesCockroachMotherDefinition {
   hideMs: number
   /** Attack recovery applied after she emerges from the striking hole. */
   exitRecoveryMs?: number
+  /** Visual shockwave reach; damage itself covers the arena outside the opposite safe corner. */
   blastRadius: number
+  /** Player-center radius around the diagonally opposite hole that escapes the blast. */
+  safeCornerRadius: number
   /** Pure blast damage as a fraction of the player's maximum HP. */
   blastDamageMaxHpRatio: number
 }
@@ -961,7 +964,7 @@ export interface LastChancesCombatDefinition {
 }
 
 export interface LastChancesConfig {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15
   title: string
   seed: string
   chances: number

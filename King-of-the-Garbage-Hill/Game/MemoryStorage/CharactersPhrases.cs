@@ -683,10 +683,10 @@ public class CharactersUniquePhrase
         KotikiCatReturn = new PhraseClass("Кошачья засада");
         KotikiLevelUp = new PhraseClass("lvl-мяк");
         KotikiStormFightJump = new PhraseClass("Рандомное поведение");
-        KotikiStormBite = new PhraseClass("Рандомное поведение");
+        KotikiStormBite = new PhraseClass("Рандомное поведение", publicInPro: true);
         KotikiStormBiteBonus = new PhraseClass("Рандомное поведение");
-        KotikiStormVaseDrop = new PhraseClass("Рандомное поведение");
-        KotikiStormVaseCatch = new PhraseClass("Рандомное поведение");
+        KotikiStormVaseDrop = new PhraseClass("Рандомное поведение", publicInPro: true);
+        KotikiStormVaseCatch = new PhraseClass("Рандомное поведение", publicInPro: true);
 
         // TheBoys
         TheBoysOrderNew = new PhraseClass("Francie");
@@ -1907,6 +1907,7 @@ public class CharactersUniquePhrase
         public List<string> PassiveLogRus = new();
         public string PassiveNameEng;
         public string PassiveNameRus;
+        private readonly bool _publicInPro;
 
         private int Random(int minValue, int maxValue)
         {
@@ -1929,10 +1930,14 @@ public class CharactersUniquePhrase
             return result;
         }
 
-        public PhraseClass(string passiveNameRus, string passiveNameEng = "")
+        public PhraseClass(
+            string passiveNameRus,
+            string passiveNameEng = "",
+            bool publicInPro = false)
         {
             PassiveNameRus = passiveNameRus;
             PassiveNameEng = passiveNameEng;
+            _publicInPro = publicInPro;
         }
 
         private (string Russian, string English) SelectPhrase(
@@ -1962,7 +1967,9 @@ public class CharactersUniquePhrase
         }
 
         private string BuildPayload(string russian, string english) =>
-            PhrasePayload.Encode(PassiveNameRus, russian, PassiveNameEng, english);
+            _publicInPro
+                ? PhrasePayload.EncodePublic(PassiveNameRus, russian, PassiveNameEng, english)
+                : PhrasePayload.Encode(PassiveNameRus, russian, PassiveNameEng, english);
 
         public void SendLog(GamePlayerBridgeClass player, bool delete, string prefix = "", bool isRandomOrder = true, string suffix = "")
         {

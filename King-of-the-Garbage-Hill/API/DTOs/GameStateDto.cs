@@ -15,7 +15,10 @@ public class GameStateDto
     public double TimePassedSeconds { get; set; }
     public string GameVersion { get; set; }
     public string GameMode { get; set; }
+    public bool IsRanked { get; set; }
     public bool IsFinished { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RankedEloSettlementDto RankedEloSettlement { get; set; }
     public bool IsAramPickPhase { get; set; }
     public bool IsDraftPickPhase { get; set; }
     public List<DraftOptionDto> DraftOptions { get; set; }
@@ -443,6 +446,8 @@ public class FightEntryDto
     internal FightEntryDto CopyForProjection() => (FightEntryDto)MemberwiseClone();
 
     // Participants
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? AttackerPlayerId { get; set; }
     public string AttackerName { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LocalizedText AttackerDisplayName { get; set; }
@@ -450,6 +455,8 @@ public class FightEntryDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LocalizedText AttackerCharDisplayName { get; set; }
     public string AttackerAvatar { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DefenderPlayerId { get; set; }
     public string DefenderName { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public LocalizedText DefenderDisplayName { get; set; }
@@ -460,6 +467,8 @@ public class FightEntryDto
 
     /// <summary>"win" (attacker wins), "loss" (defender wins), "block", "skip"</summary>
     public string Outcome { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? WinnerPlayerId { get; set; }
     public string WinnerName { get; set; }
 
     // Class info for Nemesis/Versatility display
@@ -1025,6 +1034,7 @@ public class YongGlebStateDto
 
 public class BlackjackTableStateDto
 {
+    public ulong GameId { get; set; }
     public string Phase { get; set; }
     public int CurrentPlayerIndex { get; set; }
     public string DealerName { get; set; }
@@ -1033,6 +1043,29 @@ public class BlackjackTableStateDto
     public BlackjackMessageDto LastMessage { get; set; }
     public List<WordCategoryDto> WordCategories { get; set; } = new();
     public List<BlackjackPlayerDto> Players { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RankedEloRecoveryDto RankedEloRecovery { get; set; }
+}
+
+public class RankedEloRecoveryDto
+{
+    public int RatingBeforePenalty { get; set; }
+    public int CurrentRating { get; set; }
+    public int Penalty { get; set; }
+    public int Recovered { get; set; }
+    public int Remaining { get; set; }
+    public bool Settled { get; set; }
+}
+
+public class RankedEloSettlementDto
+{
+    public int RatingBefore { get; set; }
+    public int RatingAfter { get; set; }
+    public int Delta { get; set; }
+    public int FinalPlace { get; set; }
+    public int PlacementDelta { get; set; }
+    public int ShinigamiPenalty { get; set; }
+    public int BlackjackRecovery { get; set; }
 }
 
 public class BlackjackPlayerDto

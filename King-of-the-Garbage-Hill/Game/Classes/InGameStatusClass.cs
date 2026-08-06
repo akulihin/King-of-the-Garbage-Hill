@@ -13,8 +13,26 @@ public enum TurnInterferenceKind
     Enemy,
 }
 
+/// <summary>
+/// Presentation contract for a canonical gameplay source. NeutralTarget preserves the real source
+/// in state/ledgers while showing only a question mark to the affected recipient in every mode.
+/// RevealedTarget is a narrow, explicitly approved end-of-game receipt: its owner may see the
+/// canonical source even in Pro, while spectator projections still apply ordinary masking.
+/// </summary>
+public enum FeedbackSourceVisibility
+{
+    NamedTarget = 0,
+    NeutralTarget = 1,
+    RevealedTarget = 2,
+    ProNeutralTarget = 3,
+}
+
 public class InGameStatus
 {
+    // Designer-authored neutral default for an enemy-forced lost turn. Do not invent a
+    // source-specific target receipt: new enemy Skip mechanics that need feedback reuse this text.
+    public const string EnemyForcedSkipNotice = "Тебя усыпили...\n";
+
     public InGameStatus()
     {
         MoveListPage = 1;
@@ -240,7 +258,8 @@ public class InGameStatus
         int regularPoints,
         string reason,
         bool isLog = true,
-        bool isNaturalWin = false)
+        bool isNaturalWin = false,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (regularPoints < 0 && (UnknownBug.Is(GameCharacter)
                                  || Homelander.IsProtected(GameCharacter, this)))
@@ -257,12 +276,19 @@ public class InGameStatus
             Points = regularPoints,
             IsBonus = false,
             IsNaturalWin = isNaturalWin,
+            SourceVisibility = sourceVisibility,
         });
         if (!isLog) return;
 
+        var displayedReason = sourceVisibility == FeedbackSourceVisibility.ProNeutralTarget
+            ? PhrasePayload.EncodeProNeutralSource(
+                reason,
+                GameLocalization.Text(reason, GameLocalization.English))
+            : reason;
+
         if (regularPoints >= 0)
         {
-            ScoreSource += $"{reason}+";
+            ScoreSource += $"{displayedReason}+";
         }
         else
         {
@@ -270,7 +296,7 @@ public class InGameStatus
             {
                 ScoreSource = ScoreSource.Remove(ScoreSource.Length - 1, 1);
             }
-            ScoreSource += $"-{reason}+";
+            ScoreSource += $"-{displayedReason}+";
         }
     }
 
@@ -290,13 +316,25 @@ public class InGameStatus
     }
 
 
-    public void AddBonusPoints(decimal bonusPoints = 1, string skillName = "")
-        => AddBonusPointsCore(bonusPoints, skillName, bypassScoreFloor: false);
+    public void AddBonusPoints(
+        decimal bonusPoints = 1,
+        string skillName = "",
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
+        => AddBonusPointsCore(
+            bonusPoints, skillName, bypassScoreFloor: false, sourceVisibility);
 
-    public void AddBonusPointsIgnoringFloor(decimal bonusPoints, string skillName)
-        => AddBonusPointsCore(bonusPoints, skillName, bypassScoreFloor: true);
+    public void AddBonusPointsIgnoringFloor(
+        decimal bonusPoints,
+        string skillName,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
+        => AddBonusPointsCore(
+            bonusPoints, skillName, bypassScoreFloor: true, sourceVisibility);
 
-    private void AddBonusPointsCore(decimal bonusPoints, string skillName, bool bypassScoreFloor)
+    private void AddBonusPointsCore(
+        decimal bonusPoints,
+        string skillName,
+        bool bypassScoreFloor,
+        FeedbackSourceVisibility sourceVisibility)
     {
         if (bonusPoints < 0 && (UnknownBug.Is(GameCharacter)
                                || Homelander.IsProtected(GameCharacter, this)))
@@ -310,14 +348,51 @@ public class InGameStatus
         if (isRoyal)
             bonusPoints *= 2;
         var pointType = isRoyal ? "королевских" : "бонусных";
+        var englishPointType = isRoyal ? "royal" : "bonus";
+        var displaySource = sourceVisibility == FeedbackSourceVisibility.NeutralTarget
+            ? "❓"
+            : skillName;
 
-        if (bonusPoints > 0)
-            AddInGamePersonalLogs($"{skillName}: +{bonusPoints} __**{pointType}**__ очков\n");
-        else if (bonusPoints < 0) AddInGamePersonalLogs($"{skillName}: {bonusPoints} __**{pointType}**__ очков\n");
+        if (bonusPoints != 0)
+        {
+            var signedPoints = bonusPoints > 0 ? $"+{bonusPoints}" : bonusPoints.ToString();
+            if (sourceVisibility == FeedbackSourceVisibility.RevealedTarget)
+            {
+                var englishSource = GameLocalization.Text(skillName, GameLocalization.English);
+                AddInGamePersonalLogs(PhrasePayload.EncodeOwnerOnly(
+                    skillName,
+                    $"{skillName}: {signedPoints} __**{pointType}**__ очков",
+                    englishSource,
+                    $"{englishSource}: {signedPoints} __**{englishPointType}**__ points",
+                    $"❓: {signedPoints} __**{pointType}**__ очков",
+                    $"❓: {signedPoints} __**{englishPointType}**__ points",
+                    PlayerId) + "\n");
+            }
+            else if (sourceVisibility == FeedbackSourceVisibility.ProNeutralTarget)
+            {
+                var englishSource = GameLocalization.Text(skillName, GameLocalization.English);
+                AddInGamePersonalLogs(PhrasePayload.EncodeProNeutral(
+                    skillName,
+                    $"{signedPoints} __**{pointType}**__ очков",
+                    englishSource,
+                    $"{signedPoints} __**{englishPointType}**__ points") + "\n");
+            }
+            else
+            {
+                AddInGamePersonalLogs(
+                    $"{displaySource}: {signedPoints} __**{pointType}**__ очков\n");
+            }
+        }
 
         Score += bonusPoints;
         BonusPointsEarnedThisRound += bonusPoints;
-        ScoreEntries.Add(new ScoreEntry { Source = skillName, Points = bonusPoints, IsBonus = true });
+        ScoreEntries.Add(new ScoreEntry
+        {
+            Source = skillName,
+            Points = bonusPoints,
+            IsBonus = true,
+            SourceVisibility = sourceVisibility,
+        });
 
         if (Score < 0 && !bypassScoreFloor
                       && GameCharacter.Passive.All(x => x.PassiveName != "Никому не нужен"))
@@ -638,4 +713,5 @@ public class ScoreEntry
     public decimal Points { get; set; }
     public bool IsBonus { get; set; }
     public bool IsNaturalWin { get; set; }
+    public FeedbackSourceVisibility SourceVisibility { get; set; }
 }

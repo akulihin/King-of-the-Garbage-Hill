@@ -107,6 +107,25 @@ export const useGameStore = defineStore('game', () => {
   const godReservation = ref(false)
   const characterList = ref<CharacterListEntry[]>([])
   const doomFortressState = ref<DoomFortressState | null>(null)
+  let blackjackJoinInFlightGameId: number | null = null
+  let blackjackJoinAttempt = 0
+
+  async function ensureBlackjackJoined(gameId: number) {
+    if (blackjackJoinInFlightGameId === gameId) return
+    const attempt = ++blackjackJoinAttempt
+    blackjackJoinInFlightGameId = gameId
+    try {
+      await signalrService.blackjackJoin(gameId)
+    }
+    catch (error) {
+      if (gameState.value?.gameId === gameId && !errorMessage.value)
+        errorMessage.value = error instanceof Error ? error.message : String(error)
+    }
+    finally {
+      if (blackjackJoinAttempt === attempt)
+        blackjackJoinInFlightGameId = null
+    }
+  }
 
   // ── Derived State ─────────────────────────────────────────────────
 
@@ -192,6 +211,10 @@ export const useGameStore = defineStore('game', () => {
           : null
 
         gameState.value = state
+        if (blackjackState.value?.gameId !== state.gameId)
+          blackjackState.value = null
+        if (state.rankedEloSettlement)
+          eloRating.value = state.rankedEloSettlement.ratingAfter
         errorMessage.value = null
 
         const nextMyPlayer = state.myPlayerId
@@ -253,10 +276,13 @@ export const useGameStore = defineStore('game', () => {
           }
         }
 
-        // Auto-join Blackjack when killed by Kira
-        if (nextMyPlayer?.isDead && nextMyPlayer?.deathSource === 'Kira' && !(previousMyPlayer?.isDead && previousMyPlayer?.deathSource === 'Kira')) {
-          signalrService.blackjackJoin(state.gameId)
-        }
+        // A table snapshot is scoped to its parent game. Re-request it whenever a
+        // dead-to-Kira state arrives without a matching snapshot, including after reconnect.
+        if (
+          nextMyPlayer?.isDead
+          && nextMyPlayer.deathSource === 'Kira'
+          && blackjackState.value?.gameId !== state.gameId
+        ) void ensureBlackjackJoined(state.gameId)
 
         // Detect newly unlocked achievements from finished game state (only once per game)
         if (state.isFinished && state.newlyUnlockedAchievements?.length && achievementsDismissedForGame.value !== String(state.gameId)) {
@@ -266,7 +292,24 @@ export const useGameStore = defineStore('game', () => {
       }
 
       signalrService.onBlackjackState = (state) => {
+        if (state.gameId !== gameState.value?.gameId) return
         blackjackState.value = state
+        const recovery = state.rankedEloRecovery
+        if (recovery) {
+          eloRating.value = recovery.currentRating
+          const settlement = gameState.value?.rankedEloSettlement
+          if (settlement && gameState.value) {
+            gameState.value = {
+              ...gameState.value,
+              rankedEloSettlement: {
+                ...settlement,
+                ratingAfter: recovery.currentRating,
+                delta: recovery.currentRating - settlement.ratingBefore,
+                blackjackRecovery: recovery.recovered,
+              },
+            }
+          }
+        }
       }
 
       signalrService.onQuestState = (state) => {
@@ -436,6 +479,11 @@ export const useGameStore = defineStore('game', () => {
 
       signalrService.onConnectionChanged = (connected) => {
         isConnected.value = connected
+        if (!connected) {
+          blackjackState.value = null
+          blackjackJoinAttempt++
+          blackjackJoinInFlightGameId = null
+        }
       }
 
       await signalrService.connect()
@@ -498,6 +546,8 @@ export const useGameStore = defineStore('game', () => {
     rewritingHistoryRound.value = null
     gameStory.value = null
     blackjackState.value = null
+    blackjackJoinAttempt++
+    blackjackJoinInFlightGameId = null
 
     questState.value = null
     isQuestsLoading.value = false
@@ -550,10 +600,16 @@ export const useGameStore = defineStore('game', () => {
   async function joinGame(gameId: number) {
     gameStory.value = null
     lootBoxResult.value = null
+    blackjackState.value = null
+    blackjackJoinAttempt++
+    blackjackJoinInFlightGameId = null
     await signalrService.joinGame(gameId)
   }
 
   async function leaveGame(gameId: number) {
+    blackjackState.value = null
+    blackjackJoinAttempt++
+    blackjackJoinInFlightGameId = null
     await signalrService.leaveGame(gameId)
     gameState.value = null
     gameStory.value = null

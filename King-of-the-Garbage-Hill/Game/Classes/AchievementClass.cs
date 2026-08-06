@@ -144,6 +144,9 @@ public class InGameAchievementTracker
     public bool GordonHalfLifeReleased { get; set; }
     public bool GordonCrowbarStoppedSuperDick { get; set; }
     public bool HomelanderOmniManEqualJusticeFight { get; set; }
+    public bool CaptainObviousGuesser { get; set; }
+    public bool CaptainObviousTarget { get; set; }
+    public bool CaptainObviousChangedLeader { get; set; }
 
     // Legacy fields are intentionally tolerated because old server snapshots and older hooks may
     // still populate them. Achievement V2 never evaluates these counters.
@@ -249,6 +252,22 @@ public static class AchievementService
             secretHint: "Sometimes the most committed strategy is to stop making decisions.",
             secretHintRu: "Иногда самая последовательная стратегия — вообще перестать принимать решения.",
             characterNames: Array.Empty<string>()),
+        new("g_captain_obvious_coup", "Obvious Coup", "Очевидный переворот",
+            "From 2nd place, correctly predict the player in 1st and take the lead through Капитан Очевидность.",
+            "Со 2-го места верно угадайте игрока на 1-м и выйдите в лидеры благодаря Капитан Очевидность.",
+            AchievementCategory.Global, "crown", "epic", characterNames: Array.Empty<string>()),
+        new("g_captain_obvious_credit", "Credit Where It's Due", "Честь и хвала",
+            "From 2nd place, correctly predict the player in 1st but remain outside 1st after Капитан Очевидность.",
+            "Со 2-го места верно угадайте игрока на 1-м, но не выйдите в лидеры после Капитан Очевидность.",
+            AchievementCategory.Global, "eye", "uncommon", characterNames: Array.Empty<string>()),
+        new("g_captain_obvious_fall", "Too Obvious to Win", "Слишком очевиден, чтобы победить",
+            "From 1st place, be correctly predicted by the player in 2nd and lose the lead through Капитан Очевидность.",
+            "На 1-м месте окажитесь угаданным игроком со 2-го и потеряйте лидерство из-за Капитан Очевидность.",
+            AchievementCategory.Global, "falling", "epic", characterNames: Array.Empty<string>()),
+        new("g_captain_obvious_hold", "Still the Obvious Choice", "Всё ещё очевидный лидер",
+            "From 1st place, be correctly predicted by the player in 2nd and still retain the lead after Капитан Очевидность.",
+            "На 1-м месте окажитесь угаданным игроком со 2-го, но сохраните лидерство после Капитан Очевидность.",
+            AchievementCategory.Global, "shield", "rare", characterNames: Array.Empty<string>()),
 
         // Character stories
         new("c_boys_orders", "French Connection", "Французская связь",
@@ -877,6 +896,14 @@ public static class AchievementService
         SetBestProgress(account, "g_quad_damage",
             ToProgress(tracker.RoundTenRegularPoints));
         SetBestProgress(account, "g_auto_pilot", HasUsedAutoMoveAllGame(player, tracker) ? 1 : 0);
+        SetBestProgress(account, "g_captain_obvious_coup",
+            tracker.CaptainObviousGuesser && tracker.CaptainObviousChangedLeader ? 1 : 0);
+        SetBestProgress(account, "g_captain_obvious_credit",
+            tracker.CaptainObviousGuesser && !tracker.CaptainObviousChangedLeader ? 1 : 0);
+        SetBestProgress(account, "g_captain_obvious_fall",
+            tracker.CaptainObviousTarget && tracker.CaptainObviousChangedLeader ? 1 : 0);
+        SetBestProgress(account, "g_captain_obvious_hold",
+            tracker.CaptainObviousTarget && !tracker.CaptainObviousChangedLeader ? 1 : 0);
 
         // Character stories
         if (characterName == "TheBoys")

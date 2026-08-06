@@ -71,16 +71,35 @@ public static class ScamRat
             || !Homelander.CanTransferFrom(target, PassiveName))
             return;
 
-        TransferExactBonusPoints(target, holder, SaleBonusPoints, PassiveName);
+        TransferExactBonusPoints(
+            target,
+            holder,
+            SaleBonusPoints,
+            PassiveName,
+            FeedbackSourceVisibility.ProNeutralTarget);
         state.EverGpuOwnerIds.Add(target.GetPlayerId());
         state.ActiveGpuOwnerIds.Add(target.GetPlayerId());
         holder.GameCharacter.Justice.ReduceMaximumRealJustice(
             JusticeCapLossPerSale,
             PassiveName);
         holder.Status.AddInGamePersonalLogs(
-            $"{PassiveName}: {target.DiscordUsername} купил видеокарту за {SaleBonusPoints} бонусное очко.\n");
+            PhrasePayload.EncodeOwnerOnly(
+                PassiveName,
+                $"{PassiveName}: {target.DiscordUsername} купил видеокарту за {SaleBonusPoints} бонусное очко.",
+                "Explosive Mining!",
+                $"Explosive Mining!: {target.DiscordUsername} bought a graphics card for {SaleBonusPoints} bonus point.",
+                "",
+                "",
+                holder.GetPlayerId()) + "\n");
         target.Status.AddInGamePersonalLogs(
-            $"{PassiveName}: вы купили видеокарту у {holder.DiscordUsername}.\n");
+            PhrasePayload.EncodeOwnerOnly(
+                PassiveName,
+                $"{PassiveName}: вы купили видеокарту у {holder.DiscordUsername}.",
+                "Explosive Mining!",
+                $"Explosive Mining!: you bought a graphics card from {holder.DiscordUsername}.",
+                "",
+                "",
+                holder.GetPlayerId()) + "\n");
         game.Phrases.ScamRatGpuSale.SendLog(holder, false, isRandomOrder: false);
     }
 
@@ -238,7 +257,12 @@ public static class ScamRat
                 || !Homelander.CanTransferFrom(scoreVictim, PassiveName))
                 continue;
 
-            TransferExactBonusPoints(scoreVictim, holder, amount, PassiveName);
+            TransferExactBonusPoints(
+                scoreVictim,
+                holder,
+                amount,
+                PassiveName,
+                FeedbackSourceVisibility.ProNeutralTarget);
             state.LastExplosionPoints += amount;
         }
 
@@ -257,9 +281,11 @@ public static class ScamRat
         GamePlayerBridgeClass victim,
         GamePlayerBridgeClass receiver,
         decimal amount,
-        string source)
+        string source,
+        FeedbackSourceVisibility victimSourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
-        victim.Status.AddBonusPoints(GetRoyalAdjustedArgument(victim, -amount), source);
+        victim.Status.AddBonusPoints(
+            GetRoyalAdjustedArgument(victim, -amount), source, victimSourceVisibility);
         receiver.Status.AddBonusPoints(GetRoyalAdjustedArgument(receiver, amount), source);
     }
 

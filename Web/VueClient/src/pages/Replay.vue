@@ -162,19 +162,52 @@ watch([() => replayStore.currentRound, () => replayStore.currentPlayerIndex], ()
   fightReplayEnded.value = false
 })
 
+type FightParticipantSide = 'attacker' | 'defender'
+
+function fightHasStructuredIdentity(fight: FightEntry): boolean {
+  return Boolean(fight.attackerPlayerId || fight.defenderPlayerId || fight.winnerPlayerId)
+}
+
+function uniqueRosterPlayer(players: Player[], username: string): Player | null {
+  const matches = players.filter((player: Player) => player.discordUsername === username)
+  return matches.length === 1 ? matches[0] : null
+}
+
+function fightSidePlayerId(
+  fight: FightEntry,
+  side: FightParticipantSide,
+  roster: Player[],
+): string | null {
+  const playerId = side === 'attacker' ? fight.attackerPlayerId : fight.defenderPlayerId
+  if (playerId) return playerId
+  if (fightHasStructuredIdentity(fight)) return null
+  const username = side === 'attacker' ? fight.attackerName : fight.defenderName
+  return uniqueRosterPlayer(roster, username)?.playerId ?? null
+}
+
+function fightSideMatches(
+  fight: FightEntry,
+  side: FightParticipantSide,
+  player: Player,
+  roster: Player[],
+): boolean {
+  return fightSidePlayerId(fight, side, roster) === player.playerId
+}
+
 const myFightBonuses = computed(() => {
   if (!fightReplayEnded.value) return []
   const log = store.gameState?.fightLog || []
-  const myName = myPlayer.value?.discordUsername
-  if (!myName || !log.length) return []
+  const me = myPlayer.value
+  const roster = store.gameState?.players ?? []
+  if (!me || !log.length) return []
 
   let totalSkill = 0
   let totalJustice = 0
   let totalMoral = 0
 
   for (const f of log) {
-    const isAttacker = f.attackerName === myName
-    const isDefender = f.defenderName === myName
+    const isAttacker = fightSideMatches(f, 'attacker', me, roster)
+    const isDefender = fightSideMatches(f, 'defender', me, roster)
     if (!isAttacker && !isDefender) continue
 
     if (isAttacker) {
@@ -202,13 +235,15 @@ const enemyPlayer = computed<Player | null>(() => {
   if (!f || !myPlayer.value) return null
   const round = replayStore.currentRoundData
   if (!round) return null
-  const myName = myPlayer.value.discordUsername
-  const enemyName = f.attackerName === myName ? f.defenderName
-    : f.defenderName === myName ? f.attackerName
-    : null
-  if (!enemyName) return null
+  const roster = store.gameState?.players ?? []
+  const viewerIsAttacker = fightSideMatches(f, 'attacker', myPlayer.value, roster)
+  const viewerIsDefender = fightSideMatches(f, 'defender', myPlayer.value, roster)
+  if (viewerIsAttacker === viewerIsDefender) return null
+  const enemySide: FightParticipantSide = viewerIsAttacker ? 'defender' : 'attacker'
+  const enemyPlayerId = fightSidePlayerId(f, enemySide, roster)
+  if (!enemyPlayerId) return null
   // Get full unstripped player data from replay round
-  const enemyRp = round.players.find(rp => rp.playerState.discordUsername === enemyName)
+  const enemyRp = round.players.find(rp => rp.playerId === enemyPlayerId)
   if (!enemyRp) return null
   const preFightRp = replayStore.currentPreFightPlayers.find(rp => rp.playerId === enemyRp.playerId)
   return buildShiftedPlayer(

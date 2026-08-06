@@ -1,6 +1,6 @@
 # Design-vs-Code Audit — Findings
 
-> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-08-04 (v5.2.13). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
+> Original audit of `DataBase/characters.json` (+ `Game/GameDesign.txt` intent notes, root-level update notes) against the 2026-07-01 working tree (v4.1.8); statuses and fix notes re-verified through 2026-08-05 (v5.2.17). Historical “Code” bullets describe the pre-fix implementation when a later **Fixed** note is present. `CP` = `Game/GameLogic/CharacterPassives.cs`.
 > Historical references to non-Empire `*.spec.*`/`*.test.*` files describe evidence that existed when a finding was fixed; those automated-test sources were retired under the 2026-07-29 Empire-only test policy and are not current verification instructions.
 >
 > Severity: **Critical** = player-visible wrong outcome / broken kit promise; **Major** = mechanic silently missing/misfiring or balance-relevant hidden behavior; **Minor** = cosmetic, flavor, dead code, small numeric drift; **Design question** = code self-consistent but intent ambiguous.
@@ -107,7 +107,7 @@
 - `LolGod.cs` + `PassivesClass.LolGodUdyrList` — "Бог ЛоЛа" doesn't exist; the only live reference is an always-true guard inside Darksci's "Не повезло" (`CP:2885`).
 - `Saldorum.cs` (single-L "Хохол" design) vs live `Salldorum.cs`: orphaned cases "Парень с сюрпризом" (`CP:902, 2161`), "Сало" (`CP:916, 2175`; `GameUpdateMess.cs:634`), "Ниндзя" (`CP:1489, 2194`) — those passive names exist in no character and are never added at runtime.
 - `CraboRack.BokoBoole` (in `CraboRack.cs`, pre-deletion lines 16-19) — zero references.
-- "Молодой Глеб" JSON entry has `Tier: -2` — excluded from the roll pool by `CharactersPull.GetRollableCharacters` (Tier ≥ −1, `CharactersPull.cs:44-51`); transform template only. Note the tier semantics (`CharactersPull.cs:29-33`): **Tier −1 = secret but rollable** — Sakura and unknown_bug roll for humans at baseline range 40 (bots never roll tier <4). unknown_bug is additionally excluded from predictions, drafts, stores, achievements and every public character catalog. *(Corrected in verification — originally attributed to a range-0 roll.)*
+- "Молодой Глеб" JSON entry has `Tier: -2` — excluded from the roll pool by `CharactersPull.GetRollableCharacters` (Tier ≥ −1, `CharactersPull.cs:44-51`); transform template only. Note the tier semantics (`CharactersPull.cs:29-33`): **Tier −1 = secret but rollable for humans** — Sakura and unknown_bug use baseline range 40. Live bots admit Tier 3+ plus exact Кира and no other low-tier/secret entry (`StartGameLogic.CanNaturallyAssignToBot`). unknown_bug is additionally excluded from predictions, drafts, stores, achievements and every public character catalog. *(Corrected in verification — originally attributed to a range-0 roll.)*
 - **Fixed:** 2026-07-04 — deleted: `LolGod.cs` and `Saldorum.cs` (whole files); the six orphaned GHOST cases (CP defense «Парень с сюрпризом»/«Сало», before-fight «Ниндзя», attack «Парень с сюрпризом»/«Сало»/«Ниндзя») and the «Сало» display case in `GameUpdateMess.cs`; the commented-out "LOL GOD, EXAMPLE" block (the "Бог ЛоЛа" BAD-NAME source) inside Darksci's «Не повезло»; dead state `PassivesClass.LolGodUdyrList`/`SaldorumKhokholList`/`SaldorumNinjaHidden` (live `SaldorumCorruptionCount` kept); dead phrases `SaldorumSurprise`/`SaldorumSalo`/`SaldorumNinja` (live `SaldorumChronicler` kept); `CraboRack.BokoBoole`. Removed the four `|m6` lines from `tools/known-warnings.txt` (audit re-run: clean). The Молодой Глеб tier note is informational — no change. In-code anchors above are historical (pre-deletion coordinates).
 
 ### m7. Stale comments (cosmetic)
@@ -1750,6 +1750,165 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Failure scenario:** arm Вечное Цукуеми by the end of round 9 or let Madara lead at the round-10 boundary → every client jumps straight from round 9 to the podium without choosing a tenth-turn action or seeing its plausible fight results.
 - **Fixed:** 2026-08-04 — `CaptureEternalTsukuyomiRoundOpening` snapshots the authoritative order, score/death state and winner without ending the match. The ordinary round-10 setup and action window run; readiness captures every final attacker/defender pair, forces every real action to Skip, and the fight pipeline terminates before combat or settlement after restoring the frozen board. Web and Discord project all incoming/outgoing pairs as wins for each non-Madara viewer, with no invented fallback fight, while only Madara receives reality. Final rewards/history use the opening snapshot and shared replays/stories remain suppressed (`Madara.CaptureEternalTsukuyomiRoundOpening`/`PrepareEternalTsukuyomiRound`/`RestoreEternalTsukuyomiReality`/`GetIllusoryFights`; `DoomsdayMachine.CompleteRoundAsync`/`CalculateAllFights`; `CheckIfReady.TickAsync`/`HandleLastRound`; `GameStateMapper.ApplyEternalTsukuyomiProjection`; `GameUpdateMess.LeaderBoard`/`FightPage`).
 
+### M210. Battleship manufactured Light Wood reconnaissance and lacked the revised Stone, Boarding, armor/ammunition and Alliance contracts
+
+- **Expected (direct designer report, 2026-08-05; supersedes conflicting M208 clauses):** hidden movement by Тройка из лёгкого дерева never reveals its destination or leaves a white ship cell; White Stone gives nobody Stun on a CAPTURE hull but stuns the owner of an enemy Boarding hull hit on the shooter's own board; final Boarding-hull death gives neither row penalty nor reset. Triple/Tetranavis have one built-in +2 armor on their Tetracatapult deck, and only a Triple with the 6-coin Второй боезапас gains Boarding ammunition. Alliance defaults to a plain Mid four-decker, sells the diagonal hull for 10 and offers a 10-coin Русская Матрешка chain with an owner-chosen in-wreck 4→3→2→1 replacement and the exact enemy line «Матрешка вскрылась! Стреляй заново!».
+- **Actual before the fix:** `ProcessShot` called `RevealCell`/`RecordKnownDeck` before the dodge decision, so the targeted deck temporarily acquired an exact white snapshot; successful Light Wood dodge cleared neither that key nor its white flags. Movement then compounded the leak by synthesizing `WasRevealedShip` from any destination `Cell.IsRevealed`, even when that coordinate had only ever been observed as water; the same producer error existed in automatic/manual movement, hidden merge and assembly. M208 had changed White Stone to physical-board ownership everywhere, incorrectly stunning on CAPTURE and the board owner instead of an enemy Boarding owner. Boarding hulls inherited ordinary summon row penalty/reset behavior, every operational Tetracatapult received Boarding ammunition, the armor was on the wrong/default decks, and Alliance still filled its four-deck slot with the free diagonal hull and had no Matryoshka replacement state (`BattleshipGameEngine`; `BattleshipCompositeShipFactory`; `BattleshipService`; `ShipCatalog`; `FleetValidator`; Battleship Vue components/state).
+- **Failure scenario:** reveal empty water, let Light Wood dodge or move onto it and observe a new white enemy cell without Scout; alternatively hit a CAPTURE/Boarding hull with White Stone, destroy a row-1–3 Boarding hull, enter Boarding with an unupgraded Tetracatapult, or open the Alliance four-deck catalog and receive a result that contradicts the direct specification.
+- **Fixed:** 2026-08-05 — `MarkManeuverDodgeMiss` now replaces the provisional exact observation with clean revealed miss water and the one latest pink marker, while every hidden-movement producer preserves only genuine keyed deck observations and never derives occupancy from `IsRevealed`. White Stone resolves Stun recipient separately from physical event routing and skips CAPTURE; final Boarding-hull death is excluded from both penalty and reset, including mixed Buckshot accounting. Catalog/validation/UI enforce Triple 2/4/2, Tetranavis 2/2/4/2, preinstalled center armor, a 6-coin upgrade-only +2 Boarding grant, and the plain Alliance default plus both 10-coin alternatives. Matryoshka destruction queues two exact contiguous owner-only choices, pauses movement/Boarding/victory/turn progression, validates the selected wreck subset, places the fresh named child, serializes simultaneous replacements and lets bots resolve the same barrier; the client colors both subsets and globally blocks competing input (`BattleshipGameEngine.MarkManeuverDodgeMiss`/`TryMoveShip`/`ProcessOwnBoardShot`/`ProcessCapturedShipShot`/`ProcessSummonHit`/`ProcessBuckshot`; `BattleshipCompositeShipFactory.TryMerge`; `BattleshipService.AssembleShip`/`QueueMatryoshkaReplacements`/`DeployMatryoshka`/`CompleteActionResolution`/`MapPlayer`; `ShipCatalog`; `FleetValidator`; `GameHub.BattleshipDeployMatryoshka`; `CombatPhase.vue`; `BoardGrid.vue`; `CellComponent.vue`; `FleetBuilder.vue`; `BattleshipGame.vue`).
+
+- **Implementation hardening:** the replacement barrier now suppresses CAPTURE, `Devastated` and ramming structural removal; preserves the discarded red wreck; separates each unique click endpoint from the overlapping placement anchor; and cursor-resumes summon/poison resolution without duplicated damage. Simultaneous choices are global rather than per-owner, only the designer-supplied enemy line/stage names are presented, and actual disabled/submit guards close keyboard and double-click bypasses. Before resolution resumes from the already-advanced cursor, a placed child resolves persistent fire, hostile boarding Drakkar auras, overlap collisions and current poison zones; this prevents a replacement from sharing cells with or evading the hazard that destroyed its parent (`BattleshipGameEngine.ResolveMatryoshkaPlacementInteractions`/`MoveSummons`/`ProcessPoisonCones`; `BattleshipService.QueueMatryoshkaReplacements`/`DeployMatryoshka`/`CompleteActionResolution`; Battleship Vue controls/localization).
+
+### M211. Pro exposed foreign Pink Ward/Tolya targets through the automatic shimmer
+
+- **Expected (designer verdict, 2026-08-05):** public Pink Ward/Tolya phrases remain readable clues in Pro, but only the player who caused a reveal receives its automatic target shimmer; other Pro seats must make the deduction themselves. Casual keeps the shared helper highlight.
+- **Actual before the fix:** `PinkWardRevealedPlayerIds` was projected wholesale to every viewer, so one player's reveal automatically highlighted the target for every Pro player even though their prediction was correctly left empty.
+- **Fixed:** 2026-08-05 — each reveal records its owner alongside the target. Pro projection returns only targets revealed by the requesting player, while Casual and admin projection retain the complete list; an unauthenticated spectator receives none when any seat is Pro. The disconnected-human legacy bot fallback also refuses to reconstruct Толя's public line into a Pro human's prediction sheet, while a real strict AI may infer from that public evidence (`GameClass.RecordPinkWardReveal`; `GameStateMapper.ToDto`; `CharacterPassives.HandleBotPredict`; the **Коммуникация** and **Толя** reveal hooks).
+
+### M212. Pro's raw passive-name mask corrupted Кира's dynamic L nickname
+
+- **Expected:** masking a foreign passive source may replace only the source token or an explicitly structured phrase; player nicknames embedded in authored feedback must remain byte-for-byte intact even when they contain or equal a passive name such as `L`.
+- **Actual before the fix:** Discord and Web performed unrestricted string replacement for every hidden passive name after building the personal log. Кира's `L` line included the chosen Discord username as raw text, so the one-character passive name could rewrite that nickname and corrupt the clue.
+- **Fixed:** 2026-08-05 — the Kira L message is an encoded phrase whose dynamic nickname is protected, and the shared Pro masker now recognizes structured payloads and restricts legacy replacement to canonical source-prefix grammar instead of arbitrary message bodies. Finished Chronicle replacement protects encoded records as opaque data. Story generation instead rewrites username tokens only inside decoded phrase bodies before re-protecting the payload, so the L source/base64 survives while the LLM receives character identities rather than Discord nicknames (`CharacterPassives` `L` hook; `ProModeVisibility.MaskPersonalText`; `GameUpdateMess.SortLogs`; `GameStateMapper.MapPersonalLogs`/`ReplaceUsernames`; `PhrasePayload.RewriteBodies`; `GameStoryService.ReplaceUsernames`).
+
+### M213. A duplicate Discord username granted foreign participant-only fight data
+
+- **Expected:** participant, winner and shadow-action privileges are keyed by immutable player ID. Two seats with the same display username must not see each other's full `FightEntry`, hidden shadow action, stream perspective, or true Pro Block/Skip result.
+- **Actual before the fix:** fight scoping and Pro outcome masking compared `AttackerName`/`DefenderName`/`WinnerName` with the viewer's Discord username. A duplicate name therefore made an unrelated viewer look like a participant and bypass the foreign-fight redaction.
+- **Fixed:** 2026-08-05 — fight rows now carry attacker, defender and winner player IDs through every producer and replay copy; server and Vue privilege checks use those IDs. Legacy rows without IDs may fall back to a username only when that username is unique in the current roster, otherwise they remain foreign and redacted. Chronicle/story name maps likewise omit ambiguous duplicate usernames instead of throwing or attributing their text to one arbitrary seat (`FightEntryDto`; `GameStateMapper.IsFightSide`/`ScopeFightEntry`/`MaskProFightOutcome`/`BuildFullChronicle`; `ReplayService.DeepCopyFightEntry`; `GameStoryService.CaptureSnapshot`; `FightAnimation.vue`; `Game.vue`; `Replay.vue`).
+
+### M214. Unauthenticated finished-game artifacts bypassed Pro and hidden-log scoping
+
+- **Expected:** a live spectator, saved replay or shared AI story has no authenticated owner identity. If any seat is Pro, that shared artifact must fail closed: owner-only global snippets and foreign passive sources stay hidden, foreign Block/Skip remains `?`, and a hidden fight cannot be recovered from a parallel DTO field or raw replay record.
+- **Actual before the fix:** `ToDto(game)` returned raw Pro-owner globals, the complete Pink-Ward shimmer and a raw finished Chronicle to spectators. Finished opponent rows exposed Block/Skip bits and score-source breakdowns. Replay JSON stored all six owner snapshots (including action/interference bits), every common Block/Skip outcome and `HiddenFromNonAdmin` fight/log. `GameStoryService` separately fed raw personal/global logs to a public narrative and backfilled it into that replay.
+- **Fixed:** 2026-08-05 — a spectator automatically enters forced Pro visibility when any seat is Pro: owner globals are removed, score sources use the no-owner foreign-source union, foreign finished actions stay private, Pink-Ward targets are empty and FullChronicle is null. Public any-Pro replay snapshots apply the same no-owner source union even while serializing each seat's replay perspective, clear `IsBlock`/`IsSkip`/`ConfirmedSkip`/`TurnInterference`, collapse every common Block/Skip to `unknown`, mask action labels and omit all hidden rows/snippets. Hidden global snippets now also enter a persistent all-game ledger, so clearing the current-round list cannot resurrect an older private fight through `AllGlobalLogs`/Chronicle. Dynamic owner summaries for Francie's infection chain, ScamRat sales and Gleb's celebration now carry explicit owner-only payload metadata, so a forced public projection omits or neutralizes the complete body instead of masking only its prefix; target-only final virus receipts are likewise reduced to a neutral numeric debit in that artifact. The one shared any-Pro replay Chronicle and AI-story prompt still omit **all personal-log sections** and retain only their fail-closed globals/fights, because that public artifact has no authenticated recipient and historical/free-form logs are not universally structured (`GameClass.AddHiddenGlobalLogSnippet`; `PhrasePayload.EncodeOwnerOnly`; `GameStateMapper.ToDto`/`MapStatus`/`BuildFullChronicle`; `ProModeVisibility.GetHiddenPassiveNames`; `ReplayService.CaptureRoundResult`/`CapturePlayers`/`SanitizeReplayGlobalLogs`; `GameStoryService.CaptureSnapshot`; D16).
+
+### M215. Owning a copied same-name passive reclassified a foreign Pro receipt as the viewer's own
+
+- **Expected:** Pro visibility follows the producer/audience of an event. If a Goblin, DooM Guy or another seat owns a copied passive with the same canonical name, that must not reveal an original holder's target-side receipt.
+- **Actual before the fix:** the foreign-source mask subtracted the viewer's owned names as a string set. Ziggurat/Chainsaw can create two simultaneous holders of `Взрывной майнинг!`, `Стёб`, `3-0 обоссан` and other D16 sources; a target who owned the copy therefore saw the original holder's named score/stat receipt. Deferred `Mute` settlement could even become named after the viewer copied Mute later.
+- **Fixed:** 2026-08-05 — owner-authored dynamic payloads carry the one authorized player ID, while every D16 Pro-only target mutation uses `ProNeutralTarget` plus replay-safe `PhraseProNeutralV2`/`PhraseProNeutralSourceV2` markers. Score entries and delayed regular-point source lists retain their canonical Casual source but project `❓` in Pro independent of same-name ownership. Explicit call sites cover ScamRat sale/explosion, Omni-man's Particle/Train, Стёб, 3-0, Ничего не понимает, Mute, Spartan shame/First Blood, Saitama reclaim, Infernal Energy and Harem donation (`FeedbackSourceVisibility`; `PhrasePayload`; `CharacterClass` stat mutators; `InGameStatus.AddBonusPoints`/`AddRegularPoints`; `ScamRat.TransferExactBonusPoints`; D16/LOG-04,17–18,24–27,29–31,33–34).
+
+### M216. New structured privacy payloads were not end-to-end bilingual or story-safe
+
+- **Expected:** every structured message kind must resolve identically in C# and Vue, preserve the exact approved Russian copy with an authored English pair, hide its original body in raw forced replay data, and replace Discord nicknames with character identities before an AI story prompt is built.
+- **Actual before the fix:** Vue and the server translation fast path initially knew only ordinary/Text payloads, so Owner records could surface as raw base64. Protecting encoded records during story nickname substitution left Kira/ScamRat usernames inside the decoded prompt. The exact Cat Ambush/final-virus raw exceptions only partially translated, while relabelling bite/vase payloads to an allowlisted source changed the visible `Рандомное поведение` header despite the designer's “оставить как есть”.
+- **Fixed:** 2026-08-05 — C# and Vue validate/decode ordinary, Text, Owner, Public and Pro-neutral/source markers with four-, six- or seven-field tuples. Story replacement rewrites only payload bodies and preserves canonical headers/tokens. Cat Ambush and final-virus target receipts are explicit paired RU/EN audience records; the three approved bite/vase groups alone use `PhrasePublicV2`, retaining the original header and authored body byte-for-byte. Forced replay rewrites Owner payloads before serialization, so the hidden names are absent even from base64 (`PhraseLocalization`; `GameLocalization`; `i18n.ts`; `GameStoryService.ReplaceUsernames`; `CharactersPhrases` Kotiki groups; `CharacterPassives` Cat/Virus producers; `CheckIfReady.HandleLastRound`; D16/M212/M214).
+
+### M217. The first structured target message crashed simulation through `Lazy<MessageCatalog>`
+
+- **Expected:** a gameplay hook can render a stable localization key without depending on ASP.NET dependency injection; headless simulation and Discord-only execution use the same catalog safely.
+- **Actual before the fix:** `GameLocalization` created `Lazy<MessageCatalog>` through the default reflection factory. `MessageCatalog(string catalogDirectory = null)` has an optional argument but is not a runtime parameterless constructor, so TheBoys' first localized Живое Оружие target message threw `MissingMemberException` and froze that game.
+- **Fixed:** 2026-08-05 — the lazy value uses an explicit `() => new MessageCatalog()` factory. The full 108-game simulation completes without exceptions (`GameLocalization.StructuredMessages`; `MessageCatalog.MessageCatalog`; `TheBoys.DisablePassivesBeforeFights`).
+
+### M218. Adjacent signed score sources corrupted the new bilingual payload token
+
+- **Expected:** an encoded source remains a bounded opaque record when regular positive and negative score reasons are concatenated into `ScoreSource`; server and Vue must decode the same byte sequence.
+- **Actual before the fix:** base64url permits `-`, and the V2 token had no terminator. When the regular-score accumulator removed its trailing `+` and appended `-<next source>`, the C#/Vue regex consumed that minus as part of the preceding token; its invalid length then produced the generic fallback and runtime warnings.
+- **Fixed:** 2026-08-05 — every newly encoded V2 record ends in an explicit non-base64 terminator which both C# and Vue consume, while their regexes still accept unterminated historical records. Signed source-list formatting remains unchanged and the full simulator reports no malformed payloads (`PhrasePayload.EncodeToken`/`PayloadPattern`; `i18n.ts` `bilingualPhrasePattern`; `InGameStatus.AddRegularPoints`).
+
+### M219. `RevealedTarget` could leak through a copied same-name passive in another player's final breakdown
+
+- **Expected:** `RevealedTarget` is exact only for the authenticated affected player. Every non-owner—including an admin, finished-game viewer or player who owns an identically named copy—gets `❓`.
+- **Actual before the fix:** the owner branch was exact, but a non-owner fell through to the ordinary ownership-name masker. A Pro player who had copied `Смертельный вирус` could therefore see that exact source in somebody else's finished `ScoreBreakdown`.
+- **Fixed:** 2026-08-05 — live/final mapping and replay settlement branch on `RevealedTarget` before the name-based policy: exact only for the real owner in a non-forced projection, otherwise unconditional `❓` (`GameStateMapper.MapStatus`; `ReplayService.CapturePlayers`; M215).
+
+### M220. Any-Pro replay retained raw owner-only direct and media messages
+
+- **Expected:** the one public any-Pro replay has no authenticated owner. Its six stored perspectives must not retain private DMs, media text, passive labels, filenames or transient owner prompts.
+- **Actual before the fix:** replay capture intentionally mapped every seat as `isMe`, and `MapStatus` copied `WebMessages`/`WebMediaMessages` without the forced-Pro gate. Replay JSON and `Replay.vue` could therefore display all six owner-only streams even while personal logs and fights were fail-closed.
+- **Fixed:** 2026-08-05 — forced Pro projection emits empty `DirectMessages` and `MediaMessages`; ordinary live owner DTOs and all-Casual replay behavior remain unchanged (`GameStateMapper.MapStatus`; `ReplayService.CapturePlayers`; `Replay.vue`; M214).
+
+### M221. C# and Vue disagreed on malformed structured-payload validation and fallback
+
+- **Expected:** corrupt or hostile replay payloads fail closed to the same harmless text in both renderers; every decoded tuple contains only non-null strings.
+- **Actual before the fix:** C# rejected numeric JSON fields but accepted null elements and always returned a legacy-marked fallback. Vue accepted any four/six/seven-element array and used kind-specific fallbacks, so malformed Owner/Text/Pro-neutral records could render differently across Discord/server and browser paths.
+- **Fixed:** 2026-08-05 — both decoders require four, six or seven non-null string fields and share kind-specific safe output: body-only Owner, `❓` for source-only Pro-neutral, unmarked Text/Pro-neutral and the legacy-marked generic fallback for ordinary/Public records (`PhrasePayload.Decode`/`Resolve`; `i18n.ts` `decodeBilingualPhrase`).
+
+### M222. Legacy replay files could retain the owner-only streams fixed by M220
+
+- **Expected:** deploying the new capture policy must also protect replay JSON already on disk; a public read cannot assume an old file was all-Casual when the format never stored per-seat Pro mode.
+- **Actual before the fix:** `LoadReplay` and `LoadReplayByGameId` returned old snapshots unchanged. A pre-5.2.16 any-Pro replay could therefore keep the raw `DirectMessages`/`MediaMessages` that new capture now omits.
+- **Fixed:** 2026-08-05 — public replay loading conservatively clears Direct/Media from every pre-5.2.16 or unversioned snapshot in memory. Viewing does not rewrite the persisted file; the internal story-attachment update loads the original record and public reads reapply the projection. Current-version capture keeps ordinary all-Casual owner streams and already stores empty streams for any-Pro (`ReplayService.SanitizeLoadedReplay`/`LoadReplayByGameIdCore`; M220).
+
+### M223. Any authenticated caller could start another player's Shinigami hand
+
+- **Expected:** only a player seated at that exact «21» table may deal its next hand; the Ranked creator owns the sole Elo-recovery attempt.
+- **Actual before the fix:** `StartNewRound` validated only table phase and seat count. A caller who knew a game ID could reset/deal a foreign table, and a natural 21 could immediately resolve and consume its one-shot recovery without the owner acting.
+- **Fixed:** 2026-08-05 — the mutation first requires exact table membership and, for a Ranked recovery table, the matching game creator. Forged callers receive no state and cannot deal or settle a hand (`BlackjackService.StartNewRound`).
+
+### M224. Concurrent Ranked creation could reserve one account twice or release a published partial game
+
+- **Expected:** an account has at most one active ordinary game; its Ranked starting Elo and `IsPlaying` reservation are one atomic admission decision, and a failed creation leaves neither a published game nor reserved roster accounts.
+- **Actual before the fix:** `CreateGame` read `IsPlaying` outside the account monitor and set it only after roster work. Two SignalR connections could both pass. An initial rollback then introduced the inverse edge: an exception after publishing to `GamesList` cleared `IsPlaying` while the partial game remained active.
+- **Fixed:** 2026-08-05 — create now checks/reserves and captures starting Elo under the account monitor before rolling. Its failure boundary removes a published partial game, stops its timer and releases only roster accounts absent from another active game (`WebGameService.CreateGame`).
+
+### M225. Concurrent game creation could allocate the same numeric game ID
+
+- **Expected:** every process-local game ID is unique so live-game lookup and game-ID-keyed mini-games cannot cross matches.
+- **Actual before the fix:** `GetNewtGamePlayingAndId` used an unguarded `ulong++`; two creation threads could receive the same value, making `FindGame` ambiguous and merging Shinigami tables/Elo state under one dictionary key.
+- **Fixed:** 2026-08-05 — one dedicated lock now protects both increment/return and the diagnostic last-ID read (`Global.GetNewtGamePlayingAndId`/`GetLastGamePlayingAndId`).
+
+### M226. A late old «21» recovery could be counted as the next Ranked match's Elo
+
+- **Expected:** each Ranked receipt contains only that match's placement, Shinigami debit and recovery; the current 1200 bracket cannot be shifted mid-match by a previous table.
+- **Actual before the fix:** a finished table outlived its game while `IsPlaying` was already clear. Starting a new Ranked match and then winning the old hand added +5 to the shared account; the new match computed total delta from its start snapshot and incorrectly claimed that old recovery.
+- **Fixed:** 2026-08-05 — an unsettled Ranked recovery entitlement blocks only creation of another Ranked match. Resolving the one hand removes the gate; normal games remain available (`BlackjackService.HasPendingRankedRecovery`; `WebGameService.CreateGame`).
+
+### M227. Leaving a Ranked game removed its creator before Elo settlement
+
+- **Expected:** a Ranked match reaches authoritative placement settlement even if its browser disconnects; a player cannot exchange the human owner bridge for a bot to evade a loss.
+- **Actual before the fix:** `FinishGame` called ordinary `EndGame`, which substituted a bot ID and cleared the account immediately. `CreatorId` remained human, so final settlement found no creator row and awarded no Elo delta or receipt.
+- **Fixed:** 2026-08-05 — Ranked `FinishGame` is rejected server-side and its Vue affordance is absent. Closing/leaving the page does not replace the owner; ordinary timeout play can still finish the match (`WebGameService.FinishGame`; `Game.vue`).
+
+### M228. Web join and curated admission bypassed one account reservation boundary
+
+- **Expected:** create, live join and admin-lobby seating serialize their check-and-reserve against the same account instance.
+- **Actual before the fix:** `JoinWebGame` and `SeatAdminLobbyHuman` checked and assigned `IsPlaying` only while holding a game lock, while `InvitePlayerAsync` checked busy state separately from inserting its reservation. Another tab could interleave Ranked create/live join with an invitation, placing one account in a game and a curated reservation—or in two games.
+- **Fixed:** 2026-08-05 — invitation, create and live ownership-transfer paths pair their reservation/busy decision under the same account monitor and recheck the other state there before publishing identity. Released bot accounts and aborted-lobby accounts use their own monitors too (`AdminLobbyService.InvitePlayerAsync`; `WebGameService.CreateGame`/`JoinWebGame`/`SeatAdminLobbyHuman`/`AbortAdminLobbyGame`).
+
+### M229. A transient account-write failure permanently waived the Shinigami Elo event
+
+- **Expected:** an actual Ranked Kira death applies one −5 debit and one recovery chance deterministically; background persistence may retry an automatic settlement.
+- **Actual before the fix:** the immediate save failure rolled back the debit and returned before arming recovery. The death hook is one-shot, so neither effect could ever retry during that game.
+- **Fixed:** 2026-08-05 — like game-end rewards and won recovery, the debit remains settled in memory, the entitlement is armed, and the existing 60-second account flush retries persistence after the failure is logged (`BlackjackService.RegisterShinigamiArrival`; `UserAccounts.SaveAllAccounts`).
+
+### M230. The Ranked Elo result existed only in one non-recoverable final push
+
+- **Expected:** the owner can reconnect to the just-finished Ranked route and recover the personalized Elo animation/receipt; a later «21» win updates that same result without exposing it to spectators.
+- **Actual before the fix:** `GameClass` was removed immediately after one final broadcast and `FinishedGamesList` was unused. A disconnect lost the receipt, while late recovery changed only the now-unreachable object plus the current live client's `BlackjackState`.
+- **Fixed:** 2026-08-05 — up to 128 Ranked final states are retained for 30 minutes and refreshed after late recovery. Authenticated owner reads may fall back to that state; spectator reads and gameplay actions remain active-game-only (`Global.StoreFinishedGame`/`GetFinishedGame`; `WebGameService.GetGameState`; `BlackjackService.SettleRankedEloRecovery`).
+
+### M231. Stale-table cleanup could settle Ranked recovery on an orphaned «21» table
+
+- **Expected:** the 30-minute expiry and every table action serialize on one table lifetime boundary; after expiry, no caller may continue a hand or award recovery through a removed object.
+- **Actual before the fix:** cleanup read `LastActivity` and removed the dictionary entry without the table monitor. `Hit`, `Stand` or `StartNewRound` could already hold a reference, resume after removal, and even award +5 on an orphan that the pending-recovery gate and later pushes could no longer find.
+- **Fixed:** 2026-08-05 — cleanup rechecks activity and removes under the table monitor, marks the removed instance closed, and every read/mutation verifies under that same monitor that the dictionary still owns the exact instance. Join/arrival creation retries across a concurrently closed generation (`BlackjackService.IsOpenTable`/`CleanupStaleTables` and table entry points).
+
+### M232. Concurrent game creation could reserve the same bot account twice
+
+- **Expected:** every bot account owns at most one live seat; selecting a free bot and setting `IsPlaying` must be one atomic reservation.
+- **Actual before the fix:** `GetFreeBot` scanned `IsPlaying` without the account monitor and returned before the caller set the flag. Two concurrent normal or Ranked creates could select the same numeric bot account, then mutate its roll history and install that Discord ID into two games. A roller exception leaked every bot claimed before it returned; web/admin ownership transfer also released the old bot before publishing the replacement ID, and Discord Finish cleared the human reservation without the monitor.
+- **Fixed:** 2026-08-05 — `GetFreeBot` now checks, marks and names the chosen account under that account's monitor before returning it. Both rollers release newly claimed bots and restore every explicit participant's exact prior reservation before rethrowing. Web/admin transfer publishes the human ID before releasing the previous account; a failed transfer restores the full bridge ownership/inference snapshot as well as the new-human reservation. Discord Finish uses the same account lock (`HelperFunctions.GetFreeBot`/`EndGame`; `StartGameLogic.HandleCharacterRoll`/`HandleAramRoll`; `WebGameService.CreateGame`/`JoinWebGame`/`SeatAdminLobbyHuman`; `GameUpdateMess.EndGame`).
+
+### M233. A stale Blackjack snapshot could cross games or strand Ranked recovery after reconnect
+
+- **Expected:** every «21» snapshot belongs to one parent game; a dead-to-Kira player without that exact table state retries the join after reconnect so the one Elo-recovery hand remains reachable.
+- **Actual before the fix:** `BlackjackState` carried no game ID and the Pinia store retained it across navigation. A prior table could render during a later Kira death. Conversely, if the one automatic join was lost while reconnecting, the next state was still dead→dead and never retried, leaving the entitlement pending and future Ranked creation blocked.
+- **Fixed:** 2026-08-05 — the server DTO now carries `gameId`. The store rejects cross-game pushes, clears table state at every session/game boundary, deduplicates in-flight joins and retries whenever a matching dead-to-Kira game state lacks its table; the component mounts only for an exact game match (`BlackjackTableStateDto`; `BlackjackService.ToDto`; `signalr.ts`; `store/game.ts`; `Game.vue`).
+
+### M234. First-place celebration rendered a positive Elo delta in gold instead of green
+
+- **Expected:** every positive signed match delta is green and every negative delta red; first place adds an epic gold presentation around that value without changing its sign color.
+- **Actual before the fix:** the first-place class overwrote the shared Elo tone with gold, and the main signed delta inherited it. A positive first-place result therefore violated the explicit green rule.
+- **Fixed:** 2026-08-05 — the epic shell, crown and effects remain gold, while the signed match number has direct positive-green and negative-red rules independent of the shell tone (`RankedEloCelebration.vue`).
+
+### M235. Reconnected or route-reused finished games could skip the podium and Elo cinematic
+
+- **Expected:** the final sequence starts for the matching game even when its first received state is already finished, and one game's timers/one-shot flags cannot suppress another game's presentation.
+- **Actual before the fix:** the watcher observed only the `isFinished` boolean and the one-shot refs never reset by game ID. Mounting on an already-finished receipt or reusing the route from finished game A to finished game B produced true→true and skipped both podium and Elo.
+- **Fixed:** 2026-08-05 — presentation state and timers are scoped/reset by the matching route/state `gameId`; the immediate watcher handles an already-finished first state, and every delayed callback revalidates that identity before changing the scene (`Game.vue` finish-cinematic pipeline).
+
 ### D15. Does every cleared 99LC room require a mandatory player upgrade and per-clear enemy multiplier?
 
 - **Evidence:** one late Discord design reply says progression happens inside the run and that “after every room the player becomes stronger, and enemies do too” (`DiscordExports/99LC/99LC - Game design - ideas [1155769571064676373].json`, message `1158429080383930388`).
@@ -1757,12 +1916,11 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Ambiguity:** the source supplies no upgrade catalog, magnitude, choice count, enemy multiplier or rule for extra horizontal rooms, while surrounding messages alternately reject visible progression and power-increasing trades. Adding automatic stats or scaling would therefore invent balance.
 - **Decision needed:** if the cadence is literal, provide the exact player choices/values for every non-terminal room and whether same-tier detours advance an enemy scale. Existing room `interaction` data can author player rewards without code; strict per-clear enemy growth needs an explicit external scaling contract.
 
-### D16. Which un-authored enemy/global system messages are legitimate clues?
+### D16. Which un-authored enemy/global system messages are legitimate clues? — decided/fixed 2026-08-05
 
-- **Evidence:** Casual personal logs expose default score/stat source names and direct legacy strings; Pro masks named foreign sources but cannot reliably mask free-form lines. None of the affected `characters.json` descriptions promises that the source name, exact hidden comparison, or hidden passive/combination is disclosed to the affected enemy. M204 removes the four cases explicitly decided by the designer.
-- **Still exposed:** the recipient-traced inventory includes hidden Madara/TheBoys/Monster chains, ScamRat sale/explosion receipts, Itachi/Octopus corrections, Gordon/Storm/Kotiki/Seller state notices, Omni-man/Salldorum point-resource receipts, `Get cancer`, an exact foreign Skill value from **Спарта**, and the remaining named score/stat transfers listed row-by-row in the designer review.
-- **Audit expansion:** 2026-08-04 — every confirmed non-owner/global family now has its own recommended action in `docs/DESIGNER-REVIEW.md` → “Аудит системных сообщений 2026-08-03”; the same section separately records authored/necessary messages recommended to stay and owner-only false positives removed from scope.
-- **Decision needed:** mark each remaining row **УБРАТЬ**, **НЕЙТРАЛИЗОВАТЬ** (keep consequence feedback without source/exact hidden value), or **ОСТАВИТЬ**. No unresolved row has been changed in code.
+- **Evidence:** Casual personal logs exposed default score/stat source names and direct legacy strings, while Pro's name replacement could not reliably mask free-form lines. The recipient-traced inventory and owner-only false positives are recorded row-by-row in `docs/DESIGNER-REVIEW.md` → “Аудит системных сообщений 2026-08-03”; M204 had already removed the first four explicitly rejected leaks.
+- **Designer verdict:** 2026-08-05 — every LOG-01–35 row and every checked public message now has an explicit **УБРАТЬ**, **НЕЙТРАЛИЗОВАТЬ** or **ОСТАВИТЬ** decision, including its Casual/Pro scope. Public clues remain manually readable in Pro; foreign automatic predictions/highlights do not. No new enemy-facing prose may be invented without exact designer wording.
+- **Fixed:** 2026-08-05 — one Pro visibility authority now masks foreign personal/score sources consistently across Discord and Web while preserving the approved public exceptions and protected dynamic text. Rejected all-mode receipts were removed or replaced with the exact neutral wording, Pro-only global/source leaks became neutral or owner-scoped, and approved clues remain visible. Dynamic owner messages use explicit audience IDs, Pro-neutral resource receipts remain safe under copied same-name passives, and the final Смертельный вирус debit alone uses the narrow owner-visible `RevealedTarget` contract instead of blanket-allowlisting the passive. M211–M222 close the projection/masking/identity/public-artifact/provenance/localization and verification follow-ups discovered during implementation (`ProModeVisibility`; `PhrasePayload`; `FeedbackSourceVisibility`; `GameClass.ApplyProGlobalLogVisibility`; `GameUpdateMess`; `GameStateMapper`; `ReplayService`).
 
 ### m53. The Empire's Endgame gate inherited unusable temporary and browser-profile directories
 - **Expected:** the self-contained gate can run when a parent shell supplies a missing or unwritable `TMPDIR`, `TEMP`, `TMP` or desktop browser configuration root.
@@ -1907,7 +2065,6 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 ### Still-open findings
 - **M171** — simultaneous combat inputs are isolated, but listed cross-fight result/state/resource effects still require explicit designer aggregation/priority rules.
 - **M195** — Goblin custom level-ups change population/rates immediately but refresh their fight stats and Warrior Skill multiplier only at the next transition.
-- **D16** — decide which remaining enemy/global system receipts are removed, neutralized or retained as intentional identity clues (`DESIGNER-REVIEW.md`, “Аудит системных сообщений 2026-08-03”).
 - **m12** — Сайтама's round-1 "serious targets" are effectively arbitrary (skill is 0 at game start).
 - **m19** — Итачи's Crows/Izanagi charges have no web-UI representation (only Tsukuyomi state is mapped).
 - **m24** — ARAM pick phase has no web UI (hub/REST/serialization exist, no Vue component).
@@ -1920,7 +2077,7 @@ M45 replaced the privileged L2/L3 scorer with a fair information boundary and co
 Торик, Rey, Lewdweak, Второй Крисп, Leshkinson a.k.a. Удир, Кнусклес, Таинственный Клоун, Бог ЛоЛа, and the Хранитель МСД / Машина Судного Дня event boss. (Named in rarity tables only, no kits: тоширка, Hitler.)
 
 ### Unbuilt systems & intents (GameDesign.txt)
-Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions — only the TeamModeOnly pair is seeded); new-player onboarding/tier gating (no bot predictions vs newbies, tier unlocks every 10 games); player statistics command (most points/wins/performance/elo with defined formula); donation multiplier shop item; pre-release cleanup list (rename internal log strings «евреи»/«тебя усыпили», «Ты»→«Вы» sweep, hide round 11 from view, split `HandleNextRoundAfterSorting` round-11 handling into a post-loop pass). Designer margin note that Толя «Подсчет» was only half-implemented («ты это на половину сделал»).
+Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions — only the TeamModeOnly pair is seeded); new-player onboarding/tier gating (no bot predictions vs newbies, tier unlocks every 10 games); player statistics command (most points/wins/performance/elo with defined formula); donation multiplier shop item; pre-release cleanup list (rename internal log string «евреи», «Ты»→«Вы» sweep, hide round 11 from view, split `HandleNextRoundAfterSorting` round-11 handling into a post-loop pass). The old request to rename `Тебя усыпили...` is superseded by D16: that exact phrase stays and is the standard future enemy-forced Skip notice. Designer margin note that Толя «Подсчет» was only half-implemented («ты это на половину сделал»).
 
 ### Code TODOs & dormant blocks
 - `CheckIfReady.cs:670` — `//todo: need to redo this system` (disabled `_finishedGameLog.CreateNewLog`).
@@ -1930,7 +2087,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**Current total:** **2 Critical** (C1–C2) · **209 Major** (M1–M209) · **74 Minor** (m1–m74) · **16 Design questions** (D1–D16).
+**Current total:** **2 Critical** (C1–C2) · **235 Major** (M1–M235) · **74 Minor** (m1–m74) · **16 Design questions** (D1–D16).
 
 Historical cumulative rollout through M174:
 
@@ -1972,7 +2129,13 @@ M208 closes the 2026-08-03 Battleship Mast, physical-board, movement and Boardin
 
 M209 restores Eternal Tsukuyomi's authored false round-10 action window while preserving Madara's authoritative frozen result. The open set remains **M171, M195, D16, m12, m19, m24, m26**.
 
+M210 closes the 2026-08-05 Battleship report by removing both producers of false Light Wood reconnaissance, correcting White Stone/Boarding ownership and reset/penalty behavior, aligning armor and paid Boarding ammunition, and implementing the ordinary Alliance flagship plus the 10-coin diagonal and Русская Матрешка alternatives. It explicitly supersedes M208's conflicting White Stone clause. The open set remains **M171, M195, D16, m12, m19, m24, m26**.
+
 m74 closes the empty-fight navigation gap: Casual dims an empty `Мои сражения` tab and opens `Итоги` after three seconds. The open set remains **M171, M195, D16, m12, m19, m24, m26**.
+
+M211–M222 close the 2026-08-05 Pro follow-up and its verification findings: Pink Ward/Tolya shimmer is reveal-owner-only in Pro, protected Kira L nicknames survive source/Chronicle masking, fight privacy is keyed by player ID even for duplicate Discord usernames, unauthenticated spectator/replay/story artifacts fail closed, copied same-name passives cannot launder foreign receipts into own evidence, structured audience/public receipts resolve bilingually with bounded tokens and identical malformed-data fallbacks, localization works in headless execution, and neither `RevealedTarget` nor current/legacy direct-media replay streams bypass the audience boundary. D16 is decided and implemented. The current open set is **M171, M195, m12, m19, m24, m26**.
+
+M223–M235 close the Ranked/Blackjack concurrency, durability and final-presentation audit: only a seated owner can deal the recovery hand; human/bot reservations and game-ID allocation are atomic and rollback-safe; old recovery cannot contaminate a new match; bot substitution cannot evade Elo; automatic debits survive transient persistence failure; table expiry cannot settle through an orphan; and reconnect/route reuse restores the correctly colored owner-only Blackjack/Elo receipt and cinematic. The current open set remains **M171, M195, m12, m19, m24, m26**.
 
 ## Verification addendum (second pass, 2026-07-01)
 

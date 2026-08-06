@@ -4,7 +4,7 @@
 
 ## 1. Achievement model
 
-The live catalog contains exactly **111** achievements: **12 Global**, **83 Character**, and **16 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
+The live catalog contains exactly **115** achievements: **16 Global**, **83 Character**, and **16 Interaction**. `AchievementDefinition` owns paired EN/RU names, descriptions and secret hints plus category, icon, rarity, target, related characters and rewards (`AchievementClass.cs` `AchievementDefinition`/`AllAchievements`). `tools/audit-achievements.sh` hard-fails unless all expected IDs are unique, present and evaluated.
 
 The first 82 Character-category IDs retain two catalog slots for each of the 41 represented character definitions/forms. Dopa additionally has the bonus Permaban card `c_dopa_permaban`, suggested by the rework itself. Homelander and Omni-man currently enter this catalog through their shared public Interaction card rather than receiving normal/hard Character pairs; Ктулху/Нечто remain special-purpose roster definitions outside that pairing audit. `c_salldorum_double_cola` is the deliberate presentation exception: it is secret and has an empty `CharacterNames` list, so locked or character-filtered player surfaces do not associate it with Salldorum. Difficulty is not the reward rarity. In particular, the pre-existing hard cards `c_rick_portals`, `c_itachi_tax`, and `c_kotiki_reunion` remain Rare so their historic rewards stay unchanged; all other rows likewise show their live rarity explicitly.
 
@@ -17,7 +17,7 @@ Progress has two layers:
 
 Unless a row says otherwise, a target greater than 1 means “within one match.” Solo gates are explicit: team mode cannot unlock `g_clean_sweep`, `g_round10_comeback`, or `g_untouchable` (`AchievementClass.cs` `TrackGameEnd`).
 
-## 2. Global achievements (12)
+## 2. Global achievements (16)
 
 | ID | Achievement (EN / RU) | Single-match requirement | Rarity / reward |
 |---|---|---|---|
@@ -33,8 +33,12 @@ Unless a row says otherwise, a target greater than 1 means “within one match.�
 | `g_untouchable` | Untouchable / Неприкасаемый | Win a solo match alive with at least 5 resolved fight wins and no resolved fight losses. | Epic · 100 ZBS + 1 box |
 | `g_quad_damage` | Quad Damage / Четверной урон | Receive at least 20 net regular points from round 10 after its real multiplier. | Rare · 50 ZBS |
 | `g_auto_pilot` | Definitely Not a Bot / Точно не бот | **Secret.** Explicitly use Auto Move in every standard action round: 1–10 normally, 1–9 for Тигр (round-10 ban), or 1–7 plus 9–10 for Мадара (round 8 is locked). Other forced skips do not create exemptions. Reopening the turn removes that round until Auto Move is chosen again. | Epic · 100 ZBS + 1 box |
+| `g_captain_obvious_coup` | Obvious Coup / Очевидный переворот | From place 2, correctly predict the current place-1 player and take the lead through Капитан Очевидность. | Epic · 100 ZBS + 1 box |
+| `g_captain_obvious_credit` | Credit Where It's Due / Честь и хвала | From place 2, correctly predict the current place-1 player but remain outside place 1 after Капитан Очевидность. | Uncommon · 25 ZBS |
+| `g_captain_obvious_fall` | Too Obvious to Win / Слишком очевиден, чтобы победить | From place 1, be correctly predicted by the place-2 player and lose the lead through Капитан Очевидность. | Epic · 100 ZBS + 1 box |
+| `g_captain_obvious_hold` | Still the Obvious Choice / Всё ещё очевидный лидер | From place 1, be correctly predicted by the place-2 player but retain the lead after Капитан Очевидность. | Rare · 50 ZBS |
 
-Definitions and game-end gates are centralized in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; Auto Move's exact required-round sets are `HasUsedAutoMoveAllGame`. Fight facts come from the resolved-fight observation block in `DoomsdayMachine.cs`, while explicit Auto Move/Change Mind updates come from `GameReactions.cs:169-205` and `WebGameService.AutoMove`/`ChangeMind`.
+Definitions and game-end gates are centralized in `AchievementClass.cs` `AllAchievements`/`TrackGameEnd`; Auto Move's exact required-round sets are `HasUsedAutoMoveAllGame`. Fight facts come from the resolved-fight observation block in `DoomsdayMachine.cs`, while explicit Auto Move/Change Mind updates come from `GameReactions.cs:169-205` and `WebGameService.AutoMove`/`ChangeMind`. Капитан Очевидность records its achievement result immediately after its one-point transfer and re-sort, before Premade or score-free Goblin/Sakura placement guarantees: the guesser receives exactly one of the coup/credit pair, and the guessed leader exactly one of the fall/hold pair (`CheckIfReady.HandleCaptainObvious`).
 
 ## 3. Character achievements (82: 41 Normal + Hard pairs)
 
@@ -116,12 +120,12 @@ All interaction evaluation is in `AchievementClass.cs` `TrackGameEnd`; the obser
 | Rarity | Unlock reward | Catalog use |
 |---|---:|---:|
 | Common | 10 ZBS | 11 |
-| Uncommon | 25 ZBS | 27 |
-| Rare | 50 ZBS | 21 |
-| Epic | 100 ZBS + 1 loot box | 36 |
+| Uncommon | 25 ZBS | 28 |
+| Rare | 50 ZBS | 22 |
+| Epic | 100 ZBS + 1 loot box | 38 |
 | Legendary | 228 ZBS + 2 loot boxes | 16 |
 
-The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **9,083 ZBS and 68 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
+The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition`. Completing the current catalog awards **9,358 ZBS and 70 loot boxes** in total. `AchievementBoard` reports earned/current-catalog totals by summing live unlocked definitions; these numbers are a catalog summary, not a historical transaction ledger (`GameHub.cs` `RequestAchievements`).
 
 ## 6. Secrets, queues, and Вечное Цукуеми
 
@@ -132,7 +136,7 @@ The reward switch is centralized in `AchievementClass.cs` `AchievementDefinition
 
 ## 7. V1 migration and compatibility
 
-V2 was introduced as an intentional fresh catalog. Its current 111 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
+V2 was introduced as an intentional fresh catalog. Its current 115 `g_…` / `c_…` / `x_…` IDs remain disjoint from the older V1 achievement IDs, so V1 unlocks do **not** grant V2 rewards or appear as V2 completions. This expansion is **not another reset**: all original 34 V2 IDs, progress rows, unlocks and issued rewards remain intact (including the original Rare rewards on Rick, Itachi and Cats), while later expansion IDs begin tracking after their deployment. Existing account JSON remains readable:
 
 - `EnsureInitialized` null-fills the account containers without deleting unknown legacy progress rows (`AchievementClass.cs` `EnsureInitialized`).
 - Account startup explicitly removes the two retired secret-character IDs from persisted `Progress` and `NewlyUnlocked`; already-issued rewards are not clawed back (`UserAccounts.cs` `MigrateUnknownBugAccount`).

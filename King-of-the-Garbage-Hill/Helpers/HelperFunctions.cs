@@ -381,7 +381,11 @@ public sealed class HelperFunctions : IServiceSingleton
     {
         SubstituteUserWithBot(discordId);
         var account = _accounts.GetAccount(discordId);
-        if (account != null) account.IsPlaying = false;
+        if (account != null)
+        {
+            lock (account)
+                account.IsPlaying = false;
+        }
     }
 
     public void SubstituteUserWithBot(ulong discordId)
@@ -401,8 +405,6 @@ public sealed class HelperFunctions : IServiceSingleton
         leftUser.Status.IsAramRollConfirmed = true;
         leftUser.IsWebPlayer = false;
         leftUser.PreferWeb = false;
-        freeBot.IsPlaying = true;
-
         if (!prevGame.PlayersList.Any(p => !p.IsBot()))
         {
             prevGame.IsFinished = true;
@@ -412,7 +414,6 @@ public sealed class HelperFunctions : IServiceSingleton
 
     public DiscordAccountClass GetFreeBot(List<GamePlayerBridgeClass> playerList)
     {
-        DiscordAccountClass account;
         string name;
 
         do
@@ -422,16 +423,23 @@ public sealed class HelperFunctions : IServiceSingleton
         } while (playerList.Any(x => x.DiscordUsername == name));
 
         ulong botId = 1;
-        do
+        while (true)
         {
-            account = _accounts.GetAccount(botId);
+            var account = _accounts.GetAccount(botId);
             botId++;
-        } while (account.IsPlaying);
 
-        account.DiscordUserName = name;
+            // Reservation is part of selection: concurrent game creation must not observe
+            // the same bot account as free between this method and the caller's roster insert.
+            lock (account)
+            {
+                if (account.IsPlaying)
+                    continue;
 
-
-        return account;
+                account.IsPlaying = true;
+                account.DiscordUserName = name;
+                return account;
+            }
+        }
     }
 
     public async Task DeleteMessOverTime(IUserMessage message, int timeInSeconds)

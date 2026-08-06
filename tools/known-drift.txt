@@ -27,7 +27,7 @@ DRIFT?: `AddSpeedForOneFight` in docs/ARCHITECTURE.md [### GameCharacter vs Figh
 DRIFT?: `AddWinPoints` in docs/GAME-DESIGN.md [### Win/loss consequences (`DoomsdayMachine.cs:815-1024`)] not found near its cited lines
 DRIFT?: `AdjustStoreCharacter` in docs/BALANCE-CONSTANTS.md [## Character store economy] not found near its cited lines
 DRIFT?: `AdminPlayerType` in docs/INTERACTION-MATRIX.md [## 6. Ziggurat-copyable inventory (`Standalone: true`)] not found near its cited lines
-DRIFT?: `AllAchievements` in docs/ACHIEVEMENTS.md [## 2. Global achievements (12)] not found near its cited lines
+DRIFT?: `AllAchievements` in docs/ACHIEVEMENTS.md [## 2. Global achievements (16)] not found near its cited lines
 DRIFT?: `AllAchievements` in docs/AUDIT-FINDINGS.md [### m29. Three V2 achievement descriptions do not match their evaluators] not found near its cited lines
 DRIFT?: `ApplyFightModules` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `ApplyFightModules` in docs/CHARACTERS.md [## DooM Guy — Tier 4, Int 2 / Str 5 / Speed 5 / Psyche 5] not found near its cited lines
@@ -182,7 +182,7 @@ DRIFT?: `HandleShark` in docs/CHARACTERS.md [## Братишка — Tier 4, Int
 DRIFT?: `HaremCooldownTurns` in docs/BALANCE-CONSTANTS.md [## Per-character numbers] not found near its cited lines
 DRIFT?: `HaremCooldownTurns` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `HaremCooldownTurns` in docs/INTERACTION-MATRIX.md [## 1. Forced-fight sources × untargetable / no-fight states] not found near its cited lines
-DRIFT?: `HasUsedAutoMoveAllGame` in docs/ACHIEVEMENTS.md [## 2. Global achievements (12)] not found near its cited lines
+DRIFT?: `HasUsedAutoMoveAllGame` in docs/ACHIEVEMENTS.md [## 2. Global achievements (16)] not found near its cited lines
 DRIFT?: `HiddenGlobalLogSnippets` in docs/DISCORD-INTERFACE.md [## 7. Privacy in Discord] not found near its cited lines
 DRIFT?: `IUser` in docs/DISCORD-INTERFACE.md [## 2. Command inventory] not found near its cited lines
 DRIFT?: `InGameStatusClass` in docs/ARCHITECTURE.md [## 3. Passive hook execution order] not found near its cited lines
@@ -323,7 +323,7 @@ DRIFT?: `TigrTopWhen` in docs/CHARACTERS.md [## Тигр — Tier 5, Int 1 / Str
 DRIFT?: `TooGOOD` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `TooSTONK` in docs/CHARACTERS.md [## Наруто — Tier 5, Int 3 / Str 3 / Speed 4 / Psyche 5] not found near its cited lines
 DRIFT?: `TotalWins++` in docs/AUDIT-FINDINGS.md [### M37. A dead top-scorer keeps place 1 and takes the win statistics from the announced winner] not found near its cited lines
-DRIFT?: `TrackGameEnd` in docs/ACHIEVEMENTS.md [## 2. Global achievements (12)] not found near its cited lines
+DRIFT?: `TrackGameEnd` in docs/ACHIEVEMENTS.md [## 2. Global achievements (16)] not found near its cited lines
 DRIFT?: `TrackGameEnd` in docs/AUDIT-FINDINGS.md [### m29. Three V2 achievement descriptions do not match their evaluators] not found near its cited lines
 DRIFT?: `TrackGameEnd` in docs/INTERACTION-MATRIX.md [## 8. Achievement V2 interaction observations] not found near its cited lines
 DRIFT?: `TryAwardDragonTaming` in docs/INTERACTION-MATRIX.md [## 8. Achievement V2 interaction observations] not found near its cited lines

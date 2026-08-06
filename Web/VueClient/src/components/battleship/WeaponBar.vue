@@ -5,7 +5,7 @@ import { message } from 'src/platform/localization'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
-defineProps<{
+const props = defineProps<{
   selectedShotType: string
   selectedWeaponId: string | null
   availableWeapons: Array<{
@@ -48,6 +48,7 @@ function weaponTooltip(shotType: string): string {
 }
 
 function handleSelect(weaponType: string, shotType: string, weaponId: string) {
+  if (props.disabled) return
   emit('selectWeapon', weaponType, shotType, weaponId)
 }
 </script>

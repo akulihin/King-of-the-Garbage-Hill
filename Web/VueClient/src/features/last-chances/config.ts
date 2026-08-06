@@ -48,7 +48,7 @@ export const LAST_CHANCES_CONFIG_STORAGE_KEY = '99lc:game-config'
 
 type UnknownRecord = Record<string, unknown>
 
-const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 14
+const CURRENT_LAST_CHANCES_SCHEMA_VERSION = 15
 const MAX_GAMEPAD_BUTTON_INDEX = 31
 const MAX_FEEDBACK_DURATION_MS = 2_000
 const MAX_CONTROL_EXPIRY_MS = 10_000
@@ -221,7 +221,11 @@ const DEFAULT_LAST_CHANCES_STAMINA_COST_INCREASE_INTERVAL_MS = 10_000
 const DEFAULT_LAST_CHANCES_MAX_STAMINA_COST_STACKS = 100
 const DEFAULT_LAST_CHANCES_CHANCE_EROSION_STEP = 5
 const LEGACY_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 900
-const DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 925
+const SCHEMA_V14_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 925
+const DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS = 1200
+const DEFAULT_LAST_CHANCES_COCKROACH_SAFE_CORNER_RADIUS = 150
+const LEGACY_LAST_CHANCES_COCKROACH_BLAST_DAMAGE_MAX_HP_RATIO = 0.8
+const DEFAULT_LAST_CHANCES_COCKROACH_BLAST_DAMAGE_MAX_HP_RATIO = 0.95
 const LEGACY_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS = 200
 const DEFAULT_LAST_CHANCES_COCKROACH_SPAWN_INTERVAL_MS = 200 / 3
 const LEGACY_LAST_CHANCES_COCKROACH_ATTACK_RANGE = 14
@@ -1814,7 +1818,7 @@ function backfillCurrentAttemptAttritionFields(
 }
 
 /**
- * Schema v14 applies the Cockroach Mother balance pass to authentic shipped values while
+ * Schema v14 applies the Cockroach swarm balance pass to authentic shipped values while
  * preserving every browser override that already customized one of these fields. The stable
  * enemy IDs keep the change isolated from unrelated enemies and custom catalogs.
  */
@@ -1825,7 +1829,7 @@ function backfillCockroachBalanceFields(migrated: UnknownRecord): void {
     if (enemy?.id === 'cockroach-mother') {
       const mother = asRecordOrNull(enemy.cockroachMother)
       if (mother?.blastRadius === LEGACY_LAST_CHANCES_COCKROACH_BLAST_RADIUS) {
-        mother.blastRadius = DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS
+        mother.blastRadius = SCHEMA_V14_LAST_CHANCES_COCKROACH_BLAST_RADIUS
       }
       continue
     }
@@ -1843,6 +1847,95 @@ function backfillCockroachBalanceFields(migrated: UnknownRecord): void {
     if (enemy.attackWindupMs === LEGACY_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS) {
       enemy.attackWindupMs = DEFAULT_LAST_CHANCES_COCKROACH_ATTACK_WINDUP_MS
     }
+  }
+}
+
+/**
+ * Schema v15 slows only «Замах», replaces the v2 spear's screen-spanning fixed force values
+ * with ratios of its live «Прокол» collider range, and cuts «Строй» stamina drain by three.
+ * Exact shipped charge/drain values migrate forward; authored custom values remain intact.
+ */
+function backfillSpearV2RebalanceFields(migrated: UnknownRecord): void {
+  if (!Array.isArray(migrated.weapons)) return
+  const weapon = migrated.weapons
+    .map(asRecordOrNull)
+    .find(candidate => candidate?.id === 'twohand-spear-v2')
+  if (!weapon) return
+  const attacks = asRecordOrNull(weapon.attacks)
+  const windup = asRecordOrNull(attacks?.hold)
+  const charge = asRecordOrNull(windup?.charge)
+  if (charge?.maxMs === 1100) charge.maxMs = 1600
+  if (Array.isArray(charge?.bands)) {
+    const migratedMinimums: Record<string, [number, number]> = {
+      early: [325, 522],
+      middle: [563, 904],
+      late: [825, 1325],
+    }
+    for (const bandValue of charge.bands) {
+      const band = asRecordOrNull(bandValue)
+      const migration = typeof band?.id === 'string' ? migratedMinimums[band.id] : undefined
+      if (migration && band?.minMs === migration[0]) band.minMs = migration[1]
+    }
+  }
+
+  const secondaryAttacks = asRecordOrNull(weapon.secondaryAttacks)
+  const shove = asRecordOrNull(secondaryAttacks?.doubleTap)
+  const shoveTuning = asRecordOrNull(shove?.tuning)
+  if (shoveTuning) {
+    delete shoveTuning.minimumTargetRange
+    delete shoveTuning.targetRangeRatio
+    delete shoveTuning.shoveTargetDistance
+    if (shoveTuning.pushDistancePierceRatio === undefined) {
+      shoveTuning.pushDistancePierceRatio = 0.5
+    }
+  }
+  const kick = asRecordOrNull(secondaryAttacks?.doubleTapHold)
+  const kickTuning = asRecordOrNull(kick?.tuning)
+  if (kickTuning) {
+    delete kickTuning.minimumTargetRange
+    delete kickTuning.targetDistancePerKnockback
+    delete kickTuning.shoveTargetDistance
+    delete kickTuning.kickTargetDistance
+    delete kickTuning.strongKickTargetDistance
+    if (kickTuning.pushDistancePierceRatio === undefined) {
+      kickTuning.pushDistancePierceRatio = 0.5
+    }
+    if (kickTuning.kickTargetDistancePierceRatio === undefined) {
+      kickTuning.kickTargetDistancePierceRatio = 1
+    }
+    if (kickTuning.strongKickTargetDistancePierceRatio === undefined) {
+      kickTuning.strongKickTargetDistancePierceRatio = 2
+    }
+  }
+  const stance = asRecordOrNull(secondaryAttacks?.hold)
+  const stanceTuning = asRecordOrNull(stance?.tuning)
+  if (stanceTuning?.staminaPerTick === 5) {
+    stanceTuning.staminaPerTick = 5 / 3
+  }
+}
+
+/**
+ * Schema v15 makes the Mother's linked-hole strike arena-wide except for a real safe zone at
+ * the diagonally opposite hole. Only exact shipped damage/range values are raised; every old
+ * definition gains the new required safe-corner radius.
+ */
+function backfillCockroachMotherHoleStrikeFields(migrated: UnknownRecord): void {
+  if (!Array.isArray(migrated.enemies)) return
+  const enemy = migrated.enemies
+    .map(asRecordOrNull)
+    .find(candidate => candidate?.id === 'cockroach-mother')
+  const mother = asRecordOrNull(enemy?.cockroachMother)
+  if (!mother) return
+  if (mother.blastRadius === SCHEMA_V14_LAST_CHANCES_COCKROACH_BLAST_RADIUS) {
+    mother.blastRadius = DEFAULT_LAST_CHANCES_COCKROACH_BLAST_RADIUS
+  }
+  if (mother.safeCornerRadius === undefined) {
+    mother.safeCornerRadius = DEFAULT_LAST_CHANCES_COCKROACH_SAFE_CORNER_RADIUS
+  }
+  if (mother.blastDamageMaxHpRatio
+    === LEGACY_LAST_CHANCES_COCKROACH_BLAST_DAMAGE_MAX_HP_RATIO) {
+    mother.blastDamageMaxHpRatio
+      = DEFAULT_LAST_CHANCES_COCKROACH_BLAST_DAMAGE_MAX_HP_RATIO
   }
 }
 
@@ -2137,6 +2230,8 @@ export function migrateLastChancesConfig(
   backfillRunTuningFields(migrated)
   backfillCurrentAttemptAttritionFields(migrated, version as number)
   backfillCockroachBalanceFields(migrated)
+  backfillSpearV2RebalanceFields(migrated)
+  backfillCockroachMotherHoleStrikeFields(migrated)
   repairSchemaV8GuaranteedSpawns(migrated)
   backfillAuthoredOpening(migrated, currentDefinition)
   backfillCockroachMotherLair(migrated, currentDefinition)
@@ -2151,7 +2246,7 @@ export function migrateLastChancesConfig(
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
-  if (version === 13) {
+  if (version === 13 || version === 14) {
     migrated.schemaVersion = CURRENT_LAST_CHANCES_SCHEMA_VERSION
     return migrated
   }
@@ -3366,7 +3461,7 @@ function validateEnemies(value: unknown, errors: string[], schemaVersion: number
             }
           }
         }
-        for (const key of ['retreatSpeed', 'hideMs', 'blastRadius',
+        for (const key of ['retreatSpeed', 'hideMs', 'blastRadius', 'safeCornerRadius',
           'blastDamageMaxHpRatio'] as const) {
           requirePositiveNumber(mother, key, motherPath, errors)
         }
@@ -4894,36 +4989,39 @@ export function validateLastChancesConfig(value: unknown): LastChancesConfigVali
     && root.schemaVersion !== 7 && root.schemaVersion !== 8
     && root.schemaVersion !== 9 && root.schemaVersion !== 10
     && root.schemaVersion !== 11 && root.schemaVersion !== 12
-    && root.schemaVersion !== 13 && root.schemaVersion !== 14) {
-    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14')
+    && root.schemaVersion !== 13 && root.schemaVersion !== 14
+    && root.schemaVersion !== 15) {
+    errors.push('schemaVersion must be 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15')
   }
-  const schemaVersion = root.schemaVersion === 14
-    ? 14
-    : root.schemaVersion === 13
-      ? 13
-      : root.schemaVersion === 12
-      ? 12
-      : root.schemaVersion === 11
-      ? 11
-      : root.schemaVersion === 10
-        ? 10
-        : root.schemaVersion === 9
-          ? 9
-          : root.schemaVersion === 8
-            ? 8
-            : root.schemaVersion === 7
-              ? 7
-              : root.schemaVersion === 6
-                ? 6
-                : root.schemaVersion === 5
-                  ? 5
-                  : root.schemaVersion === 4
-                    ? 4
-                    : root.schemaVersion === 3
-                      ? 3
-                      : root.schemaVersion === 2
-                        ? 2
-                        : 1
+  const schemaVersion = root.schemaVersion === 15
+    ? 15
+    : root.schemaVersion === 14
+      ? 14
+      : root.schemaVersion === 13
+        ? 13
+        : root.schemaVersion === 12
+          ? 12
+          : root.schemaVersion === 11
+            ? 11
+            : root.schemaVersion === 10
+              ? 10
+              : root.schemaVersion === 9
+                ? 9
+                : root.schemaVersion === 8
+                  ? 8
+                  : root.schemaVersion === 7
+                    ? 7
+                    : root.schemaVersion === 6
+                      ? 6
+                      : root.schemaVersion === 5
+                        ? 5
+                        : root.schemaVersion === 4
+                          ? 4
+                          : root.schemaVersion === 3
+                            ? 3
+                            : root.schemaVersion === 2
+                              ? 2
+                              : 1
   requireString(root, 'title', 'config', errors)
   requireString(root, 'seed', 'config', errors)
   requireInteger(root, 'chances', 'config', errors, 1)

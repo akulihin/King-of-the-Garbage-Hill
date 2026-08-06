@@ -7,6 +7,7 @@ using King_of_the_Garbage_Hill.Battleship.Logic;
 using King_of_the_Garbage_Hill.Battleship.Models;
 using King_of_the_Garbage_Hill.Game.Classes;
 using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
+using King_of_the_Garbage_Hill.Localization;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
@@ -20,11 +21,13 @@ public class BattleshipService
     private readonly ConcurrentDictionary<string, BattleshipGame> _games = new();
     private readonly Timer _cleanupTimer;
     private readonly UserAccounts _userAccounts;
+    private readonly MessageCatalog _messageCatalog;
     private static readonly Random Rng = new();
 
-    public BattleshipService(UserAccounts userAccounts)
+    public BattleshipService(UserAccounts userAccounts, MessageCatalog messageCatalog)
     {
         _userAccounts = userAccounts;
+        _messageCatalog = messageCatalog;
         _cleanupTimer = new Timer
         {
             AutoReset = true,
@@ -543,6 +546,8 @@ public class BattleshipService
             var shooter = game.GetPlayer(discordId);
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (null, matryoshkaError);
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (null, cursedDirectionError);
 
@@ -612,6 +617,8 @@ public class BattleshipService
             var shooter = game.GetPlayer(discordId);
             if (shooter == null)
                 return (null, "Вы не в этой игре.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (null, matryoshkaError);
             var activeShooter = game.GetPlayer(game.CurrentTurnPlayerId);
             var isEvilGreekFireReaction =
                 game.CurrentTurnPlayerId != discordId &&
@@ -730,6 +737,7 @@ public class BattleshipService
 
     private void CheckAndApplyWin(BattleshipGame game)
     {
+        if (HasPendingMatryoshkaDeployments(game)) return;
         var (gameOver, winnerId) = BattleshipGameEngine.CheckWinCondition(game);
         if (gameOver)
         {
@@ -1028,6 +1036,91 @@ public class BattleshipService
     private static bool HasPendingBoardingDeployments(BattleshipGame game) =>
         game.GetPlayers().Any(HasMandatoryBoardingDeployment);
 
+    private static bool HasPendingMatryoshkaDeployments(BattleshipGame game) =>
+        game.GetPlayers().Any(player => player.PendingMatryoshka != null);
+
+    private string GetPlayerLanguage(string discordId)
+    {
+        if (!ulong.TryParse(discordId, out var userId)) return "ru";
+        return _userAccounts.GetAccount(userId)?.Language == "en" ? "en" : "ru";
+    }
+
+    private static string GetMatryoshkaLockError(BattleshipGame game, string _) =>
+        HasPendingMatryoshkaDeployments(game)
+            ? "Выберите подсвеченное свободное место."
+            : null;
+
+    private static int GetMatryoshkaStage(Ship ship)
+    {
+        if (ship?.Abilities.Contains("matryoshka_stage_4") == true) return 4;
+        if (ship?.Abilities.Contains("matryoshka_stage_3") == true) return 3;
+        if (ship?.Abilities.Contains("matryoshka_stage_2") == true) return 2;
+        return 0;
+    }
+
+    /// <summary>
+    /// Convert a newly destroyed Matryoshka stage into one mandatory in-place choice.
+    /// Only one choice is exposed globally; another simultaneous wreck is queued on the
+    /// next resolution pass after the current replacement is placed.
+    /// </summary>
+    private void QueueMatryoshkaReplacements(BattleshipGame game)
+    {
+        // Geometry is private and choices are globally sequential: never expose two
+        // replacement prompts at once, even when one effect destroyed both fleets.
+        if (HasPendingMatryoshkaDeployments(game)) return;
+
+        foreach (var player in game.GetPlayers())
+        {
+            var parent = player.Board.PlacedShips
+                .FirstOrDefault(ship =>
+                    ship.IsDestroyed &&
+                    !ship.MatryoshkaReplacementQueued &&
+                    !ship.MatryoshkaReplacementSuppressed &&
+                    !ship.Statuses.Contains(ShipStatusType.Capture) &&
+                    !ship.Statuses.Contains(ShipStatusType.Devastated) &&
+                    GetMatryoshkaStage(ship) > 1);
+            if (parent == null) continue;
+
+            var childDeckCount = GetMatryoshkaStage(parent) - 1;
+            var wreckCells = parent.Decks
+                .OrderBy(deck => deck.Index)
+                .Select(deck => parent.GetDeckCell(deck, parent.Row, parent.Col, parent.Orientation))
+                .ToList();
+            if (wreckCells.Count != childDeckCount + 1) continue;
+
+            var options = Enumerable.Range(0, 2)
+                .Select(offset => new MatryoshkaPlacementOption
+                {
+                    // The click target is the unique end of this subset. Placement
+                    // itself remains anchored at Cells[0].
+                    Row = (offset == 0 ? wreckCells[0] : wreckCells[^1]).row,
+                    Col = (offset == 0 ? wreckCells[0] : wreckCells[^1]).col,
+                    Orientation = parent.Orientation,
+                    Cells = wreckCells.Skip(offset).Take(childDeckCount).ToList(),
+                })
+                .ToList();
+
+            parent.MatryoshkaReplacementQueued = true;
+            player.PendingMatryoshka = new PendingMatryoshkaReplacement
+            {
+                ParentShipId = parent.Id,
+                ChildName = ShipCatalog.CreateMatryoshkaStageShip(childDeckCount).Name,
+                ChildDeckCount = childDeckCount,
+                Options = options,
+            };
+
+            var opponent = game.GetOpponent(player.DiscordId);
+            if (opponent != null)
+            {
+                game.AddLogFor(opponent.DiscordId, _messageCatalog.Render(
+                    new LocalizedMessage("battleship.matryoshka.enemyOpened"),
+                    GetPlayerLanguage(opponent.DiscordId)));
+            }
+
+            return;
+        }
+    }
+
     private static bool HasWaitingRamReturn(BattleshipPlayer player) =>
         player?.Summons.Any(summon =>
             summon.IsAlive &&
@@ -1111,6 +1204,7 @@ public class BattleshipService
             player.HasShotThisTurn ||
             player.HasPenalty ||
             player.StunShotExpiry >= game.ShotCount ||
+            HasPendingMatryoshkaDeployments(game) ||
             HasPendingBoardingDeployments(game) ||
             HasPendingCursedBoatDirection(game))
             return null;
@@ -1187,7 +1281,8 @@ public class BattleshipService
     private static bool CanDeployAnySummon(BattleshipGame game, BattleshipPlayer player)
     {
         if (player == null ||
-            game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
+            game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
+            HasPendingMatryoshkaDeployments(game))
             return false;
 
         var opponent = game.GetOpponent(player.DiscordId);
@@ -1292,6 +1387,7 @@ public class BattleshipService
             player.HasPenalty ||
             player.StunShotExpiry >= game.ShotCount ||
             GetPendingAssembly(game, player) != null ||
+            HasPendingMatryoshkaDeployments(game) ||
             HasPendingBoardingDeployments(game))
             return null;
 
@@ -1339,6 +1435,7 @@ public class BattleshipService
             player.StunShotExpiry >= game.ShotCount ||
             HasWaitingRamReturn(player) ||
             HasPendingCursedBoatDirection(game) ||
+            HasPendingMatryoshkaDeployments(game) ||
             HasPendingBoardingDeployments(game) ||
             GetPendingAssembly(game, player) != null ||
             GetPendingManeuver(game, player) != null)
@@ -1386,6 +1483,8 @@ public class BattleshipService
         {
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             var pending = GetPendingAssembly(game, player);
             if (pending == null || pending.GroupId != groupId)
                 return (false, "Этот корабль сейчас нельзя собрать.");
@@ -1424,8 +1523,6 @@ public class BattleshipService
                         cell.KnownShipId = null;
                         cell.KnownDeckIndex = -1;
                     }
-                    else if (cell.IsRevealed && !cell.WasShipHit)
-                        cell.WasRevealedShip = true;
                     cell.ShipRef = null;
                 }
                 player.Board.PlacedShips.Remove(component);
@@ -1450,10 +1547,98 @@ public class BattleshipService
         }
     }
 
+    public (bool success, string error) DeployMatryoshka(
+        string gameId,
+        string discordId,
+        string parentShipId,
+        int row,
+        int col,
+        string orientationStr)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+            return (false, "Игра не найдена.");
+
+        lock (game)
+        {
+            if (game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
+                return (false, "Сейчас не фаза боя.");
+            var player = game.GetPlayer(discordId);
+            if (player == null) return (false, "Вы не в этой игре.");
+            var pending = player.PendingMatryoshka;
+            if (pending == null || pending.ParentShipId != parentShipId)
+                return (false, "Выберите подсвеченное свободное место.");
+            if (!Enum.TryParse<Orientation>(orientationStr, true, out var orientation))
+                return (false, "Неверная ориентация.");
+
+            var option = pending.Options.FirstOrDefault(value =>
+                value.Row == row && value.Col == col && value.Orientation == orientation);
+            if (option == null)
+                return (false, "Выберите подсвеченное свободное место.");
+
+            var parent = player.Board.PlacedShips.FirstOrDefault(ship =>
+                ship.Id == pending.ParentShipId && ship.IsDestroyed);
+            if (parent == null || option.Cells.Any(position =>
+                    player.Board.GetCell(position.row, position.col)?.ShipRef?.Id != parent.Id))
+                return (false, "Выберите подсвеченное свободное место.");
+
+            foreach (var deck in parent.Decks)
+            {
+                var position = parent.GetDeckCell(
+                    deck, parent.Row, parent.Col, parent.Orientation);
+                BattleshipGameEngine.MarkMatryoshkaWreck(
+                    player.Board.GetCell(position.row, position.col),
+                    parent,
+                    deck.Index);
+            }
+
+            RemoveShipFromBoard(player, parent);
+            player.Fleet.Remove(parent);
+
+            var child = ShipCatalog.CreateMatryoshkaStageShip(pending.ChildDeckCount);
+            player.Fleet.Add(child);
+            var childAnchor = option.Cells[0];
+            PlaceShipOnBoard(
+                player,
+                child,
+                childAnchor.row,
+                childAnchor.col,
+                option.Orientation);
+
+            foreach (var deck in child.Decks)
+            {
+                var position = child.GetDeckCell(deck, child.Row, child.Col, child.Orientation);
+                var cell = player.Board.GetCell(position.row, position.col);
+                if (cell == null) continue;
+                BattleshipGameEngine.ClearCellWreck(cell);
+                cell.IsRevealed = true;
+                cell.IsHit = false;
+                cell.IsMiss = false;
+                cell.WasShipHit = false;
+                cell.WasScratched = false;
+                cell.WasRevealedShip = true;
+                cell.BurnResistMarked = false;
+                cell.WasDodge = false;
+                cell.WasManeuverDodge = false;
+                cell.SunkShipName = null;
+                cell.KnownShipId = child.Id;
+                cell.KnownDeckIndex = deck.Index;
+            }
+
+            player.PendingMatryoshka = null;
+            BattleshipGameEngine.ResolveMatryoshkaPlacementInteractions(
+                game, player, child);
+            game.LastActivity = DateTime.UtcNow;
+            ResumeMatryoshkaResolution(game);
+            TrySettleGameEnd(game);
+            return (true, null);
+        }
+    }
+
     private static PendingCursedBoatDirectionDto GetPendingCursedBoatDirection(
         BattleshipGame game,
         BattleshipPlayer player)
     {
+        if (HasPendingMatryoshkaDeployments(game)) return null;
         var summon = player?.Summons
             .Where(value => value.IsAlive &&
                             (value.Type == SummonType.CursedBoat ||
@@ -1511,6 +1696,13 @@ public class BattleshipService
         CheckAndApplyFleetDestructionWin(game);
         TryTriggerBoarding(game);
         CheckAndApplyWin(game);
+        if (!game.IsFinished && HasPendingMatryoshkaDeployments(game))
+        {
+            game.MatryoshkaResolutionPaused = true;
+            game.PausedTurnContinues = turnContinues;
+            game.PausedMoveSummons = moveSummons;
+            return;
+        }
         if (!game.IsFinished && HasPendingBoardingDeployments(game))
         {
             game.BoardingResolutionPaused = true;
@@ -1519,10 +1711,30 @@ public class BattleshipService
             return;
         }
         if (!game.IsFinished && moveSummons)
-            BattleshipGameEngine.MoveSummons(game);
+        {
+            var movementCompleted = BattleshipGameEngine.MoveSummons(game, currentGame =>
+            {
+                QueueMatryoshkaReplacements(currentGame);
+                return HasPendingMatryoshkaDeployments(currentGame);
+            });
+            if (!movementCompleted)
+            {
+                game.MatryoshkaResolutionPaused = true;
+                game.PausedTurnContinues = turnContinues;
+                game.PausedMoveSummons = true;
+                return;
+            }
+        }
         CheckAndApplyFleetDestructionWin(game);
         TryTriggerBoarding(game);
         CheckAndApplyWin(game);
+        if (!game.IsFinished && HasPendingMatryoshkaDeployments(game))
+        {
+            game.MatryoshkaResolutionPaused = true;
+            game.PausedTurnContinues = turnContinues;
+            game.PausedMoveSummons = false;
+            return;
+        }
         if (!game.IsFinished && HasPendingBoardingDeployments(game))
         {
             game.BoardingResolutionPaused = true;
@@ -1537,30 +1749,44 @@ public class BattleshipService
     private void ResumeBoardingResolution(BattleshipGame game)
     {
         if (!game.BoardingResolutionPaused || HasPendingBoardingDeployments(game) || game.IsFinished) return;
+        if (HasPendingMatryoshkaDeployments(game))
+        {
+            game.BoardingResolutionPaused = false;
+            game.MatryoshkaResolutionPaused = true;
+            return;
+        }
         var turnContinues = game.PausedTurnContinues;
         var moveSummons = game.PausedMoveSummons;
         game.BoardingResolutionPaused = false;
         game.PausedTurnContinues = false;
         game.PausedMoveSummons = false;
 
-        if (moveSummons)
-            BattleshipGameEngine.MoveSummons(game);
-        CheckAndApplyFleetDestructionWin(game);
-        TryTriggerBoarding(game);
-        CheckAndApplyWin(game);
-        if (!game.IsFinished && HasPendingBoardingDeployments(game))
+        CompleteActionResolution(game, turnContinues, moveSummons);
+    }
+
+    private void ResumeMatryoshkaResolution(BattleshipGame game)
+    {
+        QueueMatryoshkaReplacements(game);
+        if (HasPendingMatryoshkaDeployments(game) || game.IsFinished) return;
+
+        if (!game.MatryoshkaResolutionPaused)
         {
-            game.BoardingResolutionPaused = true;
-            game.PausedTurnContinues = turnContinues;
-            game.PausedMoveSummons = false;
+            ResolveImmediateEffectTransitions(game);
             return;
         }
-        if (!game.IsFinished && !turnContinues)
-            AdvanceTurn(game);
+
+        var turnContinues = game.PausedTurnContinues;
+        var moveSummons = game.PausedMoveSummons;
+        game.MatryoshkaResolutionPaused = false;
+        game.PausedTurnContinues = false;
+        game.PausedMoveSummons = false;
+        CompleteActionResolution(game, turnContinues, moveSummons);
     }
 
     private void CheckAndApplyFleetDestructionWin(BattleshipGame game)
     {
+        QueueMatryoshkaReplacements(game);
+        if (HasPendingMatryoshkaDeployments(game)) return;
         var (gameOver, winnerId) = BattleshipGameEngine.CheckFleetDestructionWin(game);
         if (!gameOver) return;
         game.IsFinished = true;
@@ -1571,6 +1797,7 @@ public class BattleshipService
 
     private static void TryTriggerBoarding(BattleshipGame game)
     {
+        if (HasPendingMatryoshkaDeployments(game)) return;
         if (!game.IsFinished && BattleshipGameEngine.CheckBoardingTrigger(game))
             BattleshipGameEngine.TriggerBoarding(game);
         if (!game.IsFinished && game.Phase == BsGamePhase.Boarding)
@@ -1592,6 +1819,8 @@ public class BattleshipService
             if (game.CurrentTurnPlayerId != discordId) return (false, "Сейчас не ваш ход.");
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             if (HasPendingBoardingDeployments(game))
                 return (false, "Сначала выпустите все обязательные единицы абордажа!");
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
@@ -1649,6 +1878,8 @@ public class BattleshipService
                 return (false, "Вы не в этой игре.");
             if (game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
                 return (false, "Сейчас нельзя выбирать оружие.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             var cursedDirectionError = GetCursedBoatDirectionLockError(game);
             if (cursedDirectionError != null) return (false, cursedDirectionError);
             var assemblyError = GetAssemblyLockError(game, player);
@@ -1724,6 +1955,9 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
 
             if (!Enum.TryParse<SummonType>(summonTypeStr, true, out var summonType))
                 return (false, "Неизвестный тип призыва.");
@@ -1988,6 +2222,9 @@ public class BattleshipService
             if (player == null)
                 return (false, "Вы не в этой игре.");
 
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
+
             var pending = player.PendingSummons.FirstOrDefault(p => p.Id == pendingId);
             if (pending == null)
                 return (false, "Нет такого ожидающего призыва.");
@@ -2085,6 +2322,8 @@ public class BattleshipService
                 return (false, "Сейчас не фаза боя.");
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             var ship = player.Board.PlacedShips.FirstOrDefault(candidate =>
                 candidate.Id == shipId &&
                 candidate.Statuses.Contains(ShipStatusType.Devastated) &&
@@ -2162,7 +2401,9 @@ public class BattleshipService
     {
         CheckAndApplyFleetDestructionWin(game);
         TryTriggerBoarding(game);
-        if (!game.IsFinished && game.Phase == BsGamePhase.Boarding)
+        if (!game.IsFinished &&
+            !HasPendingMatryoshkaDeployments(game) &&
+            game.Phase == BsGamePhase.Boarding)
         {
             BattleshipGameEngine.QueueBoardingShipsForMidlessPlayers(game);
             foreach (var player in game.GetPlayers().Where(player =>
@@ -2182,6 +2423,8 @@ public class BattleshipService
         {
             if (game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
                 return (false, "Манёвр доступен только во время боя.");
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             if (HasPendingBoardingDeployments(game))
                 return (false, "Сначала выпустите все обязательные единицы абордажа.");
             var player = game.GetPlayer(discordId);
@@ -2261,6 +2504,8 @@ public class BattleshipService
 
         lock (game)
         {
+            var matryoshkaError = GetMatryoshkaLockError(game, discordId);
+            if (matryoshkaError != null) return (false, matryoshkaError);
             if (HasPendingBoardingDeployments(game))
                 return (false, "Сначала выпустите все обязательные единицы абордажа.");
             var player = game.GetPlayer(discordId);
@@ -2391,9 +2636,11 @@ public class BattleshipService
             IsFree = def.IsFree,
             Abilities = def.Abilities,
             Factions = def.Factions.Select(value => value.ToString()).ToList(),
-            Description = def.IsFree
-                ? $"{def.Description} Бесплатно."
-                : $"{def.Description} Цена: {def.Cost} монет.",
+            Description = string.IsNullOrWhiteSpace(def.Description)
+                ? null
+                : def.IsFree
+                    ? $"{def.Description} Бесплатно."
+                    : $"{def.Description} Цена: {def.Cost} монет.",
             Region = def.Regions.Any(r => r != Region.Tetracor)
                 ? def.Regions.First(r => r != Region.Tetracor).ToString()
                 : null,
@@ -2405,6 +2652,7 @@ public class BattleshipService
                 NameRu = u.NameRu,
                 Cost = u.Cost,
                 Description = $"{u.Description} Цена: {u.Cost} монет.",
+                IsPreinstalled = u.IsPreinstalled,
             }).ToList() ?? new(),
         }).ToList();
     }
@@ -2529,6 +2777,9 @@ public class BattleshipService
         lock (game)
         {
             if (game.IsFinished) return false;
+            if (HasPendingMatryoshkaDeployments(game))
+                return game.GetPlayers().Any(player =>
+                    player.IsBot && player.PendingMatryoshka != null);
             if (HasPendingBoardingDeployments(game))
                 return game.GetPlayers().Any(player =>
                     player.IsBot && HasMandatoryBoardingDeployment(player));
@@ -2562,6 +2813,25 @@ public class BattleshipService
         if (!_games.TryGetValue(gameId, out var game)) return new();
         lock (game)
         {
+            var matryoshkaBot = game.GetPlayers()
+                .FirstOrDefault(player => player.IsBot && player.PendingMatryoshka != null);
+            if (matryoshkaBot != null)
+            {
+                var pending = matryoshkaBot.PendingMatryoshka;
+                var option = pending?.Options.OrderBy(_ => Rng.Next()).FirstOrDefault();
+                if (pending == null || option == null) return new();
+                var (success, _) = DeployMatryoshka(
+                    game.GameId,
+                    matryoshkaBot.DiscordId,
+                    pending.ParentShipId,
+                    option.Row,
+                    option.Col,
+                    option.Orientation.ToString());
+                return new BattleshipBotStepResult { Acted = success };
+            }
+
+            if (HasPendingMatryoshkaDeployments(game)) return new();
+
             // Mandatory Boarding placement has priority over a Cursed Boat course choice.
             var priorityBoardingBot = game.GetPlayers()
                 .FirstOrDefault(player =>
@@ -2749,7 +3019,11 @@ public class BattleshipService
 
             DescribeShot(game, bot, result, ownBoard);
             result.TurnContinues = RegisterResolvedPlayerShot(
-                game, bot, shotCountBefore, result.TurnContinues, allowSecondShot: true);
+                game,
+                bot,
+                shotCountBefore,
+                requestedTurnContinues: ownBoard ? false : result.TurnContinues,
+                allowSecondShot: true);
             bot.HasShotThisTurn = true;
             ResetExpendedSelection(game, bot);
             CompleteActionResolution(game, result.TurnContinues, moveSummons: true);
@@ -3039,10 +3313,31 @@ public class BattleshipService
             StunShotExpiry = player.StunShotExpiry,
             HasPenalty = player.HasPenalty,
             HasShotThisTurn = player.HasShotThisTurn,
+            HasPendingMatryoshka = player.PendingMatryoshka != null,
             HasPendingBoardingDeployment = HasMandatoryBoardingDeployment(player),
             MandatoryBoardingSummonSlots = isMe ? player.MandatoryBoardingSummonSlots : 0,
             MandatoryBoardingBrander = isMe && player.MandatoryBoardingBrander,
             BoardingDeploymentCapacity = isMe ? player.BoardingDeploymentCapacity : 0,
+            PendingMatryoshka = isMe && player.PendingMatryoshka != null
+                ? new PendingMatryoshkaDto
+                {
+                    ParentShipId = player.PendingMatryoshka.ParentShipId,
+                    ChildName = player.PendingMatryoshka.ChildName,
+                    ChildDeckCount = player.PendingMatryoshka.ChildDeckCount,
+                    Options = player.PendingMatryoshka.Options.Select(option =>
+                        new MatryoshkaPlacementOptionDto
+                        {
+                            Row = option.Row,
+                            Col = option.Col,
+                            Orientation = option.Orientation.ToString(),
+                            Cells = option.Cells.Select(cell => new BoardCoordinateDto
+                            {
+                                Row = cell.row,
+                                Col = cell.col,
+                            }).ToList(),
+                        }).ToList(),
+                }
+                : null,
             PendingAssembly = isMe ? GetPendingAssembly(game, player) : null,
             PendingManeuver = isMe ? GetPendingManeuver(game, player) : null,
             VoluntaryManeuvers = isMe ? GetVoluntaryManeuvers(game, player) : new(),
@@ -3091,6 +3386,7 @@ public class BattleshipService
             AvailableWeapons = isMe ? MapAvailableWeapons(game, player) : new(),
             CanPassBoarding = isMe && game.Phase == BsGamePhase.Boarding &&
                 game.CurrentTurnPlayerId == player.DiscordId &&
+                !HasPendingMatryoshkaDeployments(game) &&
                 !HasPendingBoardingDeployments(game) &&
                 GetPendingAssembly(game, player) == null &&
                 GetPendingCursedBoatDirection(game, player) == null &&
@@ -3252,6 +3548,7 @@ public class BattleshipService
         {
             var cell = board.Grid[r, c];
             var liveDeck = GetDeckAtCell(cell);
+            var matryoshkaWreck = cell.IsMatryoshkaWreck && cell.ShipRef == null;
             var boardingDeck = cell.SummonRef is { IsAlive: true, IsBoardingShip: true } boardingSummon
                 ? BattleshipGameEngine.GetLiveBoardingDeckAtCell(boardingSummon, r, c)
                 : null;
@@ -3269,11 +3566,13 @@ public class BattleshipService
                 // Maneuvering Double to its new cells after a manual move
                 // Historical fog snapshots remain in Cell after hidden movement/assembly,
                 // but the physical board owner renders only the hull currently occupying it.
-                IsHit = deckIsDamaged,
-                IsMiss = liveDeck == null && cell.IsMiss,
+                IsHit = deckIsDamaged || matryoshkaWreck,
+                IsMiss = liveDeck == null && !matryoshkaWreck && cell.IsMiss,
                 IsBurning = cell.IsBurning,
-                HasShip = showShips && cell.ShipRef != null,
-                ShipId = showShips ? cell.ShipRef?.Id : null,
+                HasShip = showShips && (cell.ShipRef != null || matryoshkaWreck),
+                ShipId = showShips
+                    ? cell.ShipRef?.Id ?? cell.Wreck?.SourceShipId
+                    : null,
                 HasSummon = cell.SummonRef != null && cell.SummonRef.IsAlive,
                 SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
                 SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
@@ -3296,8 +3595,8 @@ public class BattleshipService
                                      (deckIsScratched || boardingDeck is { CurrentHp: > 0 }),
                 IsDodgeMarked = cell.WasDodge,
                 IsManeuverDodgeMarked = cell.WasManeuverDodge,
-                IsDestroyed = liveDeck?.IsDestroyed == true,
-                IsShipSunk = cell.ShipRef?.IsDestroyed == true,
+                IsDestroyed = liveDeck?.IsDestroyed == true || matryoshkaWreck,
+                IsShipSunk = cell.ShipRef?.IsDestroyed == true || matryoshkaWreck,
                 IsFrozen = cell.ShipRef?.Statuses.Contains(ShipStatusType.Freeze) == true,
                 IsDevastated = cell.ShipRef?.Statuses.Contains(ShipStatusType.Devastated) == true,
                 IsCaptured = cell.ShipRef?.Statuses.Contains(ShipStatusType.Capture) == true,
@@ -3307,7 +3606,7 @@ public class BattleshipService
                     BattleshipCapturingMechanics.GetGrabCell(ship) == (r, c)),
                 SunkShipName = cell.ShipRef != null
                     ? cell.ShipRef.IsDestroyed ? cell.ShipRef.Name : null
-                    : cell.SunkShipName,
+                    : cell.Wreck?.SourceShipName ?? cell.SunkShipName,
             });
         }
         return new BoardDto { Cells = cells };
@@ -3479,10 +3778,12 @@ public class BattleshipPlayerDto
     public int StunShotExpiry { get; set; }
     public bool HasPenalty { get; set; }
     public bool HasShotThisTurn { get; set; }
+    public bool HasPendingMatryoshka { get; set; }
     public bool HasPendingBoardingDeployment { get; set; }
     public int MandatoryBoardingSummonSlots { get; set; }
     public bool MandatoryBoardingBrander { get; set; }
     public int BoardingDeploymentCapacity { get; set; }
+    public PendingMatryoshkaDto PendingMatryoshka { get; set; }
     public PendingAssemblyDto PendingAssembly { get; set; }
     public PendingManeuverDto PendingManeuver { get; set; }
     public List<VoluntaryManeuverDto> VoluntaryManeuvers { get; set; } = new();
@@ -3552,6 +3853,28 @@ public class PendingAssemblyDto
 {
     public string GroupId { get; set; }
     public List<AssemblyPlacementOptionDto> Options { get; set; } = new();
+}
+
+public class PendingMatryoshkaDto
+{
+    public string ParentShipId { get; set; }
+    public string ChildName { get; set; }
+    public int ChildDeckCount { get; set; }
+    public List<MatryoshkaPlacementOptionDto> Options { get; set; } = new();
+}
+
+public class MatryoshkaPlacementOptionDto
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public string Orientation { get; set; }
+    public List<BoardCoordinateDto> Cells { get; set; } = new();
+}
+
+public class BoardCoordinateDto
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
 }
 
 public class AssemblyPlacementOptionDto
@@ -3733,4 +4056,5 @@ public class UpgradeDto
     public string NameRu { get; set; }
     public int Cost { get; set; }
     public string Description { get; set; }
+    public bool IsPreinstalled { get; set; }
 }

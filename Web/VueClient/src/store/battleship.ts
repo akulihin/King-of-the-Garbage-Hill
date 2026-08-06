@@ -739,6 +739,28 @@ export const useBattleshipStore = defineStore('battleship', () => {
     await signalrService.battleshipAssembleShip(gameId.value, groupId, row, col, orientation)
   }
 
+  async function deployMatryoshka(
+    parentShipId: string,
+    row: number,
+    col: number,
+    orientation: BattleshipOrientation,
+  ): Promise<boolean> {
+    const activeGameId = gameId.value
+    if (!activeGameId || myPlayer.value?.pendingMatryoshka?.parentShipId !== parentShipId)
+      return false
+    await signalrService.battleshipDeployMatryoshka(
+      activeGameId,
+      parentShipId,
+      row,
+      col,
+      orientation,
+    )
+    const accepted = gameId.value === activeGameId
+      && myPlayer.value?.pendingMatryoshka?.parentShipId !== parentShipId
+    if (accepted) playBattleshipDeploy()
+    return accepted
+  }
+
   async function forfeit() {
     if (!gameId.value) return
     await signalrService.battleshipForfeit(gameId.value)
@@ -862,6 +884,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     manualMove,
     setCursedBoatDirection,
     assembleShip,
+    deployMatryoshka,
     requestState,
     requestCatalog,
     toggleOrientation,

@@ -55,7 +55,7 @@ public static class BattleshipBotAI
 
         // Apply upgrades with remaining budget
         var archetype = Rng.Next(6);
-        ApplyUpgrades(purchases, ref budget, archetype);
+        ApplyUpgrades(purchases, ref budget, archetype, faction);
 
         // Build full fleet (fills defaults for empty slots)
         return FleetValidator.BuildFleetFromSelections(purchases, faction);
@@ -76,29 +76,53 @@ public static class BattleshipBotAI
                 regions.Add(r);
     }
 
-    private static void ApplyUpgrades(List<FleetSelection> fleet, ref int budget, int archetype)
+    private static void ApplyUpgrades(
+        List<FleetSelection> fleet,
+        ref int budget,
+        int archetype,
+        Faction faction)
     {
-        // Tetranavis boiler upgrade (Greek Fire or Brander) — add entry if not present
-        var tetra = fleet.FirstOrDefault(f => f.DefinitionId == "tetranavis");
-        if (tetra == null && budget >= 4)
+        // Only a flagship which is actually present may receive a boiler upgrade.
+        // Empire can upgrade its default Tetranavis when no paid/free alternative
+        // already occupies the four-deck slot; Alliance can upgrade a purchased
+        // diagonal flagship, but must not synthesize an invalid Tetranavis entry.
+        var flagshipId = faction == Faction.Empire
+            ? "tetranavis"
+            : "famous_diagonal_ship";
+        var flagship = fleet.FirstOrDefault(selection => selection.DefinitionId == flagshipId);
+        var fourDeckSlotAlreadySelected = fleet.Any(selection =>
+            ShipCatalog.GetById(selection.DefinitionId)?.DeckCount == 4);
+        if (faction == Faction.Empire &&
+            flagship == null &&
+            !fourDeckSlotAlreadySelected &&
+            budget >= 4)
         {
-            tetra = new FleetSelection { DefinitionId = "tetranavis", ShipName = "Tetranavis", Cost = 0 };
-            fleet.Add(tetra);
+            flagship = new FleetSelection
+            {
+                DefinitionId = flagshipId,
+                ShipName = ShipCatalog.GetById(flagshipId)?.Name ?? flagshipId,
+                Cost = 0,
+            };
+            fleet.Add(flagship);
         }
-        if (tetra != null && budget >= 4)
+        if (flagship != null && budget >= 4)
         {
-            tetra.Upgrades ??= new List<string>();
+            flagship.Upgrades ??= new List<string>();
             // Burn archetype prefers Greek Fire; others 50/50
             var useGreekFire = archetype == 1 || Rng.Next(2) == 0;
             var upgradeId = useGreekFire ? "tetra_boiler_fire" : "tetra_boiler_brander";
-            tetra.Upgrades.Add(upgradeId);
-            tetra.Cost += 4;
+            flagship.Upgrades.Add(upgradeId);
+            flagship.Cost += 4;
             budget -= 4;
         }
 
         // Triple upgrades — add entry if not present
         var triple = fleet.FirstOrDefault(f => f.DefinitionId == "triple");
-        if (triple == null && budget >= 2)
+        var selectedThreeDeckSlots = fleet.Count(selection =>
+            ShipCatalog.GetById(selection.DefinitionId)?.DeckCount == 3);
+        if (triple == null &&
+            selectedThreeDeckSlots < FleetValidator.Template[3] &&
+            budget >= 2)
         {
             triple = new FleetSelection { DefinitionId = "triple", ShipName = "Triple", Cost = 0 };
             fleet.Add(triple);
@@ -115,17 +139,18 @@ public static class BattleshipBotAI
                 budget -= 2;
             }
 
-            // Extra ammo (4 coins) — good for late game
-            if (budget >= 4 && Rng.Next(3) > 0)
+            // Extra ammo (6 coins) — good for late game
+            if (budget >= 6 && Rng.Next(3) > 0)
             {
                 triple.Upgrades.Add("triple_ammo");
-                triple.Cost += 4;
-                budget -= 4;
+                triple.Cost += 6;
+                budget -= 6;
             }
 
             // Armor upgrades (4 coins each) — if lots of budget left
             for (var i = 0; i < 3 && budget >= 4; i++)
             {
+                if (i == 1) continue; // The Tetracatapult deck's armor is preinstalled.
                 if (Rng.Next(3) == 0)
                 {
                     var armorId = $"triple_armor_{i + 1}";

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using King_of_the_Garbage_Hill.API.Services;
 using King_of_the_Garbage_Hill.DiscordFramework;
 using King_of_the_Garbage_Hill.Game.Characters;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -22,12 +23,13 @@ public class CharacterPassives : IServiceSingleton
     private readonly CharactersPull _charactersPull;
     private readonly ClaudeHaikuService _haikuService;
     private readonly GameReaction _gameReaction;
+    private readonly BlackjackService _blackjackService;
     private readonly object _fairPredictionCatalogLock = new();
     private List<CharacterClass> _fairPredictionCatalog;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
         LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull,
-        ClaudeHaikuService haikuService, GameReaction gameReaction)
+        ClaudeHaikuService haikuService, GameReaction gameReaction, BlackjackService blackjackService)
     {
         _rand = rand;
         _help = help;
@@ -36,6 +38,7 @@ public class CharacterPassives : IServiceSingleton
         _charactersPull = charactersPull;
         _haikuService = haikuService;
         _gameReaction = gameReaction;
+        _blackjackService = blackjackService;
     }
 
     public Task InitializeAsync()
@@ -357,7 +360,12 @@ public class CharacterPassives : IServiceSingleton
                     var lTarget = lCandidates[_rand.Random(0, lCandidates.Count - 1)].GetPlayerId();
 
                     player.Passives.KiraL.LPlayerId = lTarget;
-                    player.Status.AddInGamePersonalLogs($"Эй, Лайт, это Бог Смерти. Тебе выпал интересный противник: **{playersList.Find(x => x.GetPlayerId() == lTarget)!.DiscordUsername}** - это L.\n");
+                    var lUsername = playersList.Find(x => x.GetPlayerId() == lTarget)!.DiscordUsername;
+                    player.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
+                        "L",
+                        $"Эй, Лайт, это Бог Смерти. Тебе выпал интересный противник: **{lUsername}** - это L.",
+                        "L",
+                        $"Hey, Light, it's the God of Death. You got an interesting opponent: **{lUsername}** is L.") + "\n");
                     break;
 
                 case "Неприметность":
@@ -610,7 +618,10 @@ public class CharacterPassives : IServiceSingleton
                     if (!shark.FriendList.Contains(me.GetPlayerId()))
                     {
                         shark.FriendList.Add(me.GetPlayerId());
-                        me.GameCharacter.AddIntelligence(-1, "Ничего не понимает");
+                        me.GameCharacter.AddIntelligence(
+                            -1,
+                            "Ничего не понимает",
+                            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
                     }
 
                     me.FightCharacter.SetIntelligenceForOneFight(0, "Ничего не понимает");
@@ -1026,7 +1037,15 @@ public class CharacterPassives : IServiceSingleton
                     {
                         glebSkipFriendListDone.FriendList.Add(me.GetPlayerId());
                         me.GameCharacter.AddMoral(9, "Я щас приду", false);
-                        me.Status.AddInGamePersonalLogs("Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!\n");
+                        me.Status.AddInGamePersonalLogs(
+                            PhrasePayload.EncodeOwnerOnly(
+                                "Я щас приду",
+                                "Я щас приду: +9 *Морали*. Вы дождались Глеба!!! Празднуем!",
+                                "Be Right There",
+                                "Be Right There: +9 *Moral*. Gleb finally arrived!!! Let's celebrate!",
+                                "❓: +9 *Морали*.",
+                                "❓: +9 *Moral*.",
+                                target.GetPlayerId()) + "\n");
                     }
 
                     break;
@@ -1049,7 +1068,10 @@ public class CharacterPassives : IServiceSingleton
                         if (!hardKittyMute.UniquePlayers.Contains(me.GetPlayerId()))
                         {
                             hardKittyMute.UniquePlayers.Add(me.GetPlayerId());
-                            me.Status.AddRegularPoints(1, "Mute");
+                            me.Status.AddRegularPoints(
+                                1,
+                                "Mute",
+                                sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
                             game.Phrases.HardKittyMutedPhrase.SendLog(target, false);
                         }
                     }
@@ -1324,8 +1346,7 @@ public class CharacterPassives : IServiceSingleton
                             if (existingPred == null)
                                 p.Predict.Add(new PredictClass(target.GameCharacter.Name, target.GetPlayerId()));
                         }
-                        if (!game.PinkWardRevealedPlayerIds.Contains(target.GetPlayerId()))
-                            game.PinkWardRevealedPlayerIds.Add(target.GetPlayerId());
+                        game.RecordPinkWardReveal(target.GetPlayerId(), me.GetPlayerId());
                         Homelander.RecordReveal(game, me, target);
                     }
                     break;
@@ -1478,8 +1499,14 @@ public class CharacterPassives : IServiceSingleton
                     if (!spartan.FriendList.Contains(target.GetPlayerId()))
                     {
                         spartan.FriendList.Add(target.GetPlayerId());
-                        target.GameCharacter.AddStrength(-1, "Они позорят военное искусство");
-                        target.GameCharacter.AddSpeed(-1, "Они позорят военное искусство");
+                        target.GameCharacter.AddStrength(
+                            -1,
+                            "Они позорят военное искусство",
+                            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
+                        target.GameCharacter.AddSpeed(
+                            -1,
+                            "Они позорят военное искусство",
+                            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
                     }
 
                     break;
@@ -1617,8 +1644,9 @@ public class CharacterPassives : IServiceSingleton
                             case 9:
                             case 10:
                                 me.FightCharacter.SetSkillFightMultiplier(16);
-                                game.AddGlobalLogs(
-                                    $"mylorik: Айсик, можно тортик? У меня {me.GameCharacter.GetSkill()} *Скилла*!");
+                                game.AddProOwnerGlobalLogs(
+                                    $"mylorik: Айсик, можно тортик? У меня {me.GameCharacter.GetSkill()} *Скилла*!",
+                                    me.GetPlayerId());
                                 break;
                             default:
                                 me.FightCharacter.SetSkillFightMultiplier();
@@ -2490,9 +2518,14 @@ public class CharacterPassives : IServiceSingleton
                     {
                         me.GameCharacter.AddExtraSkill(20, "Доминация");
                         if (!UnknownBug.Is(target))
-                            target.Status.AddBonusPoints(-1, "Доминация");
+                            target.Status.AddBonusPoints(
+                                -1, "Доминация", FeedbackSourceVisibility.NeutralTarget);
                         if (_rand.Luck(1, 3))
-                            target.MinusPsyche(game, -1, "Доминация");
+                            target.MinusPsyche(
+                                game,
+                                -1,
+                                "Доминация",
+                                sourceVisibility: FeedbackSourceVisibility.NeutralTarget);
                         game.Phrases.DopaDomination.SendLog(me, false);
                     }
                     break;
@@ -2509,10 +2542,14 @@ public class CharacterPassives : IServiceSingleton
                             if (!UnknownBug.Is(target)
                                 && Homelander.CanTransferFrom(target, "Роум"))
                             {
-                                target.Status.AddBonusPoints(-1, "Роум");
+                                target.Status.AddBonusPoints(
+                                    -1, "Роум", FeedbackSourceVisibility.NeutralTarget);
                                 me.Status.AddBonusPoints(1, "Роум");
                             }
-                            target.GameCharacter.AddMoral(-3, "Роум");
+                            target.GameCharacter.AddMoral(
+                                -3,
+                                "Роум",
+                                sourceVisibility: FeedbackSourceVisibility.NeutralTarget);
                             me.GameCharacter.AddMoral(3, "Роум");
                             game.Phrases.DopaRoam.SendLog(me, false);
                         }
@@ -2652,7 +2689,15 @@ public class CharacterPassives : IServiceSingleton
         {
             opp.Passives.TheBoysVirus = true;
             opp.Passives.TheBoysVirusSource = player.Passives.TheBoysVirusSource;
-            game.AddGlobalLogs($"☣️ Вирус распространился на **{opp.DiscordUsername}**!");
+            virusSource?.Status.AddInGamePersonalLogs(
+                PhrasePayload.EncodeOwnerOnly(
+                    TheBoys.VirusUltimate,
+                    $"☣️ Вирус распространился на **{opp.DiscordUsername}**!",
+                    "Deadly Virus",
+                    $"☣️ The virus spread to **{opp.DiscordUsername}**!",
+                    "",
+                    "",
+                    virusSource.GetPlayerId()) + "\n");
         }
         else if (opp.Passives.TheBoysVirus && !player.Passives.TheBoysVirus
             && player.GetPlayerId() != opp.Passives.TheBoysVirusSource
@@ -2660,7 +2705,15 @@ public class CharacterPassives : IServiceSingleton
         {
             player.Passives.TheBoysVirus = true;
             player.Passives.TheBoysVirusSource = opp.Passives.TheBoysVirusSource;
-            game.AddGlobalLogs($"☣️ Вирус распространился на **{player.DiscordUsername}**!");
+            virusSource?.Status.AddInGamePersonalLogs(
+                PhrasePayload.EncodeOwnerOnly(
+                    TheBoys.VirusUltimate,
+                    $"☣️ Вирус распространился на **{player.DiscordUsername}**!",
+                    "Deadly Virus",
+                    $"☣️ The virus spread to **{player.DiscordUsername}**!",
+                    "",
+                    "",
+                    virusSource.GetPlayerId()) + "\n");
         }
     }
 
@@ -3101,7 +3154,13 @@ public class CharacterPassives : IServiceSingleton
 
                                 if (target.GameCharacter.Name != "LeCrisp")
                                 {
-                                    target.MinusPsyche(game, howMuchToAdd, "Стёб");
+                                    target.MinusPsyche(
+                                        game,
+                                        howMuchToAdd,
+                                        "Стёб",
+                                        sourceVisibility: target.GameCharacter.Name == "Злой Школьник"
+                                            ? FeedbackSourceVisibility.NamedTarget
+                                            : FeedbackSourceVisibility.ProNeutralTarget);
                                 }
 
 
@@ -3359,7 +3418,10 @@ public class CharacterPassives : IServiceSingleton
                         {
                             var ene = game.PlayersList.Find(x =>
                                 x.GetPlayerId() == player.Status.IsLostThisCalculation);
-                            ene!.GameCharacter.AddSpeed(1, "Первая кровь");
+                            ene!.GameCharacter.AddSpeed(
+                                1,
+                                "Первая кровь",
+                                sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
                         }
 
                         spartan.FriendList.Add(Guid.Empty);
@@ -3810,10 +3872,23 @@ public class CharacterPassives : IServiceSingleton
                                     player.GameCharacter.Passive.RemoveAll(x => x.PassiveName == deployType);
 
                                     game.Phrases.KotikiCatDeploy.SendLog(player, false);
+                                    var deployTypeEnglish = GameLocalization.Text(
+                                        deployType, GameLocalization.English);
                                     player.Status.AddInGamePersonalLogs(
-                                        $"Кошачья засада: {deployType} остался на {fightEnemy.DiscordUsername}!\n");
+                                        PhrasePayload.EncodeOwnerOnly(
+                                            "Кошачья засада",
+                                            $"Кошачья засада: {deployType} остался на {fightEnemy.DiscordUsername}!",
+                                            "Cat Ambush",
+                                            $"Cat Ambush: {deployTypeEnglish} stayed on {fightEnemy.DiscordUsername}!",
+                                            "",
+                                            "",
+                                            player.GetPlayerId()) + "\n");
                                     fightEnemy.Status.AddInGamePersonalLogs(
-                                        $"Кошачья засада: Кот {deployType} сидит на вас!\n");
+                                        PhrasePayload.EncodePublic(
+                                            "Кошачья засада",
+                                            $"Кот {deployType} сидит на вас!",
+                                            "Cat Ambush",
+                                            $"Cat {deployTypeEnglish} is sitting on you!") + "\n");
                                 }
                             }
                         }
@@ -4357,8 +4432,7 @@ public class CharacterPassives : IServiceSingleton
                                         if (existingPred == null)
                                             p.Predict.Add(new PredictClass(randomPlayer.GameCharacter.Name, randomPlayer.GetPlayerId()));
                                     }
-                                    if (!game.PinkWardRevealedPlayerIds.Contains(randomPlayer.GetPlayerId()))
-                                        game.PinkWardRevealedPlayerIds.Add(randomPlayer.GetPlayerId());
+                                    game.RecordPinkWardReveal(randomPlayer.GetPlayerId(), player.GetPlayerId());
                                     Homelander.RecordReveal(game, player, randomPlayer);
                                 }
                             }
@@ -4505,8 +4579,15 @@ public class CharacterPassives : IServiceSingleton
                         var enemyAcc = game.PlayersList.Find(x => x.GetPlayerId() == win);
                         if (enemyAcc == null) continue;
 
-                        enemyAcc.GameCharacter.AddIntelligence(-1, "3-0 обоссан");
-                        enemyAcc.MinusPsyche(game, -1, "3-0 обоссан");
+                        enemyAcc.GameCharacter.AddIntelligence(
+                            -1,
+                            "3-0 обоссан",
+                            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
+                        enemyAcc.MinusPsyche(
+                            game,
+                            -1,
+                            "3-0 обоссан",
+                            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
 
                         game.Phrases.TigrThreeZero.SendLog(player, false);
 
@@ -4838,6 +4919,7 @@ public class CharacterPassives : IServiceSingleton
                                     {
                                         dnTarget.Passives.IsDead = true;
                                         dnTarget.Passives.DeathSource = "Kira";
+                                        _blackjackService.RegisterShinigamiArrival(game, dnTarget);
                                     }
                                     dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
                                     if (dnTarget.GameCharacter.Name == "Кира")
@@ -5026,7 +5108,11 @@ public class CharacterPassives : IServiceSingleton
                     // 1. See others' logs
                     foreach (var other in game.PlayersList.Where(p => p.GetPlayerId() != player.GetPlayerId()))
                     {
-                        var otherLogs = other.Status.GetInGamePersonalLogs();
+                        // Project nested evidence before adding the username wrapper. The final
+                        // projection of Salldorum's own journal cannot safely identify a legacy
+                        // source once it is no longer at the beginning of the wrapped line.
+                        var otherLogs = ProModeVisibility.MaskPersonalText(
+                            other.Status.GetInGamePersonalLogs(), player, game);
                         if (!string.IsNullOrEmpty(otherLogs))
                             player.Status.AddInGamePersonalLogs($"[{other.DiscordUsername}]: {otherLogs}\n");
                     }
@@ -5689,7 +5775,7 @@ public class CharacterPassives : IServiceSingleton
                                     shocked.Status.IsBlock = false;
                                     shocked.Status.IsReady = true;
                                     shocked.Status.WhoToAttackThisTurn = new List<Guid>();
-                                    shocked.Status.AddInGamePersonalLogs("Шоковый щит: следующий ход пропущен.\n");
+                                    shocked.Status.AddInGamePersonalLogs(InGameStatus.EnemyForcedSkipNotice);
                                 }
                                 doom.ShockSkipTarget = Guid.Empty;
                             }
@@ -5782,6 +5868,7 @@ public class CharacterPassives : IServiceSingleton
                                         kiraLNext.IsArrested = true;
                                         player.Passives.IsDead = true;
                                         player.Passives.DeathSource = "Kira";
+                                        _blackjackService.RegisterShinigamiArrival(game, player);
                                         // Монстр без имени: +1 regular point per death
                                         foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
                                                      && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
@@ -5842,7 +5929,10 @@ public class CharacterPassives : IServiceSingleton
                                         var recipient = game.PlayersList.Find(x => x.GetPlayerId() == entry.RecipientId);
                                         if (recipient != null)
                                             Naruto.ResolveScoreSuccessor(game, recipient).Status
-                                                .AddBonusPoints(-entry.Points, "Ищет достойного противника");
+                                                .AddBonusPoints(
+                                                    -entry.Points,
+                                                    "Ищет достойного противника",
+                                                    FeedbackSourceVisibility.ProNeutralTarget);
                                     }
                                 }
                                 saitamaWorthy.Ledger.Clear();
@@ -6565,7 +6655,6 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     predTarget.Passives.IsJohanPawn = true;
                                     predTarget.Passives.JohanPawnOwnerId = player.GetPlayerId();
-                                    predTarget.Status.AddInGamePersonalLogs("Ты стал пешкой Йохана...\n");
                                 }
                             }
 
@@ -6597,7 +6686,7 @@ public class CharacterPassives : IServiceSingleton
                                 {
                                     await Task.Delay(10_000);
                                     if (!game.IsFinished)
-                                        game.HiddenGlobalLogSnippets.Add(tenmaMsg);
+                                        game.AddHiddenGlobalLogSnippet(tenmaMsg);
                                 }
                                 catch { /* game may have ended */ }
                             });
@@ -6774,7 +6863,7 @@ public class CharacterPassives : IServiceSingleton
                 player.Status.IsBlock = false;
                 player.Status.IsReady = true;
                 player.Status.WhoToAttackThisTurn = new List<Guid>();
-                player.Status.AddInGamePersonalLogs("Тебя усыпили...\n");
+                player.Status.AddInGamePersonalLogs(InGameStatus.EnemyForcedSkipNotice);
             }
             //end Я за чаем
         }
@@ -7361,11 +7450,18 @@ public class CharacterPassives : IServiceSingleton
         // contain a public reveal, and CaptureVisibleRound intentionally has no combat snapshot to retain.
         var visibleHistory = BotInformation.VisibleGlobalHistory(player) + "\n"
                              + BotInformation.VisibleCurrentGlobalLogs(player, game);
-        var splitPersonalLogs = player.Status.InGamePersonalLogsAll.Split("|||", StringSplitOptions.None);
+        var visiblePersonalHistory = PhrasePayload.Resolve(
+            ProModeVisibility.MaskPersonalText(
+                player.Status.InGamePersonalLogsAll, player, game, hidePhraseBody: true),
+            GameLocalization.Russian);
+        var splitPersonalLogs = visiblePersonalHistory.Split("|||", StringSplitOptions.None);
         var lastRoundPersonal = splitPersonalLogs.Length > 1 && game.RoundNo > 1
             ? splitPersonalLogs[^2]
             : "";
-        var currentPersonal = player.Status.GetInGamePersonalLogs();
+        var currentPersonal = PhrasePayload.Resolve(
+            ProModeVisibility.MaskPersonalText(
+                player.Status.GetInGamePersonalLogs(), player, game, hidePhraseBody: true),
+            GameLocalization.Russian);
 
         SeedFairExactPredictions(player, game, targets, catalog, visibleHistory);
 
@@ -7829,13 +7925,20 @@ public class CharacterPassives : IServiceSingleton
                     continue;
                 }
 
-                var splitLogs = player.Status.InGamePersonalLogsAll.Split("|||");
+                var visiblePersonalHistory = PhrasePayload.Resolve(
+                    ProModeVisibility.MaskPersonalText(
+                        player.Status.InGamePersonalLogsAll, player, game, hidePhraseBody: true),
+                    GameLocalization.Russian);
+                var splitLogs = visiblePersonalHistory.Split("|||");
 
                 var lastRoundEvents = "";
                 if (splitLogs.Length > 1 && splitLogs[^2].Length > 3 && game.RoundNo > 1)
                     lastRoundEvents = splitLogs[^2];
-                var personalLogs = player.Status.GetInGamePersonalLogs();
-                var globalLogs = game.GetGlobalLogs();
+                var personalLogs = PhrasePayload.Resolve(
+                    ProModeVisibility.MaskPersonalText(
+                        player.Status.GetInGamePersonalLogs(), player, game, hidePhraseBody: true),
+                    GameLocalization.Russian);
+                var globalLogs = BotInformation.VisibleCurrentGlobalLogs(player, game);
                 var leaderboard = _gameUpdateMess.LeaderBoard(player);
                 var knownCLass = player.Status.KnownPlayerClass;
 
@@ -8009,7 +8112,12 @@ public class CharacterPassives : IServiceSingleton
                 //100%
                 try
                 {
-                    if (globalLogs.Contains("Толя запизделся"))
+                    // A disconnected human is temporarily routed through this legacy bot path.
+                    // Pro still requires that human to read public Толя evidence manually; only a
+                    // real AI seat may infer from it here. The revealing Толя already received the
+                    // exact row at the reveal site.
+                    if ((!player.IsProMode || player.PlayerType == 404)
+                        && globalLogs.Contains("Толя запизделся"))
                     {
                         var playerName =
                             globalLogs.Split("запизделся и спалил")[1].Replace(", что ", "").Split(" - ")[^2];

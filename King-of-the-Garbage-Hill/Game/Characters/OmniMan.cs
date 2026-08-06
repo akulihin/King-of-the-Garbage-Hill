@@ -123,7 +123,10 @@ public static class OmniMan
             || omniMan.IsTeamMember(game, attacker.GetPlayerId()))
             return;
 
-        attacker.GameCharacter.AddExtraSkill(SkillPerIncomingAttack, ParticleOfOurPower);
+        attacker.GameCharacter.AddExtraSkill(
+            SkillPerIncomingAttack,
+            ParticleOfOurPower,
+            sourceVisibility: FeedbackSourceVisibility.ProNeutralTarget);
         omniMan.Status.AddInGamePersonalLogs(
             $"{ParticleOfOurPower}: " +
             Take(ParticlePhrases, omniMan.Passives.OmniMan.ParticlePhrasePool) + "\n");
@@ -232,12 +235,14 @@ public static class OmniMan
                 ? -stolen / 2m
                 : -stolen;
 
-            victim.Status.AddBonusPoints(debit, UndergroundTrain);
+            victim.Status.AddBonusPoints(
+                debit, UndergroundTrain, FeedbackSourceVisibility.ProNeutralTarget);
             omniMan.Status.AddBonusPoints(stolen, UndergroundTrain);
 
             var stolenMoral = CalculateUndergroundTrainSteal(
                 victim.GameCharacter.GetMoral());
-            ApplyExactMoralChange(victim, -stolenMoral);
+            ApplyExactMoralChange(
+                victim, -stolenMoral, FeedbackSourceVisibility.ProNeutralTarget);
             ApplyExactMoralChange(omniMan, stolenMoral);
         }
 
@@ -409,7 +414,8 @@ public static class OmniMan
 
     private static void ApplyExactMoralChange(
         GamePlayerBridgeClass player,
-        decimal displayedChange)
+        decimal displayedChange,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         var moralBefore = player.GameCharacter.GetMoral();
 
@@ -423,8 +429,20 @@ public static class OmniMan
         var actualChange = player.GameCharacter.GetMoral() - moralBefore;
         if (actualChange == 0) return;
 
-        player.Status.AddInGamePersonalLogs(
-            $"|>Stat<|{UndergroundTrain}: " +
-            $"{(actualChange > 0 ? "+" : "")}{actualChange} *Морали*\n");
+        var signedChange = $"{(actualChange > 0 ? "+" : "")}{actualChange}";
+        if (sourceVisibility == FeedbackSourceVisibility.ProNeutralTarget)
+        {
+            player.Status.AddInGamePersonalLogs(PhrasePayload.EncodeProNeutral(
+                UndergroundTrain,
+                $"{signedChange} *Морали*",
+                "Underground Train",
+                $"{signedChange} *Moral*",
+                isStat: true) + "\n");
+        }
+        else
+        {
+            player.Status.AddInGamePersonalLogs(
+                $"|>Stat<|{UndergroundTrain}: {signedChange} *Морали*\n");
+        }
     }
 }

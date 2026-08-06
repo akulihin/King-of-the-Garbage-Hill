@@ -30,6 +30,7 @@ const props = withDefaults(
     maneuverActive?: boolean
     maneuverShipCells?: { row: number; col: number }[]
     maneuverTargetCells?: { row: number; col: number }[]
+    replacementOptionCells?: { row: number; col: number; option: number }[]
     captureFocus?: boolean
     captureShipCells?: { row: number; col: number }[]
     cellSize?: number
@@ -175,6 +176,11 @@ function isManeuverTarget(row: number, col: number): boolean {
   return props.maneuverTargetCells?.some(cell => cell.row === row && cell.col === col) ?? false
 }
 
+function replacementOptionAt(row: number, col: number, option: number): boolean {
+  return props.replacementOptionCells
+    ?.some(cell => cell.row === row && cell.col === col && cell.option === option) ?? false
+}
+
 function isCaptureShipCell(row: number, col: number): boolean {
   return props.captureShipCells?.some(cell => cell.row === row && cell.col === col) ?? false
 }
@@ -238,6 +244,8 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
           :maneuver-active="maneuverActive"
           :maneuver-ship-cell="isManeuverShipCell(r - 1, c - 1)"
           :maneuver-target="isManeuverTarget(r - 1, c - 1)"
+          :replacement-option-a="replacementOptionAt(r - 1, c - 1, 0)"
+          :replacement-option-b="replacementOptionAt(r - 1, c - 1, 1)"
           :capture-focus="captureFocus"
           :capture-ship-cell="isCaptureShipCell(r - 1, c - 1)"
           @click="handleClick(r - 1, c - 1)"

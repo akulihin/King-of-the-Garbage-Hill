@@ -1108,7 +1108,36 @@ public class CharacterClass
         return total;
     }
 
-    public decimal AddExtraSkill(decimal howMuchToAdd, string skillName, bool isLog = true)
+    private void AddFeedbackLog(
+        string source,
+        string body,
+        FeedbackSourceVisibility sourceVisibility,
+        bool addStatMarker)
+    {
+        if (sourceVisibility == FeedbackSourceVisibility.ProNeutralTarget)
+        {
+            Status.AddInGamePersonalLogs(PhrasePayload.EncodeProNeutral(
+                source,
+                body,
+                GameLocalization.Text(source, GameLocalization.English),
+                GameLocalization.Text(body, GameLocalization.English),
+                addStatMarker) + "\n");
+            return;
+        }
+
+        var displaySource = sourceVisibility == FeedbackSourceVisibility.NeutralTarget
+            ? "❓"
+            : source;
+        if (addStatMarker)
+            displaySource = $"|>Stat<|{displaySource}";
+        Status.AddInGamePersonalLogs($"{displaySource}: {body}\n");
+    }
+
+    public decimal AddExtraSkill(
+        decimal howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return 0;
         if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
@@ -1118,10 +1147,7 @@ public class CharacterClass
         }
         if (Madara.HasReanimatedBody(this)) return 0;
         var skillText = "Cкилла";
-        if (skillName != "Обмен Морали" && skillName != "Класс")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Обмен Морали" && skillName != "Класс";
 
         if (Status.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
             return 0;
@@ -1131,9 +1157,12 @@ public class CharacterClass
         
         if (isLog)
         {
-            Status.AddInGamePersonalLogs(howMuchToAdd > 0
-                ? $"{skillName}: +{howMuchToAdd} *{skillText}*\n"
-                : $"{skillName}: {howMuchToAdd} *{skillText}*\n");
+            var signedValue = howMuchToAdd > 0 ? $"+{howMuchToAdd}" : howMuchToAdd.ToString();
+            AddFeedbackLog(
+                skillName,
+                $"{signedValue} *{skillText}*",
+                sourceVisibility,
+                addStatMarker);
         }
 
         SkillExtra += howMuchToAdd;
@@ -1246,7 +1275,13 @@ public class CharacterClass
         Moral = howMuchToSet;
     }
 
-    public void AddMoral(decimal howMuchToAdd, string skillName, bool isLog = true, bool isMoralPoints = false, bool isFightMoral = false)
+    public void AddMoral(
+        decimal howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        bool isMoralPoints = false,
+        bool isFightMoral = false,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && !isMoralPoints && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && !isMoralPoints
@@ -1259,10 +1294,9 @@ public class CharacterClass
             return;
         }
 
-        if (skillName != "Обмен Морали" && skillName != "Победа" && skillName != "Поражение")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Обмен Морали"
+                            && skillName != "Победа"
+                            && skillName != "Поражение";
 
         if (Status.GameCharacter.DoomRollMode)
         {
@@ -1311,10 +1345,15 @@ public class CharacterClass
 
 
 
-        if (howMuchToAdd >= 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} *Морали*\n");
-        if (howMuchToAdd < 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} *Морали*\n");
+        if (isLog)
+        {
+            var signedValue = howMuchToAdd >= 0 ? $"+{howMuchToAdd}" : howMuchToAdd.ToString();
+            AddFeedbackLog(
+                skillName,
+                $"{signedValue} *Морали*",
+                sourceVisibility,
+                addStatMarker);
+        }
 
         LastMoralRound = Status.RoundNumber;
         Moral += howMuchToAdd;
@@ -1332,7 +1371,11 @@ public class CharacterClass
             Moral = 0;
     }
     
-    public void AddIntelligence(int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddIntelligence(
+        int howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
@@ -1343,14 +1386,14 @@ public class CharacterClass
         if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (IntelligenceCappedAtZero && howMuchToAdd > 0)
             howMuchToAdd = 0;
-        if (skillName != "Прокачка" && skillName != "Читы")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Прокачка" && skillName != "Читы";
         var intelligenceName = Name == "Эрен Йегер" ? "Злость" : "Интеллект";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} {intelligenceName}\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} {intelligenceName}\n");
+            AddFeedbackLog(
+                skillName, $"+{howMuchToAdd} {intelligenceName}", sourceVisibility, addStatMarker);
+        else if (howMuchToAdd < 0 && isLog)
+            AddFeedbackLog(
+                skillName, $"{howMuchToAdd} {intelligenceName}", sourceVisibility, addStatMarker);
 
         var intelligenceOld = GetIntelligence();
         Intelligence += howMuchToAdd;
@@ -1456,7 +1499,11 @@ public class CharacterClass
         IntelligenceExtraText = newIntelligenceExtraText;
     }
 
-    public void AddPsyche(int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddPsyche(
+        int howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
@@ -1466,14 +1513,14 @@ public class CharacterClass
         }
         if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
         if (PsycheCappedAtZero && howMuchToAdd > 0) howMuchToAdd = 0;
-        if (skillName != "Прокачка" && skillName != "Читы")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Прокачка" && skillName != "Читы";
         var psycheName = Name == "Эрен Йегер" ? "Самоуверенность" : "Психика";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} {psycheName}\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} {psycheName}\n");
+            AddFeedbackLog(
+                skillName, $"+{howMuchToAdd} {psycheName}", sourceVisibility, addStatMarker);
+        else if (howMuchToAdd < 0 && isLog)
+            AddFeedbackLog(
+                skillName, $"{howMuchToAdd} {psycheName}", sourceVisibility, addStatMarker);
 
 
         var psycheOld = GetPsyche();
@@ -1590,7 +1637,11 @@ public class CharacterClass
         PsycheExtraText = newPsycheExtraText;
     }
 
-    public void AddSpeed(int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddSpeed(
+        int howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
@@ -1599,13 +1650,11 @@ public class CharacterClass
             return;
         }
         if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
-        if (skillName != "Прокачка" && skillName != "Читы")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Прокачка" && skillName != "Читы";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Скорость\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Скорость\n");
+            AddFeedbackLog(skillName, $"+{howMuchToAdd} Скорость", sourceVisibility, addStatMarker);
+        else if (howMuchToAdd < 0 && isLog)
+            AddFeedbackLog(skillName, $"{howMuchToAdd} Скорость", sourceVisibility, addStatMarker);
 
         var speedOld = GetSpeed();
         Speed += howMuchToAdd;
@@ -1709,7 +1758,11 @@ public class CharacterClass
         SpeedExtraText = newSpeedExtraText;
     }
 
-    public void AddStrength(int howMuchToAdd, string skillName, bool isLog = true)
+    public void AddStrength(
+        int howMuchToAdd,
+        string skillName,
+        bool isLog = true,
+        FeedbackSourceVisibility sourceVisibility = FeedbackSourceVisibility.NamedTarget)
     {
         if (howMuchToAdd < 0 && UnknownBug.Is(this)) return;
         if (howMuchToAdd < 0 && Homelander.IsProtected(this, Status, skillName))
@@ -1718,13 +1771,11 @@ public class CharacterClass
             return;
         }
         if (howMuchToAdd < 0 && Madara.BlocksStatLoss(this, skillName)) return;
-        if (skillName != "Прокачка" && skillName != "Читы")
-        {
-            skillName = $"|>Stat<|{skillName}";
-        }
+        var addStatMarker = skillName != "Прокачка" && skillName != "Читы";
         if (howMuchToAdd > 0 && isLog)
-            Status.AddInGamePersonalLogs($"{skillName}: +{howMuchToAdd} Сила\n");
-        else if (howMuchToAdd < 0 && isLog) Status.AddInGamePersonalLogs($"{skillName}: {howMuchToAdd} Сила\n");
+            AddFeedbackLog(skillName, $"+{howMuchToAdd} Сила", sourceVisibility, addStatMarker);
+        else if (howMuchToAdd < 0 && isLog)
+            AddFeedbackLog(skillName, $"{howMuchToAdd} Сила", sourceVisibility, addStatMarker);
 
         var strengthOld = GetStrength();
         Strength += howMuchToAdd;

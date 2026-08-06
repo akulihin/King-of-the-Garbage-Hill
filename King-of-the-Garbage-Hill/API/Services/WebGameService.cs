@@ -59,6 +59,9 @@ public class WebGameService
     private AdminLobbyService AdminLobbies =>
         _serviceProvider.GetService<AdminLobbyService>();
 
+    private BlackjackService Blackjack =>
+        _serviceProvider.GetRequiredService<BlackjackService>();
+
     // ── Queries ───────────────────────────────────────────────────────
 
     private static GamePlayerBridgeClass FindPreInitializationNaruto(GameClass game)
@@ -149,6 +152,12 @@ public class WebGameService
     public GameStateDto GetGameState(ulong gameId, ulong discordId)
     {
         var game = FindGame(gameId);
+        if (game == null && discordId != 0)
+        {
+            var finishedGame = _global.GetFinishedGame(gameId);
+            if (finishedGame?.PlayersList.Any(player => player.DiscordId == discordId) == true)
+                game = finishedGame;
+        }
         if (game == null) return null;
 
         var player = game.PlayersList.Find(p => p.DiscordId == discordId);
@@ -284,14 +293,49 @@ public class WebGameService
     {
         if (AdminLobbies?.IsReserved(creatorId) == true)
             return (0, "Вы были избраны богом.");
+        if (ranked && Blackjack.HasPendingRankedRecovery(creatorId))
+            return (0, GameLocalization.MessageForUser(
+                creatorId,
+                "kotgh.ranked.pendingBlackjackRecovery"));
 
         var creatorAccount = _userAccounts.GetAccount(creatorId);
         if (creatorAccount == null)
             return (0, "Account not found");
-        if (creatorAccount.IsPlaying)
-            return (0, "Already in a game");
-        if (ranked && creatorAccount.GameplayMode != DiscordAccountClass.ProMode)
-            return (0, "Ranked games require Pro mode.");
+
+        int? rankedEloRatingAtStart;
+        lock (creatorAccount)
+        {
+            // Pair with AdminLobbyService.InvitePlayerAsync: reservation and gameplay
+            // admission are decided while holding the same account monitor.
+            if (AdminLobbies?.IsReserved(creatorId) == true)
+                return (0, "Вы были избраны богом.");
+            if (creatorAccount.IsPlaying)
+                return (0, "Already in a game");
+            if (ranked && creatorAccount.GameplayMode != DiscordAccountClass.ProMode)
+                return (0, "Ranked games require Pro mode.");
+
+            // Reserve the account before any roster work. SignalR serializes one connection,
+            // but separate browser tabs can create concurrently for the same account.
+            creatorAccount.IsPlaying = true;
+            rankedEloRatingAtStart = ranked ? creatorAccount.EloRating : null;
+        }
+
+        // Do not take the account monitor while scanning tables: blackjack settlement uses
+        // table -> account order. This post-reservation pass closes the old-game-finish race.
+        if (ranked && Blackjack.HasPendingRankedRecovery(creatorId))
+        {
+            lock (creatorAccount)
+                creatorAccount.IsPlaying = false;
+            return (0, GameLocalization.MessageForUser(
+                creatorId,
+                "kotgh.ranked.pendingBlackjackRecovery"));
+        }
+
+        var creationCompleted = false;
+        GameClass publishedGame = null;
+        List<GamePlayerBridgeClass> rolledPlayers = null;
+        try
+        {
 
         string queuedCharacterName;
         string forcedCharacterName;
@@ -319,7 +363,9 @@ public class WebGameService
             mode: "bot",
             accountForFirstBotSlot: rollCreatorDirectly ? creatorAccount : null,
             recordNaturalUnknownBugRoll: recordNaturalUnknownBugRoll,
-            ignoreNextCharacterAssignments: adminLobbyMode);
+            ignoreNextCharacterAssignments: adminLobbyMode,
+            applyRankedBotWeights: ranked);
+        rolledPlayers = playersList;
 
         // Shuffle and sort
         playersList = playersList.OrderBy(_ => Guid.NewGuid()).ToList();
@@ -379,7 +425,10 @@ public class WebGameService
 
         var oldBotAccount = _userAccounts.GetAccount(botToReplace.DiscordId);
         if (oldBotAccount != null && oldBotAccount.DiscordId != creatorId)
-            oldBotAccount.IsPlaying = false;
+        {
+            lock (oldBotAccount)
+                oldBotAccount.IsPlaying = false;
+        }
 
         botToReplace.DiscordId = creatorId;
         botToReplace.DiscordUsername = creatorUsername;
@@ -394,7 +443,6 @@ public class WebGameService
                 creatorAccount.CharacterMastery.GetValueOrDefault(queuedCharacter.Name, 0);
         if (!rollCreatorDirectly)
             DoomGuy.InitializeForGame(botToReplace, creatorAccount);
-        creatorAccount.IsPlaying = true;
         if (!adminLobbyMode)
             DiscoverStoreCharacter(creatorAccount, botToReplace.GameCharacter.Name);
         if (queuedCharacter != null)
@@ -409,8 +457,10 @@ public class WebGameService
         {
             IsCheckIfReady = false,
             IsRanked = ranked,
+            RankedEloRatingAtStart = rankedEloRatingAtStart,
             AiDifficulty = 3,
         };
+        publishedGame = game;
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
         game.TimePassed.Start();
         lock (_global.GamesList)
@@ -497,7 +547,42 @@ public class WebGameService
             Console.WriteLine($"[WebAPI] Web game {gameId} created by {creatorUsername} ({creatorId})");
         }
 
+        creationCompleted = true;
         return (gameId, null);
+        }
+        finally
+        {
+            if (!creationCompleted)
+            {
+                publishedGame?.TimePassed.Stop();
+                HashSet<ulong> activePlayerIds;
+                lock (_global.GamesList)
+                {
+                    if (publishedGame != null)
+                        _global.GamesList.Remove(publishedGame);
+                    activePlayerIds = _global.GamesList
+                        .SelectMany(activeGame => activeGame.PlayersList)
+                        .Select(activePlayer => activePlayer.DiscordId)
+                        .ToHashSet();
+                }
+
+                var failedPlayerIds = (publishedGame?.PlayersList ?? rolledPlayers
+                        ?? new List<GamePlayerBridgeClass>())
+                    .Select(failedPlayer => failedPlayer.DiscordId)
+                    .Append(creatorId)
+                    .Distinct();
+                foreach (var failedPlayerId in failedPlayerIds)
+                {
+                    if (activePlayerIds.Contains(failedPlayerId))
+                        continue;
+                    var failedAccount = _userAccounts.GetAccount(failedPlayerId);
+                    if (failedAccount == null)
+                        continue;
+                    lock (failedAccount)
+                        failedAccount.IsPlaying = false;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -531,29 +616,78 @@ public class WebGameService
             var bot = GetJoinableStrictBots(game).FirstOrDefault();
             if (bot == null) return (false, "No bot slots available");
 
-            // Release the bot account
-            var botAccount = _userAccounts.GetAccount(bot.DiscordId);
-            if (botAccount != null) botAccount.IsPlaying = false;
+            DiscordAccountClass botAccount = null;
+            var originalDiscordUsername = bot.DiscordUsername;
+            var originalPlayerType = bot.PlayerType;
+            var originalAccountGameplayMode = bot.AccountGameplayMode;
+            var originalIsWebPlayer = bot.IsWebPlayer;
+            var originalPreferWeb = bot.PreferWeb;
+            var originalSocketGameMessage = bot.DiscordStatus.SocketGameMessage;
+            var originalPredict = bot.Predict;
+            var originalAiKnowledge = bot.AiKnowledge;
+            var originalAiPlaystyle = bot.AiPlaystyle;
+            var originalAiDifficulty = bot.AiDifficulty;
+            var originalConsecutiveBotBlocks = bot.ConsecutiveBotBlocks;
+            var originalConfirmedPredict = bot.Status.ConfirmedPredict;
+            var originalDoomLoadoutSlots = bot.Passives.DoomGuy.LoadoutSlots;
 
-            // Clear private bot inference before publishing the human identity. Notification
-            // projection is lock-free and must never observe a human-owned bridge with bot guesses.
-            ResetBotOwnedStateForHuman(bot, game);
+            lock (playerAccount)
+            {
+                if (AdminLobbies?.IsReserved(playerId) == true)
+                    return (false, "Вы были избраны богом.");
+                if (playerAccount.IsPlaying)
+                    return (false, "Already in a game");
+                playerAccount.IsPlaying = true;
+            }
 
-            // Replace bot with the joining player
-            bot.DiscordUsername = playerUsername;
-            bot.PlayerType = playerAccount.PlayerType;
-            bot.AccountGameplayMode = bot.GameCharacter.Tier == 0
-                ? DiscordAccountClass.ProMode
-                : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
-            bot.IsWebPlayer = true;
-            bot.PreferWeb = true;
-            bot.DiscordStatus.SocketGameMessage = null;
-            DoomGuy.InitializeForGame(bot, playerAccount);
-            playerAccount.IsPlaying = true;
-            DiscoverStoreCharacter(playerAccount, bot.GameCharacter.Name);
-            // Viewer lookup keys on DiscordId, so publish it only after all private/identity
-            // state is ready for the new owner.
-            bot.DiscordId = playerId;
+            try
+            {
+                botAccount = _userAccounts.GetAccount(bot.DiscordId);
+                // Clear private bot inference before publishing the human identity. Notification
+                // projection is lock-free and must never observe a human-owned bridge with bot guesses.
+                ResetBotOwnedStateForHuman(bot, game);
+
+                // Replace bot with the joining player
+                bot.DiscordUsername = playerUsername;
+                bot.PlayerType = playerAccount.PlayerType;
+                bot.AccountGameplayMode = bot.GameCharacter.Tier == 0
+                    ? DiscordAccountClass.ProMode
+                    : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
+                bot.IsWebPlayer = true;
+                bot.PreferWeb = true;
+                bot.DiscordStatus.SocketGameMessage = null;
+                DoomGuy.InitializeForGame(bot, playerAccount);
+                DiscoverStoreCharacter(playerAccount, bot.GameCharacter.Name);
+                // Viewer lookup keys on DiscordId, so publish it only after all private/identity
+                // state is ready for the new owner.
+                bot.DiscordId = playerId;
+            }
+            catch
+            {
+                bot.DiscordUsername = originalDiscordUsername;
+                bot.PlayerType = originalPlayerType;
+                bot.AccountGameplayMode = originalAccountGameplayMode;
+                bot.IsWebPlayer = originalIsWebPlayer;
+                bot.PreferWeb = originalPreferWeb;
+                bot.DiscordStatus.SocketGameMessage = originalSocketGameMessage;
+                bot.Predict = originalPredict;
+                bot.AiKnowledge = originalAiKnowledge;
+                bot.AiPlaystyle = originalAiPlaystyle;
+                bot.AiDifficulty = originalAiDifficulty;
+                bot.ConsecutiveBotBlocks = originalConsecutiveBotBlocks;
+                bot.Status.ConfirmedPredict = originalConfirmedPredict;
+                bot.Passives.DoomGuy.LoadoutSlots = originalDoomLoadoutSlots;
+                lock (playerAccount)
+                    playerAccount.IsPlaying = false;
+                throw;
+            }
+
+            // Keep the old identity reserved until the seat no longer publishes that bot ID.
+            if (botAccount != null)
+            {
+                lock (botAccount)
+                    botAccount.IsPlaying = false;
+            }
         }
 
         Console.WriteLine($"[WebAPI] Player {playerUsername} ({playerId}) joined game {gameId}");
@@ -581,37 +715,94 @@ public class WebGameService
         lock (game)
         {
             var seat = game.PlayersList[slotIndex];
-            if (seat.DiscordId != playerId && playerAccount.IsPlaying)
-                return (false, "пользователь уже играет");
-
             var isOwnershipTransfer = seat.DiscordId != playerId;
-            if (isOwnershipTransfer)
-            {
-                var botAccount = _userAccounts.GetAccount(seat.DiscordId);
-                if (botAccount != null)
-                    botAccount.IsPlaying = false;
+            DiscordAccountClass previousSeatAccount = null;
+            var originalDiscordUsername = seat.DiscordUsername;
+            var originalPlayerType = seat.PlayerType;
+            var originalAccountGameplayMode = seat.AccountGameplayMode;
+            var originalIsWebPlayer = seat.IsWebPlayer;
+            var originalPreferWeb = seat.PreferWeb;
+            var originalSocketGameMessage = seat.DiscordStatus.SocketGameMessage;
+            var originalPredict = seat.Predict;
+            var originalAiKnowledge = seat.AiKnowledge;
+            var originalAiPlaystyle = seat.AiPlaystyle;
+            var originalAiDifficulty = seat.AiDifficulty;
+            var originalConsecutiveBotBlocks = seat.ConsecutiveBotBlocks;
+            var originalConfirmedPredict = seat.Status.ConfirmedPredict;
+            var originalDoomLoadoutSlots = seat.Passives.DoomGuy.LoadoutSlots;
+            var originalCharacterMasteryPoints = seat.CharacterMasteryPoints;
 
-                // The generated seat can currently belong to a bot or to the lobby creator.
-                // Clear owner-private state before making the replacement identity observable.
-                ResetBotOwnedStateForHuman(seat, game);
+            string originalCharacterPlayedLastTime;
+            lock (playerAccount)
+            {
+                if (isOwnershipTransfer)
+                {
+                    if (playerAccount.IsPlaying)
+                        return (false, "пользователь уже играет");
+                    playerAccount.IsPlaying = true;
+                }
+
+                originalCharacterPlayedLastTime = playerAccount.CharacterPlayedLastTime;
             }
 
-            seat.DiscordUsername = playerUsername;
-            seat.PlayerType = playerAccount.PlayerType;
-            seat.AccountGameplayMode = seat.GameCharacter.Tier == 0
-                ? DiscordAccountClass.ProMode
-                : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
-            seat.IsWebPlayer = hasWebConnection
-                               || playerId >= 9_000_000_000_000_000_000;
-            seat.PreferWeb = hasWebConnection;
-            seat.DiscordStatus.SocketGameMessage = null;
-            DoomGuy.InitializeForGame(seat, playerAccount);
-            seat.CharacterMasteryPoints =
-                playerAccount.CharacterMastery.GetValueOrDefault(seat.GameCharacter.Name, 0);
-            playerAccount.IsPlaying = true;
-            playerAccount.CharacterPlayedLastTime = seat.GameCharacter.Name;
-            DiscoverStoreCharacter(playerAccount, seat.GameCharacter.Name);
-            seat.DiscordId = playerId;
+            try
+            {
+                // The generated seat can currently belong to a bot or to the lobby creator.
+                // Clear owner-private state before making the replacement identity observable.
+                if (isOwnershipTransfer)
+                {
+                    previousSeatAccount = _userAccounts.GetAccount(seat.DiscordId);
+                    ResetBotOwnedStateForHuman(seat, game);
+                }
+
+                seat.DiscordUsername = playerUsername;
+                seat.PlayerType = playerAccount.PlayerType;
+                seat.AccountGameplayMode = seat.GameCharacter.Tier == 0
+                    ? DiscordAccountClass.ProMode
+                    : GamePlayerBridgeClass.NormalizeGameplayMode(playerAccount.GameplayMode);
+                seat.IsWebPlayer = hasWebConnection
+                                   || playerId >= 9_000_000_000_000_000_000;
+                seat.PreferWeb = hasWebConnection;
+                seat.DiscordStatus.SocketGameMessage = null;
+                DoomGuy.InitializeForGame(seat, playerAccount);
+                seat.CharacterMasteryPoints =
+                    playerAccount.CharacterMastery.GetValueOrDefault(seat.GameCharacter.Name, 0);
+                lock (playerAccount)
+                    playerAccount.CharacterPlayedLastTime = seat.GameCharacter.Name;
+                DiscoverStoreCharacter(playerAccount, seat.GameCharacter.Name);
+                seat.DiscordId = playerId;
+            }
+            catch
+            {
+                seat.DiscordUsername = originalDiscordUsername;
+                seat.PlayerType = originalPlayerType;
+                seat.AccountGameplayMode = originalAccountGameplayMode;
+                seat.IsWebPlayer = originalIsWebPlayer;
+                seat.PreferWeb = originalPreferWeb;
+                seat.DiscordStatus.SocketGameMessage = originalSocketGameMessage;
+                seat.Predict = originalPredict;
+                seat.AiKnowledge = originalAiKnowledge;
+                seat.AiPlaystyle = originalAiPlaystyle;
+                seat.AiDifficulty = originalAiDifficulty;
+                seat.ConsecutiveBotBlocks = originalConsecutiveBotBlocks;
+                seat.Status.ConfirmedPredict = originalConfirmedPredict;
+                seat.Passives.DoomGuy.LoadoutSlots = originalDoomLoadoutSlots;
+                seat.CharacterMasteryPoints = originalCharacterMasteryPoints;
+                lock (playerAccount)
+                {
+                    playerAccount.CharacterPlayedLastTime = originalCharacterPlayedLastTime;
+                    if (isOwnershipTransfer)
+                        playerAccount.IsPlaying = false;
+                }
+                throw;
+            }
+
+            // Release the previous owner only after the observable seat ID has changed.
+            if (isOwnershipTransfer && previousSeatAccount != null)
+            {
+                lock (previousSeatAccount)
+                    previousSeatAccount.IsPlaying = false;
+            }
         }
 
         return (true, null);
@@ -695,7 +886,10 @@ public class WebGameService
         {
             var account = _userAccounts.GetAccount(player.DiscordId);
             if (account != null)
-                account.IsPlaying = false;
+            {
+                lock (account)
+                    account.IsPlaying = false;
+            }
         }
     }
 
@@ -1002,6 +1196,9 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (game.IsRanked)
+            return Task.FromResult((false,
+                GameLocalization.MessageForUser(discordId, "kotgh.ranked.autoMoveDisabled")));
         if (Cthulhu.MustChooseAdept(game, player))
             return Task.FromResult((false, "Сначала выбери адепта"));
         var madaraError = MadaraActionError(game, player);
@@ -1431,6 +1628,10 @@ public class WebGameService
         if (game == null) return (false, "Game not found.");
         var player = game.PlayersList.Find(x => x.DiscordId == discordId);
         if (player == null) return (false, "Player not in game.");
+        if (game.IsRanked)
+            return (false, GameLocalization.MessageForUser(
+                discordId,
+                "kotgh.ranked.finishDisabled"));
 
         _helper.EndGame(discordId);
         return (true, null);

@@ -26,8 +26,19 @@ public class BattleshipGame
     public string BoardingPlayerId { get; set; }
     /// <summary>The shot that triggered Boarding is suspended until every mandatory ship is deployed.</summary>
     public bool BoardingResolutionPaused { get; set; }
+    /// <summary>
+    /// The action that destroyed a Matryoshka hull is suspended until its owner chooses
+    /// which contiguous part of the wreck the next hull occupies.
+    /// </summary>
+    public bool MatryoshkaResolutionPaused { get; set; }
     public bool PausedTurnContinues { get; set; }
     public bool PausedMoveSummons { get; set; }
+    /// <summary>
+    /// Durable cursor for one summon-movement resolution. A mandatory interaction may suspend
+    /// the resolution between atomic movement/poison work items and resume it without replaying
+    /// work that has already happened.
+    /// </summary>
+    public SummonMovementResolutionState SummonMovementState { get; set; }
     /// <summary>
     /// Transient public events produced when Penalty/Stun automatically advances past a turn.
     /// The transport drains this queue before publishing the resulting state.
@@ -175,6 +186,8 @@ public class BattleshipPlayer
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
     public bool HasShotThisTurn { get; set; } // For manual move before-shot restriction
     public List<PendingSummonDeploy> PendingSummons { get; set; } = new(); // Delayed summon abilities (pirate/cursed boat death, boarding)
+    /// <summary>Mandatory in-place replacement created when a Russian Matryoshka stage is destroyed.</summary>
+    public PendingMatryoshkaReplacement PendingMatryoshka { get; set; }
     /// <summary>Stable cursor for the shared Ballista projectile-origin cycle.</summary>
     public int NextBallistaAnimationIndex { get; set; }
     /// <summary>Server-authoritative end of the pause after a combo-preserving hit.</summary>
@@ -235,6 +248,26 @@ public class Cell
     /// </summary>
     public string KnownShipId { get; set; }
     public int KnownDeckIndex { get; set; } = -1;
+    /// <summary>
+    /// Explicit historical wreck occupying this physical cell after its source hull has been
+    /// removed. This must not be inferred from the current <see cref="ShipRef"/>.
+    /// </summary>
+    public CellWreckState Wreck { get; set; }
+    public bool IsMatryoshkaWreck => Wreck?.Kind == CellWreckKind.Matryoshka;
+}
+
+public enum CellWreckKind
+{
+    None,
+    Matryoshka,
+}
+
+public class CellWreckState
+{
+    public CellWreckKind Kind { get; set; }
+    public string SourceShipId { get; set; }
+    public string SourceShipName { get; set; }
+    public int SourceDeckIndex { get; set; } = -1;
 }
 
 public class SummonMarker
@@ -268,6 +301,16 @@ public class Ship
     public List<Region> Regions { get; set; } = new();
     public List<string> Abilities { get; set; } = new();
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
+    /// <summary>Idempotency guard for the one replacement spawned by a destroyed Matryoshka stage.</summary>
+    public bool MatryoshkaReplacementQueued { get; set; }
+    /// <summary>
+    /// Reasons this physical hull may no longer unfold into another Matryoshka stage. Flags are
+    /// retained independently because restoration clears Devastated but cannot repair a deck
+    /// that was structurally removed.
+    /// </summary>
+    public MatryoshkaReplacementSuppression MatryoshkaReplacementSuppressionReasons { get; set; }
+    public bool MatryoshkaReplacementSuppressed =>
+        MatryoshkaReplacementSuppressionReasons != MatryoshkaReplacementSuppression.None;
     public bool HasExploded { get; set; } // Idempotency guard: explode_on_hit fires once (death paths re-enter via HandleShipDeath)
     public bool HasManeuvered { get; set; } // ТЗ #21: manual_move_after_hit is once PER SHIP, not per player
     /// <summary>The latest Light Wood Triple dodge marker; -1 means none.</summary>
@@ -328,6 +371,15 @@ public class Ship
 
         return (row + rowOffset, col + colOffset);
     }
+}
+
+[Flags]
+public enum MatryoshkaReplacementSuppression
+{
+    None = 0,
+    Capture = 1 << 0,
+    Devastated = 1 << 1,
+    StructuralDeckRemoval = 1 << 2,
 }
 
 public class Deck
@@ -442,6 +494,95 @@ public class ManualMoveOption
     public int Col { get; set; }
 }
 
+/// <summary>
+/// A destroyed Matryoshka stage leaves two legal, overlapping placements for the next
+/// one-deck-shorter hull. Row/Col is the option's unique server-authoritative click target;
+/// Cells[0] is the placement anchor for the preserved orientation.
+/// </summary>
+public class MatryoshkaPlacementOption
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public Orientation Orientation { get; set; }
+    public List<(int row, int col)> Cells { get; set; } = new();
+}
+
+public class PendingMatryoshkaReplacement
+{
+    public string ParentShipId { get; set; }
+    public string ChildName { get; set; }
+    public int ChildDeckCount { get; set; }
+    public List<MatryoshkaPlacementOption> Options { get; set; } = new();
+}
+
+public enum SummonMovementPhase
+{
+    PreparePlayer,
+    MaterializeGhosts,
+    MoveSummons,
+    CleanupPlayer,
+    ResolvePoison,
+    Complete,
+}
+
+/// <summary>
+/// Stable cursor for one call chain of BattleshipGameEngine.MoveSummons. IDs snapshot the same
+/// iteration order as the former nested foreach loops while allowing the resolution to yield.
+/// </summary>
+public class SummonMovementResolutionState
+{
+    public SummonMovementPhase Phase { get; set; } = SummonMovementPhase.PreparePlayer;
+    public List<string> PlayerIds { get; set; } = new();
+    public int PlayerIndex { get; set; }
+    public List<string> JustMaterializedSummonIds { get; set; } = new();
+    public int MaterializeIndex { get; set; }
+    public List<string> MovingSummonIds { get; set; } = new();
+    public int MovingSummonIndex { get; set; }
+    public int MovingStepIndex { get; set; }
+    public PoisonResolutionState PoisonState { get; set; }
+}
+
+public enum PoisonResolutionPhase
+{
+    NormalShipCells,
+    BoardingSources,
+    Complete,
+}
+
+public class PoisonResolutionState
+{
+    public PoisonResolutionPhase Phase { get; set; } = PoisonResolutionPhase.NormalShipCells;
+    public List<NormalPoisonCellWorkItem> NormalCells { get; set; } = new();
+    public int NormalCellIndex { get; set; }
+    public string CurrentNormalSourceKey { get; set; }
+    public bool CurrentNormalSourceActive { get; set; }
+    public bool BoardingSourcesInitialized { get; set; }
+    public List<BoardingPoisonSourceWorkItem> BoardingSources { get; set; } = new();
+    public int BoardingSourceIndex { get; set; }
+    public bool CurrentSourceInitialized { get; set; }
+    public List<string> CurrentPoisonedShipIds { get; set; } = new();
+    public int CurrentPoisonedShipIndex { get; set; }
+    public List<(int row, int col)> CurrentBoardingConeCells { get; set; } = new();
+    public bool CurrentSummonTargetsInitialized { get; set; }
+    public List<string> CurrentPoisonedSummonIds { get; set; } = new();
+    public int CurrentPoisonedSummonIndex { get; set; }
+}
+
+public class NormalPoisonCellWorkItem
+{
+    public string BoardOwnerId { get; set; }
+    public string SourceShipId { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+}
+
+public class BoardingPoisonSourceWorkItem
+{
+    public string BoardOwnerId { get; set; }
+    public string SourceOwnerId { get; set; }
+    public string SourceSummonId { get; set; }
+}
+
 public class FleetSelection
 {
     public string DefinitionId { get; set; }
@@ -531,4 +672,5 @@ public class UpgradeDefinition
     public int Cost { get; set; }
     public string Description { get; set; }
     public string Effect { get; set; }
+    public bool IsPreinstalled { get; set; }
 }

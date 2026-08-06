@@ -20,6 +20,17 @@ const store = useBattleshipStore()
 const router = useRouter()
 
 const phase = computed(() => store.phase)
+const combatKeyboardLocked = computed(() => !!(
+  store.myPlayer?.pendingManeuver
+  || store.myPlayer?.pendingCursedBoatDirection
+  || store.myPlayer?.pendingAssembly
+  || store.myPlayer?.hasPendingMatryoshka
+  || store.enemyPlayer?.hasPendingMatryoshka
+  || store.myPlayer?.hasPendingBoardingDeployment
+  || store.enemyPlayer?.hasPendingBoardingDeployment
+  || store.myPlayer?.summons.some(summon =>
+    summon.isAlive && summon.type === 'Ram' && summon.waitingForTurnBack)
+))
 
 const phaseAccentClass = computed(() => {
   switch (phase.value) {
@@ -59,15 +70,10 @@ function handleKeydown(e: KeyboardEvent) {
     return
   }
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
-  if (
-    store.myPlayer?.pendingManeuver
-    || store.myPlayer?.pendingCursedBoatDirection
-    || store.myPlayer?.pendingAssembly
-    || store.myPlayer?.hasPendingBoardingDeployment
-    || store.enemyPlayer?.hasPendingBoardingDeployment
-    || store.myPlayer?.summons.some(summon =>
-      summon.isAlive && summon.type === 'Ram' && summon.waitingForTurnBack)
-  ) return
+  if (combatKeyboardLocked.value) {
+    if (/^[1-9]$/.test(e.key)) e.preventDefault()
+    return
+  }
   const idx = parseInt(e.key) - 1
   if (idx >= 0 && idx < store.availableWeapons.length) {
     const w = store.availableWeapons[idx]

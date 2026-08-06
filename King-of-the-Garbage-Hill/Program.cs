@@ -110,6 +110,7 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton(_services.GetRequiredService<SecureRandom>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.MemoryStorage.CharactersPull>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.CharacterPassives>());
+            builder.Services.AddSingleton(_services.GetRequiredService<BlackjackService>());
             builder.Services.AddSingleton(_services.GetRequiredService<Config>());
             builder.Services.AddSingleton(_services.GetRequiredService<HttpClient>());
             builder.Services.AddSingleton(_services.GetRequiredService<Game.GameLogic.StartGameLogic>());
@@ -124,7 +125,6 @@ public class ProgramKingOfTheGarbageHill
             builder.Services.AddSingleton<GameNotificationService>();
             builder.Services.AddSingleton<AdminLobbyService>();
             builder.Services.AddSingleton<GameStoryService>();
-            builder.Services.AddSingleton<BlackjackService>();
             builder.Services.AddSingleton<BattleshipService>();
             builder.Services.AddSingleton<ClashService>();
             builder.Services.AddSingleton<ReplayService>();

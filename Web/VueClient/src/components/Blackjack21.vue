@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useGameStore } from 'src/store/game'
+import { message } from 'src/platform/localization'
 import type { BlackjackPlayerState } from 'src/services/signalr'
 
 defineProps<{ gameId: number }>()
@@ -32,6 +33,11 @@ async function sendMessage() {
 
 // ── Computed ────────────────────────────────────────────────────────
 const bjState = computed(() => store.blackjackState)
+const rankedRecovery = computed(() => bjState.value?.rankedEloRecovery ?? null)
+const rankedRecoveryTone = computed(() => {
+  if (!rankedRecovery.value?.settled) return 'pending'
+  return rankedRecovery.value.recovered > 0 ? 'recovered' : 'missed'
+})
 const mePlayer = computed(() => bjState.value?.players.find((p: BlackjackPlayerState) => p.isMe) ?? null)
 const canSendMessage = computed(() => mePlayer.value?.canSendMessage && !messageSent.value)
 const isWaiting = computed(() => bjState.value?.phase === 'waiting')
@@ -81,6 +87,12 @@ function playerStatusText(player: BlackjackPlayerState): string {
     default: return ''
   }
 }
+
+function signedElo(value: number): string {
+  if (value > 0) return `+${value}`
+  if (value < 0) return `−${Math.abs(value)}`
+  return '±0'
+}
 </script>
 
 <template>
@@ -90,6 +102,36 @@ function playerStatusText(player: BlackjackPlayerState): string {
       <div class="bj-title">Мир Шинигами — Игра 21</div>
       <div class="bj-player-count">{{ bjState.players.length }} / 5</div>
     </div>
+
+    <section
+      v-if="rankedRecovery"
+      class="bj-ranked-recovery"
+      :class="`is-${rankedRecoveryTone}`"
+      aria-live="polite"
+    >
+      <div class="bj-ranked-title">{{ message('kotgh.ranked.blackjack.title') }}</div>
+      <div class="bj-ranked-rating">
+        <span>{{ message('kotgh.ranked.blackjack.rating') }}</span>
+        <strong>{{ rankedRecovery.ratingBeforePenalty }}</strong>
+        <i aria-hidden="true">→</i>
+        <strong>{{ rankedRecovery.currentRating }}</strong>
+      </div>
+      <div class="bj-ranked-details">
+        <span>
+          {{ message('kotgh.ranked.elo.shinigamiPenalty') }}
+          <b class="is-negative">{{ signedElo(rankedRecovery.penalty) }}</b>
+        </span>
+        <span v-if="!rankedRecovery.settled">
+          {{ message('kotgh.ranked.blackjack.pending') }}
+          <b class="is-pending">{{ signedElo(rankedRecovery.remaining) }}</b>
+        </span>
+        <span v-else-if="rankedRecovery.recovered > 0">
+          {{ message('kotgh.ranked.blackjack.recovered') }}
+          <b class="is-positive">{{ signedElo(rankedRecovery.recovered) }}</b>
+        </span>
+        <span v-else>{{ message('kotgh.ranked.blackjack.missed') }}</span>
+      </div>
+    </section>
 
     <!-- Waiting / No round yet -->
     <template v-if="isWaiting">
@@ -250,6 +292,70 @@ function playerStatusText(player: BlackjackPlayerState): string {
   font-size: 0.85rem;
   color: #999;
   font-weight: 600;
+}
+
+.bj-ranked-recovery {
+  --bj-ranked-tone: #c5a5ff;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  margin: -2px 0 14px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--bj-ranked-tone) 38%, transparent);
+  border-radius: 10px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--bj-ranked-tone) 10%, rgba(20, 12, 33, 0.94)), rgba(12, 8, 20, 0.86));
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 0 22px color-mix(in srgb, var(--bj-ranked-tone) 8%, transparent);
+}
+
+.bj-ranked-recovery.is-recovered { --bj-ranked-tone: #65e293; }
+.bj-ranked-recovery.is-missed { --bj-ranked-tone: #ff6978; }
+
+.bj-ranked-title {
+  color: var(--bj-ranked-tone);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.bj-ranked-rating {
+  display: flex;
+  grid-row: span 2;
+  align-items: center;
+  gap: 7px;
+  color: #f5f0ff;
+  font-family: var(--font-mono, monospace);
+}
+
+.bj-ranked-rating span {
+  color: rgba(231, 221, 245, 0.58);
+  font: 750 0.7rem/1 var(--font-body, sans-serif);
+}
+
+.bj-ranked-rating strong { font-size: 1rem; }
+.bj-ranked-rating i { color: rgba(231, 221, 245, 0.35); font-style: normal; }
+
+.bj-ranked-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 13px;
+  color: rgba(231, 221, 245, 0.68);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.bj-ranked-details b {
+  margin-left: 3px;
+  font-family: var(--font-mono, monospace);
+}
+
+.bj-ranked-details .is-negative { color: #ff6978; }
+.bj-ranked-details .is-positive { color: #65e293; }
+.bj-ranked-details .is-pending { color: #d4b8ff; }
+
+@media (max-width: 560px) {
+  .bj-ranked-recovery { grid-template-columns: 1fr; }
+  .bj-ranked-rating { grid-row: auto; }
 }
 
 .bj-hand-area {

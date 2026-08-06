@@ -288,6 +288,8 @@ interface RuntimeHoleStrike {
   holeId: string
   center: LastChancesVector
   radius: number
+  safeCenter: LastChancesVector
+  safeRadius: number
   damageMaxHpRatio: number
   spawnedAtMs: number
   detonateAtMs: number
@@ -4568,10 +4570,16 @@ export class LastChancesEngine {
       enemy.position = { ...entrance.position }
       retreat.stage = 'hidden'
       retreat.detonateAtMs = this.elapsedMs + mother.hideMs
+      const safeCorner = [...node.bossHoles].sort((left, right) => (
+        distanceSquared(exit.position, right.position)
+          - distanceSquared(exit.position, left.position)
+      ))[0] ?? entrance
       this.holeStrikes.push({
         holeId: exit.id,
         center: { ...exit.position },
         radius: mother.blastRadius,
+        safeCenter: { ...safeCorner.position },
+        safeRadius: mother.safeCornerRadius,
         damageMaxHpRatio: mother.blastDamageMaxHpRatio,
         spawnedAtMs: this.elapsedMs,
         detonateAtMs: retreat.detonateAtMs,
@@ -4645,8 +4653,9 @@ export class LastChancesEngine {
         totalMs: 440,
         intensity: 1,
       })
-      const hitRadius = strike.radius + this.config.player.radius
-      if (distanceSquared(this.player.position, strike.center) <= hitRadius * hitRadius) {
+      const insideSafeCorner = distanceSquared(this.player.position, strike.safeCenter)
+        <= strike.safeRadius * strike.safeRadius
+      if (!insideSafeCorner) {
         this.damagePlayerPure(
           this.player.stats.maxHp * strike.damageMaxHpRatio,
           strike.sourceName,
@@ -9288,37 +9297,77 @@ export class LastChancesEngine {
       }, enemy.definition.radius)
     } else if (attack.behavior === 'spearShove' || attack.behavior === 'spearKick') {
       const chargeStage = Math.round(tuningValue(attack, 'chargeStage', -1))
-      const baseTargetDistance = Math.max(
-        attack.sweetSpot?.minRange
-          ?? attack.range * tuningValue(attack, 'targetRangeRatio', 0.72),
-        tuningValue(attack, 'minimumTargetRange', 80),
-      )
-      const targetDistance = attack.behavior === 'spearKick'
-        ? chargeStage >= 2
-          ? tuningValue(attack, 'strongKickTargetDistance', 176)
-          : chargeStage === 1
-            ? tuningValue(attack, 'kickTargetDistance', 144)
-            : Math.max(
-                baseTargetDistance,
-                attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
-              )
-        : tuningValue(attack, 'shoveTargetDistance', baseTargetDistance)
-      const target = {
-        x: clamp(
-          this.player.position.x + direction.x * targetDistance,
-          enemy.definition.radius,
-          (this.currentNode?.arena.width ?? targetDistance) - enemy.definition.radius,
-        ),
-        y: clamp(
-          this.player.position.y + direction.y * targetDistance,
-          enemy.definition.radius,
-          (this.currentNode?.arena.height ?? targetDistance) - enemy.definition.radius,
-        ),
+      if (options.weaponId === 'twohand-spear-v2') {
+        const outwardDirection = normalize({
+          x: enemy.position.x - this.player.position.x,
+          y: enemy.position.y - this.player.position.y,
+        }, direction)
+        const pierceRange = Math.max(
+          0,
+          this.config.weapons.find(candidate => candidate.id === options.weaponId)
+            ?.attacks.doubleTap.range ?? attack.range,
+        )
+        if (attack.behavior === 'spearShove') {
+          const pushDistance = pierceRange
+            * tuningValue(attack, 'pushDistancePierceRatio', 0.5)
+          this.moveCircle(enemy.position, {
+            x: outwardDirection.x * pushDistance,
+            y: outwardDirection.y * pushDistance,
+          }, enemy.definition.radius)
+        } else {
+          const targetDistance = pierceRange * (chargeStage >= 2
+            ? tuningValue(attack, 'strongKickTargetDistancePierceRatio', 2)
+            : tuningValue(attack, 'kickTargetDistancePierceRatio', 1))
+          const target = {
+            x: clamp(
+              this.player.position.x + outwardDirection.x * targetDistance,
+              enemy.definition.radius,
+              (this.currentNode?.arena.width ?? targetDistance) - enemy.definition.radius,
+            ),
+            y: clamp(
+              this.player.position.y + outwardDirection.y * targetDistance,
+              enemy.definition.radius,
+              (this.currentNode?.arena.height ?? targetDistance) - enemy.definition.radius,
+            ),
+          }
+          this.moveCircle(enemy.position, {
+            x: target.x - enemy.position.x,
+            y: target.y - enemy.position.y,
+          }, enemy.definition.radius)
+        }
+      } else {
+        const baseTargetDistance = Math.max(
+          attack.sweetSpot?.minRange
+            ?? attack.range * tuningValue(attack, 'targetRangeRatio', 0.72),
+          tuningValue(attack, 'minimumTargetRange', 80),
+        )
+        const targetDistance = attack.behavior === 'spearKick'
+          ? chargeStage >= 2
+            ? tuningValue(attack, 'strongKickTargetDistance', 176)
+            : chargeStage === 1
+              ? tuningValue(attack, 'kickTargetDistance', 144)
+              : Math.max(
+                  baseTargetDistance,
+                  attack.knockback * tuningValue(attack, 'targetDistancePerKnockback', 1),
+                )
+          : tuningValue(attack, 'shoveTargetDistance', baseTargetDistance)
+        const target = {
+          x: clamp(
+            this.player.position.x + direction.x * targetDistance,
+            enemy.definition.radius,
+            (this.currentNode?.arena.width ?? targetDistance) - enemy.definition.radius,
+          ),
+          y: clamp(
+            this.player.position.y + direction.y * targetDistance,
+            enemy.definition.radius,
+            (this.currentNode?.arena.height ?? targetDistance) - enemy.definition.radius,
+          ),
+        }
+        this.moveCircle(enemy.position, {
+          x: target.x - enemy.position.x,
+          y: target.y - enemy.position.y,
+        }, enemy.definition.radius)
       }
-      this.moveCircle(enemy.position, {
-        x: target.x - enemy.position.x,
-        y: target.y - enemy.position.y,
-      }, enemy.definition.radius)
     } else if (attack.behavior === 'spearBreakthrough') {
       // A breakthrough barges through rather than punting away: bodies are thrown out to the
       // side the player passed them on, so the lane ahead of the run clears instead of filling.

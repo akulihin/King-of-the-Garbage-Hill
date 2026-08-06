@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord.WebSocket;
 using King_of_the_Garbage_Hill.Game.Classes;
@@ -28,11 +29,16 @@ public sealed class Global : IServiceSingleton
     public uint TotalCommandsIssued { get; set; }
     public uint TotalCommandsDeleted { get; set; }
     public uint TotalCommandsChanged { get; set; }
+    private readonly object _gameIdLock = new();
     private ulong GamePlayingAndId { get; set; }
 
     public ConcurrentDictionary<string, WinRateClass> WinRates = new();
 
     public ConcurrentDictionary<ulong, GameClass> FinishedGamesList = new();
+    private readonly object _finishedGamesLock = new();
+    private readonly ConcurrentDictionary<ulong, DateTime> _finishedGameStoredAt = new();
+    private static readonly TimeSpan FinishedGameRetention = TimeSpan.FromMinutes(30);
+    private const int FinishedGameRetentionLimit = 128;
 
     /// <summary>
     /// Callback registered by GameNotificationService to broadcast final game state
@@ -86,13 +92,61 @@ public sealed class Global : IServiceSingleton
 
     public ulong GetLastGamePlayingAndId()
     {
-        return GamePlayingAndId;
+        lock (_gameIdLock)
+            return GamePlayingAndId;
     }
 
     public ulong GetNewtGamePlayingAndId()
     {
-        GamePlayingAndId++;
-        return GamePlayingAndId;
+        lock (_gameIdLock)
+        {
+            GamePlayingAndId++;
+            return GamePlayingAndId;
+        }
+    }
+
+    public void StoreFinishedGame(GameClass game)
+    {
+        if (game == null) return;
+
+        lock (_finishedGamesLock)
+        {
+            var now = DateTime.UtcNow;
+            FinishedGamesList[game.GameId] = game;
+            _finishedGameStoredAt[game.GameId] = now;
+
+            var cutoff = now - FinishedGameRetention;
+            foreach (var (gameId, storedAt) in _finishedGameStoredAt)
+            {
+                if (storedAt >= cutoff) continue;
+                _finishedGameStoredAt.TryRemove(gameId, out _);
+                FinishedGamesList.TryRemove(gameId, out _);
+            }
+
+            foreach (var gameId in _finishedGameStoredAt.Keys
+                         .OrderByDescending(id => id)
+                         .Skip(FinishedGameRetentionLimit))
+            {
+                _finishedGameStoredAt.TryRemove(gameId, out _);
+                FinishedGamesList.TryRemove(gameId, out _);
+            }
+        }
+    }
+
+    public GameClass GetFinishedGame(ulong gameId)
+    {
+        lock (_finishedGamesLock)
+        {
+            if (!_finishedGameStoredAt.TryGetValue(gameId, out var storedAt)
+                || storedAt < DateTime.UtcNow - FinishedGameRetention)
+            {
+                _finishedGameStoredAt.TryRemove(gameId, out _);
+                FinishedGamesList.TryRemove(gameId, out _);
+                return null;
+            }
+
+            return FinishedGamesList.GetValueOrDefault(gameId);
+        }
     }
 
     public class WinRateClass

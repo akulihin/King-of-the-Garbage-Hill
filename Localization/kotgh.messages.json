@@ -10,6 +10,106 @@
       "visibility": "public",
       "ru": "Скилл открывает Короля Сервера. Волки отмечают двух слабейших игроков, а Черный Замок показывает оставшееся удержание позиции и считает победы соратников только не над самим Джоном.",
       "en": "Skill unlocks Server King. Wolves mark the two weakest players; Castle Black shows the remaining position lock and counts same-side winners only when they defeat someone other than Jon."
+    },
+    "kotgh.gameplay.livingWeapon.target": {
+      "visibility": "owner",
+      "ru": "После яркой вспышки света, вы ощущаете, что превратились в обычного нормиса, которому не место на Мусорной горе.",
+      "en": "After a bright flash of light, you feel that you have turned into an ordinary normie who has no place on the Garbage Hill."
+    },
+    "kotgh.gameplay.captainObvious.guesser": {
+      "visibility": "owner",
+      "ru": "Капитан Очевидность: Вы правильно угадали лидера. Честь и хвала.",
+      "en": "Captain Obvious: You correctly guessed the leader. Honor and praise."
+    },
+    "kotgh.gameplay.captainObvious.target": {
+      "visibility": "owner",
+      "ru": "Капитан Очевидность: Вас разоблачили, вы были слишком... очевидны.",
+      "en": "Captain Obvious: You were exposed; you were too... obvious."
+    },
+    "kotgh.ranked.autoMoveDisabled": {
+      "visibility": "owner",
+      "ru": "В ранговой игре ручной Авто Ход недоступен.",
+      "en": "Manual Auto Move is unavailable in Ranked games."
+    },
+    "kotgh.ranked.pendingBlackjackRecovery": {
+      "visibility": "owner",
+      "ru": "Сначала завершите попытку отыграть Elo в «21» из прошлой ранговой игры.",
+      "en": "Finish the blackjack Elo-recovery attempt from your previous Ranked game first."
+    },
+    "kotgh.ranked.finishDisabled": {
+      "visibility": "owner",
+      "ru": "Ранговую игру нельзя покинуть с заменой на бота. Матч продолжится до итогового расчёта Elo.",
+      "en": "A Ranked game cannot be left by substituting a bot. The match continues to its Elo settlement."
+    },
+    "kotgh.blackjack.unavailable": {
+      "visibility": "owner",
+      "ru": "Игра в Мире Шинигами доступна только погибшим от Киры.",
+      "en": "The Shinigami Realm game is available only to players killed by Kira."
+    },
+    "kotgh.ranked.elo.title": {
+      "visibility": "public",
+      "ru": "Изменение рейтинга",
+      "en": "Rating update"
+    },
+    "kotgh.ranked.elo.firstPlaceTitle": {
+      "visibility": "public",
+      "ru": "ТРИУМФ ПЕРВОГО МЕСТА",
+      "en": "FIRST-PLACE TRIUMPH"
+    },
+    "kotgh.ranked.elo.matchDelta": {
+      "visibility": "public",
+      "ru": "За матч",
+      "en": "Match"
+    },
+    "kotgh.ranked.elo.placementDelta": {
+      "visibility": "public",
+      "ru": "Место",
+      "en": "Placement"
+    },
+    "kotgh.ranked.elo.shinigamiPenalty": {
+      "visibility": "public",
+      "ru": "Мир Шинигами",
+      "en": "Shinigami Realm"
+    },
+    "kotgh.ranked.elo.blackjackRecovery": {
+      "visibility": "public",
+      "ru": "Отыгрыш в «21»",
+      "en": "Blackjack recovery"
+    },
+    "kotgh.ranked.elo.summary": {
+      "visibility": "public",
+      "ru": "Итог Elo",
+      "en": "Elo result"
+    },
+    "kotgh.ranked.elo.back": {
+      "visibility": "public",
+      "ru": "Вернуться в лобби",
+      "en": "Back to lobby"
+    },
+    "kotgh.ranked.blackjack.title": {
+      "visibility": "public",
+      "ru": "Шанс отыграть Elo",
+      "en": "Elo recovery chance"
+    },
+    "kotgh.ranked.blackjack.pending": {
+      "visibility": "public",
+      "ru": "Выиграйте эту раздачу, чтобы вернуть штраф Elo.",
+      "en": "Win this hand to recover the Elo penalty."
+    },
+    "kotgh.ranked.blackjack.recovered": {
+      "visibility": "public",
+      "ru": "Штраф Elo полностью отыгран.",
+      "en": "The Elo penalty has been fully recovered."
+    },
+    "kotgh.ranked.blackjack.missed": {
+      "visibility": "public",
+      "ru": "Попытка отыграть штраф Elo завершена без возврата.",
+      "en": "The Elo recovery attempt ended without a refund."
+    },
+    "kotgh.ranked.blackjack.rating": {
+      "visibility": "public",
+      "ru": "Текущий Elo",
+      "en": "Current Elo"
     }
   }
 }

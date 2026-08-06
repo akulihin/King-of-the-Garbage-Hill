@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 14,
+  "schemaVersion": 15,
   "title": "99 Last Chances",
   "seed": "99LC-prototype",
   "chances": 99,
@@ -1337,8 +1337,9 @@
         "entranceRadiusRatio": 0.55,
         "hideMs": 5000,
         "exitRecoveryMs": 650,
-        "blastRadius": 925,
-        "blastDamageMaxHpRatio": 0.8
+        "blastRadius": 1200,
+        "safeCornerRadius": 150,
+        "blastDamageMaxHpRatio": 0.95
       }
     },
     {
@@ -6558,12 +6559,12 @@
             "traceMs": 900
           },
           "charge": {
-            "maxMs": 1100,
+            "maxMs": 1600,
             "bands": [
               {
                 "id": "early",
                 "label": "Быстрое отжатие · Заколоть",
-                "minMs": 325,
+                "minMs": 522,
                 "color": "#ffd166",
                 "damageMultiplier": 2.2,
                 "rangeMultiplier": 0.14,
@@ -6579,7 +6580,7 @@
               {
                 "id": "middle",
                 "label": "Средний релиз · метание и стан",
-                "minMs": 563,
+                "minMs": 904,
                 "color": "#ff9f43",
                 "damageMultiplier": 1.08,
                 "rangeMultiplier": 0.62,
@@ -6593,7 +6594,7 @@
               {
                 "id": "late",
                 "label": "Поздний релиз · пробитие и стена",
-                "minMs": 825,
+                "minMs": 1325,
                 "color": "#ff5d5d",
                 "damageMultiplier": 1.38,
                 "rangeMultiplier": 1.12,
@@ -6794,9 +6795,7 @@
           "recoveryMs": 120,
           "tuning": {
             "windupMs": 250,
-            "minimumTargetRange": 88,
-            "targetRangeRatio": 0.72,
-            "shoveTargetDistance": 704
+            "pushDistancePierceRatio": 0.5
           }
         },
         "doubleTapHold": {
@@ -6874,12 +6873,10 @@
           ],
           "recoveryMs": 360,
           "tuning": {
-            "minimumTargetRange": 80,
-            "targetDistancePerKnockback": 1,
             "armorMultiplier": 2,
-            "shoveTargetDistance": 752,
-            "kickTargetDistance": 3456,
-            "strongKickTargetDistance": 4224,
+            "pushDistancePierceRatio": 0.5,
+            "kickTargetDistancePierceRatio": 1,
+            "strongKickTargetDistancePierceRatio": 2,
             "strongKickImmobilizeMs": 1500
           }
         },
@@ -6910,7 +6907,7 @@
           "repeatIntervalMs": 90,
           "tuning": {
             "staminaPerTickMs": 100,
-            "staminaPerTick": 5,
+            "staminaPerTick": 1.6666666666666667,
             "stationaryDamageMultiplier": 0.3,
             "pierceReferenceSpeed": 420,
             "pierceSpeedDamageMultiplier": 1.8,

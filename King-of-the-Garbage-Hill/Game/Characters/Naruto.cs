@@ -245,7 +245,12 @@ public static class Naruto
         var donation = Math.Max(
             MinimumHaremDonation,
             Math.Ceiling(earnedAbilityPoints * HaremDonationRate));
-        ScamRat.TransferExactBonusPoints(scoreVictim, harem, donation, HaremJutsu);
+        ScamRat.TransferExactBonusPoints(
+            scoreVictim,
+            harem,
+            donation,
+            HaremJutsu,
+            FeedbackSourceVisibility.ProNeutralTarget);
         harem.Passives.Naruto.HaremDonationsReceived++;
         harem.Status.AddInGamePersonalLogs(PhrasePayload.Encode(
             HaremJutsu,

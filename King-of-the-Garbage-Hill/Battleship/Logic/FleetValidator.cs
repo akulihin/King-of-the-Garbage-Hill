@@ -75,6 +75,8 @@ public static class FleetValidator
                     var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
                     if (upgDef == null)
                         return (false, $"Неизвестный апгрейд {uid} для корабля {def.Name}");
+                    if (upgDef.IsPreinstalled)
+                        return (false, $"Апгрейд {upgDef.NameRu ?? upgDef.Name} уже установлен и не требует покупки.");
                     totalCost += upgDef.Cost;
                 }
                 continue;
@@ -90,6 +92,8 @@ public static class FleetValidator
                     var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
                     if (upgDef == null)
                         return (false, $"Неизвестный апгрейд {uid} для корабля {def.Name}");
+                    if (upgDef.IsPreinstalled)
+                        return (false, $"Апгрейд {upgDef.NameRu ?? upgDef.Name} уже установлен и не требует покупки.");
                     shipCost += upgDef.Cost;
                 }
             }
@@ -200,7 +204,7 @@ public static class FleetValidator
                 foreach (var uid in sel.Upgrades)
                 {
                     var upgDef = def.AvailableUpgrades?.Find(u => u.Id == uid);
-                    if (upgDef != null) total += upgDef.Cost;
+                    if (upgDef is { IsPreinstalled: false }) total += upgDef.Cost;
                 }
             }
         }
@@ -212,7 +216,7 @@ public static class FleetValidator
     /// </summary>
     public static List<FleetSelection> GetDefaultFleet(Faction faction = Faction.Empire)
     {
-        var flagshipId = faction == Faction.Alliance ? "famous_diagonal_ship" : "tetranavis";
+        var flagshipId = faction == Faction.Alliance ? "alliance_flagship" : "tetranavis";
         var flagshipName = ShipCatalog.GetById(flagshipId)?.Name ?? flagshipId;
         return new List<FleetSelection>
         {
@@ -234,6 +238,6 @@ public static class FleetValidator
         { 1, "single" },
         { 2, "double" },
         { 3, "triple" },
-        { 4, faction == Faction.Alliance ? "famous_diagonal_ship" : "tetranavis" },
+        { 4, faction == Faction.Alliance ? "alliance_flagship" : "tetranavis" },
     };
 }

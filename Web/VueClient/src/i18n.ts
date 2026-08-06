@@ -66,7 +66,7 @@ addUnambiguousPhrasePairs(contentExact, 'russian', 'english')
 addUnambiguousPhrasePairs(contentRussianExact, 'english', 'russian')
 const cyrillicPattern = /[А-Яа-яЁё]/
 const regexSpecialCharacters = /[.*+?^${}()|[\]\\]/g
-const bilingualPhrasePattern = /\|>Phrase(Text)?V2<\|([A-Za-z0-9_-]+)/g
+const bilingualPhrasePattern = /\|>Phrase(ProNeutralSource|ProNeutral|Text|Owner|Public)?V2<\|([A-Za-z0-9_-]+)(?:\|<\|)?/g
 
 type ReplacementEntry = {
   source: string
@@ -251,19 +251,29 @@ function resolveAuthoredLegacyMarkers(value: string): string {
   return translated + value.slice(cursor)
 }
 
-function decodeBilingualPhrase(token: string, textOnly: boolean): string {
+function decodeBilingualPhrase(token: string, kind: string | undefined): string {
   try {
     const base64 = token.replace(/-/g, '+').replace(/_/g, '/')
       .padEnd(token.length + (4 - token.length % 4) % 4, '=')
     const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0))
-    const values = JSON.parse(new TextDecoder().decode(bytes)) as [string, string, string, string]
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes))
+    if (!Array.isArray(parsed) || ![4, 6, 7].includes(parsed.length)
+      || !parsed.every(value => typeof value === 'string'))
+      throw new Error('Expected four, six or seven non-null string phrase fields')
+    const values = parsed as string[]
     const english = currentLocale.value === 'en'
     const name = english ? values[2] : values[0]
     const phrase = english ? values[3] : values[1]
-    return `${textOnly ? '' : '|>Phrase<|'}${name}: ${phrase}`
+    if (kind === 'Owner') return phrase
+    if (kind === 'ProNeutralSource') return name
+    return `${kind === 'Text' || kind === 'ProNeutral' ? '' : '|>Phrase<|'}${name}: ${phrase}`
   } catch (error) {
     console.warn('[i18n] Invalid bilingual phrase payload:', error)
-    return textOnly ? 'Ability: Ability triggered.' : '|>Phrase<|Ability: Ability triggered.'
+    if (kind === 'Owner') return 'Ability triggered.'
+    if (kind === 'ProNeutralSource') return '❓'
+    return kind === 'Text' || kind === 'ProNeutral'
+      ? 'Ability: Ability triggered.'
+      : '|>Phrase<|Ability: Ability triggered.'
   }
 }
 
@@ -273,8 +283,8 @@ function translate(value: string | null | undefined, translatePhraseMarkers: boo
   // Keep authored phrase variants opaque while ordinary surrounding logs are translated. This
   // prevents deliberate English words in a Russian meme (or vice versa) from being rewritten.
   const protectedPhrases: string[] = []
-  const protectedValue = value.replace(bilingualPhrasePattern, (_match, textOnly: string | undefined, token: string) => {
-    const index = protectedPhrases.push(decodeBilingualPhrase(token, Boolean(textOnly))) - 1
+  const protectedValue = value.replace(bilingualPhrasePattern, (_match, kind: string | undefined, token: string) => {
+    const index = protectedPhrases.push(decodeBilingualPhrase(token, kind)) - 1
     return `\uE000${index}\uE001`
   })
   const translated = translateCore(protectedValue, translatePhraseMarkers)

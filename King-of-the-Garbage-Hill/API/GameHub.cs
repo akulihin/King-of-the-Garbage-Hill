@@ -1955,6 +1955,29 @@ public class GameHub : Hub
         QueueBattleshipBotPump(gameId);
     }
 
+    public async Task BattleshipDeployMatryoshka(
+        string gameId,
+        string parentShipId,
+        int row,
+        int col,
+        string orientation)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.DeployMatryoshka(
+            gameId, discordId.ToString(), parentShipId, row, col, orientation);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult",
+                new { action = "battleshipDeployMatryoshka", success = false, error });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
+    }
+
     public async Task BattleshipSetCursedBoatDirection(string gameId, string summonId, string direction)
     {
         var discordId = GetDiscordId();

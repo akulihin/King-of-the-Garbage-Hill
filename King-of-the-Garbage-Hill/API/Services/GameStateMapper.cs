@@ -87,9 +87,17 @@ public static class GameStateMapper
     /// Map a GameClass to a GameStateDto, scoped to the requesting player.
     /// </summary>
     public static GameStateDto ToDto(GameClass game, GamePlayerBridgeClass requestingPlayer = null,
-        DiscordAccountClass requestingAccount = null)
+        DiscordAccountClass requestingAccount = null, bool forceProVisibility = false)
     {
-        var isAdmin = requestingPlayer != null && requestingPlayer.PlayerType == 2;
+        // A spectator has no owner identity with which to scope Pro-only evidence. If any seat is
+        // Pro, the unauthenticated projection therefore uses the same fail-closed policy as replays.
+        forceProVisibility = forceProVisibility
+                             || requestingPlayer == null
+                             && game.PlayersList.Any(player => player.IsProMode);
+        var proVisibilityActive = forceProVisibility || requestingPlayer?.IsProMode == true;
+        var isAdmin = !forceProVisibility
+                      && requestingPlayer != null
+                      && requestingPlayer.PlayerType == 2;
         var viewerIsTerminal = UnknownBug.Is(requestingPlayer);
         var (assumptionCharacterNames, assumptionCharacters) = GetAssumptionCatalog(requestingAccount);
         var canInspectPlayers = isAdmin || requestingPlayer?.GameCharacter.Passive.Any(
@@ -133,6 +141,12 @@ public static class GameStateMapper
                 scopedDraftOptions = null;
         }
 
+        var rankedEloSettlement = game.IsFinished
+                                  && game.IsRanked
+                                  && requestingPlayer?.DiscordId == game.CreatorId
+            ? game.RankedEloSettlement
+            : null;
+
         var dto = new GameStateDto
         {
             GameId = game.GameId,
@@ -141,7 +155,20 @@ public static class GameStateMapper
             TimePassedSeconds = game.TimePassed.Elapsed.TotalSeconds,
             GameVersion = game.GameVersion,
             GameMode = game.GameMode,
+            IsRanked = game.IsRanked,
             IsFinished = game.IsFinished,
+            RankedEloSettlement = rankedEloSettlement != null
+                ? new RankedEloSettlementDto
+                {
+                    RatingBefore = rankedEloSettlement.RatingBefore,
+                    RatingAfter = rankedEloSettlement.RatingAfter,
+                    Delta = rankedEloSettlement.Delta,
+                    FinalPlace = rankedEloSettlement.FinalPlace,
+                    PlacementDelta = rankedEloSettlement.PlacementDelta,
+                    ShinigamiPenalty = rankedEloSettlement.ShinigamiPenalty,
+                    BlackjackRecovery = rankedEloSettlement.BlackjackRecovery,
+                }
+                : null,
             IsAramPickPhase = game.IsAramPickPhase,
             IsDraftPickPhase = game.IsDraftPickPhase || isAdeptChooser || depthsCallPromptActive,
             DraftOptions = scopedDraftOptions,
@@ -166,16 +193,16 @@ public static class GameStateMapper
                 ? OmniMan.GetUndergroundTrainPhrase(game)
                 : null,
             GlobalLogs = requestingPlayer == null
-                ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
+                ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
-                    isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
+                    isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility)),
             AllGlobalLogs = requestingPlayer == null
-                ? (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game))
+                ? (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.AllHiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility))
                 : GameLocalization.TextForClient(requestingPlayer.DiscordId,
-                    isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game)),
+                    isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.AllHiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility)),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
-            IsProMode = requestingPlayer?.IsProMode ?? false,
+            IsProMode = proVisibilityActive && !isAdmin,
             PreferWeb = requestingPlayer?.PreferWeb ?? false,
             AllCharacterNames = viewerIsTerminal || requestingPlayer?.GameCharacter.DoomRollMode == true || Madara.IsMadara(requestingPlayer)
                 ? new List<string>() : assumptionCharacterNames,
@@ -193,33 +220,31 @@ public static class GameStateMapper
             dto.GlobalLogs = StripLogSnippets(dto.GlobalLogs, game.DopaShadowGlobalLogSnippets);
             dto.AllGlobalLogs = StripLogSnippets(dto.AllGlobalLogs, game.DopaShadowGlobalLogSnippets);
         }
-        if (requestingPlayer?.IsProMode == true && !isAdmin)
+        if (proVisibilityActive && !isAdmin)
         {
             dto.GlobalLogs = MaskProActionLabels(dto.GlobalLogs);
             dto.AllGlobalLogs = MaskProActionLabels(dto.AllGlobalLogs);
         }
 
         // Map structured fight log for web animation (scoped: only own fights get full details)
-        var myUsername = requestingPlayer?.DiscordUsername;
         var fightAdmin = isAdmin && !viewerIsTerminal;
         var streamTarget = viewerIsTerminal && requestingPlayer.Passives.UnknownBug.StreamTargetPlayerId != Guid.Empty
             ? game.PlayersList.Find(player => player.GetPlayerId() == requestingPlayer.Passives.UnknownBug.StreamTargetPlayerId)
             : null;
-        var streamUsername = streamTarget?.DiscordUsername;
         dto.FightLog = game.WebFightLog
                 .Where(f => f.ShadowAction
-                    ? myUsername != null && f.AttackerName == myUsername
+                    ? IsFightAttacker(f, requestingPlayer, game)
                     : !f.HiddenFromNonAdmin || fightAdmin
-                        || (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername))
-                        || (streamUsername != null && f.WinnerName == streamUsername))
-                .Select(f => ScopeFightEntry(f, myUsername, fightAdmin,
-                    streamUsername != null && f.WinnerName == streamUsername,
+                        || IsFightParticipant(f, requestingPlayer, game)
+                        || IsFightWinner(f, streamTarget, game))
+                .Select(f => ScopeFightEntry(f, IsFightParticipant(f, requestingPlayer, game), fightAdmin,
+                    IsFightWinner(f, streamTarget, game),
                     !viewerIsTerminal
                     && (UnknownBug.Is(f.AttackerCharName) || UnknownBug.Is(f.DefenderCharName))))
                 .Select(f => MaskProFightOutcome(
                     f,
-                    myUsername,
-                    requestingPlayer?.IsProMode == true && !fightAdmin))
+                    IsFightParticipant(f, requestingPlayer, game),
+                    proVisibilityActive && !fightAdmin))
                 .Select(f => MaskPrivateFightIdentity(f, viewerIsTerminal))
                 .ToList();
         foreach (var fight in dto.FightLog)
@@ -234,7 +259,7 @@ public static class GameStateMapper
             var isMe = requestingPlayer != null && player.GetPlayerId() == requestingPlayer.GetPlayerId();
             dto.Players.Add(MapPlayer(player, requestingPlayer, isMe, isAdmin, canInspectPlayers,
                 game.PlayersList, game, viewerIsTerminal, viewerIsTheBoys, viewerIsHomelander,
-                viewerIsOmniMan));
+                viewerIsOmniMan, forceProVisibility));
         }
 
         if (Cthulhu.IsNechtoActive(game) && !game.IsFinished)
@@ -276,8 +301,16 @@ public static class GameStateMapper
             });
         }
 
-        // Map Pink Ward revealed player IDs
-        dto.PinkWardRevealedPlayerIds = new List<Guid>(game.PinkWardRevealedPlayerIds);
+        // Casual keeps the public helper shimmer. Pro viewers must read the public clue manually;
+        // only the player who caused a reveal retains its visual target highlight (M211).
+        dto.PinkWardRevealedPlayerIds = proVisibilityActive && !isAdmin
+            ? requestingPlayer == null
+                ? new List<Guid>()
+                : game.PinkWardRevealedPlayerIds
+                .Where(targetId => game.PinkWardRevealOwnerIds.TryGetValue(targetId, out var owners)
+                                   && owners.Contains(requestingPlayer.GetPlayerId()))
+                .ToList()
+            : new List<Guid>(game.PinkWardRevealedPlayerIds);
 
         // Build full chronicle for Летопись tab when game is finished
         if (game.IsFinished)
@@ -326,7 +359,7 @@ public static class GameStateMapper
         }
 
         ApplyEternalTsukuyomiProjection(dto, game, requestingPlayer);
-        if (requestingPlayer?.IsProMode == true && !isAdmin)
+        if (proVisibilityActive && !isAdmin)
             dto.FullChronicle = null;
 
         return dto;
@@ -335,7 +368,7 @@ public static class GameStateMapper
     private static PlayerDto MapPlayer(GamePlayerBridgeClass player, GamePlayerBridgeClass requestingPlayer,
         bool isMe, bool isAdmin, bool canInspectPlayers, List<GamePlayerBridgeClass> allPlayers, GameClass game = null,
         bool viewerIsTerminal = false, bool viewerIsTheBoys = false, bool viewerIsHomelander = false,
-        bool viewerIsOmniMan = false)
+        bool viewerIsOmniMan = false, bool forceProVisibility = false)
     {
         var hasDeathNote = player.GameCharacter.Passive.Any(p => p.PassiveName == "Тетрадь смерти");
 
@@ -358,7 +391,8 @@ public static class GameStateMapper
                 game,
                 isMe,
                 canInspectPlayers,
-                game?.IsFinished ?? false),
+                game?.IsFinished ?? false,
+                forceProVisibility),
         };
         if (viewerIsHomelander
             && requestingPlayer != null
@@ -1371,15 +1405,18 @@ public static class GameStateMapper
                 var viewerAttacked = attacker.GetPlayerId() == requestingPlayer.GetPlayerId();
                 return new FightEntryDto
                 {
+                    AttackerPlayerId = attacker.GetPlayerId(),
                     AttackerName = attacker.DiscordUsername,
                     AttackerCharName = attacker.GameCharacter.Name,
                     AttackerAvatar = GetLocalAvatarUrl(
                         attacker.GameCharacter.AvatarCurrent ?? attacker.GameCharacter.Avatar),
+                    DefenderPlayerId = defender.GetPlayerId(),
                     DefenderName = defender.DiscordUsername,
                     DefenderCharName = defender.GameCharacter.Name,
                     DefenderAvatar = GetLocalAvatarUrl(
                         defender.GameCharacter.AvatarCurrent ?? defender.GameCharacter.Avatar),
                     Outcome = viewerAttacked ? "win" : "loss",
+                    WinnerPlayerId = requestingPlayer.GetPlayerId(),
                     WinnerName = requestingPlayer.DiscordUsername,
                     TotalPointsWon = viewerAttacked ? 1 : -1,
                     Round1PointsWon = viewerAttacked ? 1 : -1,
@@ -1396,14 +1433,17 @@ public static class GameStateMapper
         GameClass game,
         bool isMe,
         bool isAdmin,
-        bool isFinished = false)
+        bool isFinished = false,
+        bool forceProVisibility = false)
     {
         var status = player.Status;
+        var proVisibilityActive = forceProVisibility || requestingPlayer?.IsProMode == true;
         // Non-admin viewing an opponent: hide score (they only see place on leaderboard, unless game is finished)
         var canSeeScore = isMe || isAdmin || isFinished;
         // A pending block/skip is private turn information. Keep it for the owner,
-        // inspectable/admin views, and completed-game projections only.
-        var canSeePrivateAction = isMe || isAdmin || isFinished;
+        // inspectable/admin views, and completed Casual projections only. Pro keeps a foreign
+        // finished action private so `Outcome=unknown` cannot be reversed from the player row.
+        var canSeePrivateAction = isMe || isAdmin || (isFinished && !proVisibilityActive);
 
         // Extract previous round logs from InGamePersonalLogsAll (split by "|||")
         var previousRoundLogs = "";
@@ -1437,19 +1477,29 @@ public static class GameStateMapper
             LvlUpPoints = isMe ? status.LvlUpPoints : 0,
             MoveListPage = isMe ? status.MoveListPage : 1,
             PersonalLogs = isMe
-                ? MapPersonalLogs(status.GetInGamePersonalLogs(), player, requestingPlayer, game)
+                ? MapPersonalLogs(
+                    status.GetInGamePersonalLogs(), player, requestingPlayer, game,
+                    forceProVisibility: forceProVisibility)
                 : "",
             PreviousRoundLogs = isMe
-                ? MapPersonalLogs(previousRoundLogs, player, requestingPlayer, game)
+                ? MapPersonalLogs(
+                    previousRoundLogs, player, requestingPlayer, game,
+                    forceProVisibility: forceProVisibility)
                 : previousRoundLogs,
             AllPersonalLogs = isMe
-                ? MapPersonalLogs(status.InGamePersonalLogsAll, player, requestingPlayer, game)
+                ? MapPersonalLogs(
+                    status.InGamePersonalLogsAll, player, requestingPlayer, game,
+                    forceProVisibility: forceProVisibility)
                 : "",
             ScoreSource = isMe
-                ? MapPersonalLogs(status.ScoreSource, player, requestingPlayer, game, forClient: false)
+                ? MapPersonalLogs(
+                    status.ScoreSource, player, requestingPlayer, game,
+                    forClient: false, forceProVisibility: forceProVisibility)
                 : "",
-            DirectMessages = isMe ? player.WebMessages.Select(x => GameLocalization.TextForClient(player.DiscordId, x)).ToList() : new List<string>(),
-            MediaMessages = isMe ? player.WebMediaMessages.Select(m => new MediaMessageDto
+            DirectMessages = isMe && !forceProVisibility
+                ? player.WebMessages.Select(x => GameLocalization.TextForClient(player.DiscordId, x)).ToList()
+                : new List<string>(),
+            MediaMessages = isMe && !forceProVisibility ? player.WebMediaMessages.Select(m => new MediaMessageDto
             {
                 // Keep the canonical and authored English variants together. Replay snapshots are
                 // language-neutral; MediaMessages.vue chooses the viewer's current locale.
@@ -1479,7 +1529,15 @@ public static class GameStateMapper
 
             var mappedEntries = entries.Select(entry => new ScoreEntryDto
             {
-                Source = MaskProScoreSource(entry.Source, requestingPlayer, game),
+                Source = entry.SourceVisibility == FeedbackSourceVisibility.RevealedTarget
+                    ? isMe && !forceProVisibility ? entry.Source : "❓"
+                    : entry.SourceVisibility == FeedbackSourceVisibility.NeutralTarget
+                      || entry.SourceVisibility == FeedbackSourceVisibility.ProNeutralTarget
+                      && proVisibilityActive
+                      && !isAdmin
+                        ? "❓"
+                        : MaskProScoreSource(
+                            entry.Source, requestingPlayer, game, forceProVisibility),
                 Points = entry.Points,
                 IsBonus = entry.IsBonus,
                 IsNegative = entry.Points < 0,
@@ -1570,54 +1628,27 @@ public static class GameStateMapper
         return $"{plus}{Math.Round(pct)}% Moral";
     }
 
-    private static readonly HashSet<string> ProVisiblePassiveSources = new(StringComparer.Ordinal)
-    {
-        "Запах мусора",
-        "Чернильная завеса",
-        "Еврей",
-        "2kxaoc",
-    };
-
-    private static HashSet<string> GetHiddenProPassiveNames(
-        GamePlayerBridgeClass viewer,
-        GameClass game)
-    {
-        if (viewer?.IsProMode != true || viewer.PlayerType == 2 || game == null)
-            return new HashSet<string>(StringComparer.Ordinal);
-
-        var ownNames = viewer.GameCharacter.Passive
-            .Select(passive => passive.PassiveName)
-            .ToHashSet(StringComparer.Ordinal);
-        return game.PlayersList
-            .Where(other => other.GetPlayerId() != viewer.GetPlayerId())
-            .SelectMany(other => other.GameCharacter.Passive)
-            .Select(passive => passive.PassiveName)
-            .Where(name => !ownNames.Contains(name) && !ProVisiblePassiveSources.Contains(name))
-            .ToHashSet(StringComparer.Ordinal);
-    }
-
     private static string MapPersonalLogs(
         string text,
         GamePlayerBridgeClass owner,
         GamePlayerBridgeClass viewer,
         GameClass game,
-        bool forClient = true)
+        bool forClient = true,
+        bool forceProVisibility = false)
     {
-        var hiddenNames = GetHiddenProPassiveNames(viewer, game);
-        if (hiddenNames.Count > 0)
-            text = PhrasePayload.MaskPassiveNames(text, hiddenNames, hidePhraseBody: true);
+        text = ProModeVisibility.MaskPersonalText(
+            text,
+            viewer,
+            game,
+            hidePhraseBody: true,
+            allowAdminBypass: !forceProVisibility,
+            forceProMode: forceProVisibility);
 
         var localized = forClient
             ? GameLocalization.TextForClient(owner.DiscordId, text)
             : GameLocalization.TextForUser(owner.DiscordId, text);
-        foreach (var passiveName in hiddenNames)
-            localized = localized.Replace(passiveName, "❓", StringComparison.Ordinal);
 
-        return hiddenNames.Count == 0
-            ? localized
-            : localized
-                .Replace("Неизвестно", "❓", StringComparison.Ordinal)
-                .Replace("Unknown", "❓", StringComparison.Ordinal);
+        return localized;
     }
 
     private static bool IsDepthsCallPromptActive(
@@ -1666,15 +1697,14 @@ public static class GameStateMapper
     private static string MaskProScoreSource(
         string source,
         GamePlayerBridgeClass viewer,
-        GameClass game)
-    {
-        if (string.IsNullOrEmpty(source))
-            return source;
-        return GetHiddenProPassiveNames(viewer, game)
-            .Any(name => source.Contains(name, StringComparison.Ordinal))
-            ? "❓"
-            : source;
-    }
+        GameClass game,
+        bool forceProVisibility = false)
+        => ProModeVisibility.MaskScoreSource(
+            source,
+            viewer,
+            game,
+            allowAdminBypass: !forceProVisibility,
+            forceProMode: forceProVisibility);
 
     private static string MaskProActionLabels(string logs)
     {
@@ -1687,29 +1717,72 @@ public static class GameStateMapper
             .Replace("(Skip)", "(?)", StringComparison.Ordinal);
     }
 
+    private static bool IsFightAttacker(
+        FightEntryDto fight,
+        GamePlayerBridgeClass viewer,
+        GameClass game) =>
+        IsFightSide(fight, viewer, game, fight.AttackerPlayerId, fight.AttackerName);
+
+    private static bool IsFightParticipant(
+        FightEntryDto fight,
+        GamePlayerBridgeClass viewer,
+        GameClass game) =>
+        IsFightSide(fight, viewer, game, fight.AttackerPlayerId, fight.AttackerName)
+        || IsFightSide(fight, viewer, game, fight.DefenderPlayerId, fight.DefenderName);
+
+    private static bool IsFightWinner(
+        FightEntryDto fight,
+        GamePlayerBridgeClass viewer,
+        GameClass game) =>
+        IsFightSide(fight, viewer, game, fight.WinnerPlayerId, fight.WinnerName);
+
+    private static bool IsFightSide(
+        FightEntryDto fight,
+        GamePlayerBridgeClass viewer,
+        GameClass game,
+        Guid? sidePlayerId,
+        string legacyUsername)
+    {
+        if (fight == null || viewer == null)
+            return false;
+
+        var hasStructuredIds = fight.AttackerPlayerId.HasValue
+                               || fight.DefenderPlayerId.HasValue
+                               || fight.WinnerPlayerId.HasValue;
+        if (hasStructuredIds)
+            return sidePlayerId == viewer.GetPlayerId();
+
+        // Compatibility for old replay/snapshot rows: a username is safe only while unique.
+        return !string.IsNullOrEmpty(legacyUsername)
+               && string.Equals(legacyUsername, viewer.DiscordUsername, StringComparison.Ordinal)
+               && game.PlayersList.Count(player =>
+                   string.Equals(player.DiscordUsername, legacyUsername, StringComparison.Ordinal)) == 1;
+    }
+
     private static FightEntryDto MaskProFightOutcome(
         FightEntryDto fight,
-        string myUsername,
+        bool viewerParticipated,
         bool shouldMask)
     {
         if (!shouldMask
             || fight == null
-            || fight.AttackerName == myUsername
-            || fight.DefenderName == myUsername
+            || viewerParticipated
             || fight.Outcome is not ("block" or "skip"))
             return fight;
 
-        fight.Outcome = "unknown";
-        fight.WinnerName = "";
-        fight.TotalPointsWon = 0;
-        return fight;
+        var projection = fight.CopyForProjection();
+        projection.Outcome = "unknown";
+        projection.WinnerPlayerId = null;
+        projection.WinnerName = "";
+        projection.TotalPointsWon = 0;
+        return projection;
     }
 
     /// <summary>
     /// Scope fight data visibility: full details only for fights involving the requesting player.
     /// Other fights get stripped of numeric details but keep outcome, participants, and drops (visible to all).
     /// </summary>
-    private static FightEntryDto ScopeFightEntry(FightEntryDto f, string myUsername, bool isAdmin,
+    private static FightEntryDto ScopeFightEntry(FightEntryDto f, bool viewerParticipated, bool isAdmin,
         bool grantStreamPerspective = false, bool forceRedaction = false)
     {
         // The private character's combat factors stay owner-only even when the viewer
@@ -1717,20 +1790,23 @@ public static class GameStateMapper
         if (!forceRedaction)
         {
             if (isAdmin || grantStreamPerspective) return f;
-            if (myUsername != null && (f.AttackerName == myUsername || f.DefenderName == myUsername)) return f;
+            if (viewerParticipated) return f;
         }
 
         // Non-participant: strip detailed numeric data, keep participant info + outcome + drops
         return new FightEntryDto
         {
             // Keep: participant identity & outcome
+            AttackerPlayerId = f.AttackerPlayerId,
             AttackerName = f.AttackerName,
             AttackerCharName = f.AttackerCharName,
             AttackerAvatar = f.AttackerAvatar,
+            DefenderPlayerId = f.DefenderPlayerId,
             DefenderName = f.DefenderName,
             DefenderCharName = f.DefenderCharName,
             DefenderAvatar = f.DefenderAvatar,
             Outcome = f.Outcome,
+            WinnerPlayerId = f.WinnerPlayerId,
             WinnerName = f.WinnerName,
             // Keep booleans (no numeric leak)
             IsNemesisMe = !forceRedaction && f.IsNemesisMe,
@@ -1811,11 +1887,12 @@ public static class GameStateMapper
     /// <summary>Remove hidden fight text snippets from global logs for non-admin players.
     /// Also strips Kira-hidden log snippets for players with the "Гений" passive.</summary>
     private static string StripHiddenLogs(string logs, List<string> hiddenSnippets,
-        GamePlayerBridgeClass requestingPlayer, GameClass game)
+        GamePlayerBridgeClass requestingPlayer, GameClass game, bool forceProVisibility = false)
     {
         if (string.IsNullOrEmpty(logs))
             return logs;
 
+        logs = game.ApplyProGlobalLogVisibility(logs, requestingPlayer, forceProVisibility);
         logs = StripLogSnippets(logs, hiddenSnippets);
 
         // Genius: strip character-revealing logs for Kira
@@ -1846,16 +1923,25 @@ public static class GameStateMapper
     /// Contains: Fight History (global logs with round numbers), then per-player personal logs.
     /// Replaces Discord usernames with character names throughout.
     /// </summary>
-    public static string BuildFullChronicle(GameClass game, GamePlayerBridgeClass requestingPlayer = null)
+    public static string BuildFullChronicle(
+        GameClass game,
+        GamePlayerBridgeClass requestingPlayer = null,
+        bool replaySafe = false)
     {
         var canRevealPrivateCharacter = UnknownBug.Is(requestingPlayer);
 
         // Build username → character name mapping
         var nameMap = game.PlayersList
             .Where(p => !string.IsNullOrWhiteSpace(p.DiscordUsername) && !string.IsNullOrWhiteSpace(p.GameCharacter.Name))
+            .GroupBy(p => p.DiscordUsername, StringComparer.Ordinal)
+            // An ambiguous display name cannot be attributed to one character safely.
+            .Where(group => group.Count() == 1)
+            .Select(group => group.Single())
             .OrderByDescending(p => p.DiscordUsername.Length)
-            .ToDictionary(p => p.DiscordUsername,
-                p => UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name);
+            .ToDictionary(
+                p => p.DiscordUsername,
+                p => UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name,
+                StringComparer.Ordinal);
 
         var sb = new StringBuilder();
 
@@ -1863,6 +1949,15 @@ public static class GameStateMapper
         var globalLogs = game.GetAllGlobalLogs() ?? "";
         if (requestingPlayer?.GameCharacter.Name != Dopa.CharacterName)
             globalLogs = StripLogSnippets(globalLogs, game.DopaShadowGlobalLogSnippets);
+        if (replaySafe || requestingPlayer?.PlayerType != 2)
+            globalLogs = StripLogSnippets(globalLogs, game.AllHiddenGlobalLogSnippets);
+        if (replaySafe && game.PlayersList.Any(player => player.IsProMode))
+        {
+            globalLogs = StripLogSnippets(
+                globalLogs,
+                game.ProOwnerGlobalLogSnippets.Select(scoped => scoped.Text));
+            globalLogs = MaskProActionLabels(globalLogs);
+        }
         if (!string.IsNullOrWhiteSpace(globalLogs))
         {
             sb.AppendLine("**--- Fight History ---**");
@@ -1870,11 +1965,16 @@ public static class GameStateMapper
         }
 
         // Section 2: Per-player personal logs with round numbers
-        var playersWithLogs = game.PlayersList
-            .OrderBy(p => p.Status.GetPlaceAtLeaderBoard())
-            .Where(p => !string.IsNullOrWhiteSpace(p.Status.InGamePersonalLogsAll))
-            .Where(p => canRevealPrivateCharacter || !UnknownBug.Is(p))
-            .ToList();
+        // One public any-Pro chronicle cannot concatenate six owner views safely: some owner-only
+        // facts are free-form summaries with no source token (for example Francie's infection chain).
+        var omitSharedPersonalLogs = replaySafe && game.PlayersList.Any(player => player.IsProMode);
+        var playersWithLogs = omitSharedPersonalLogs
+            ? new List<GamePlayerBridgeClass>()
+            : game.PlayersList
+                .OrderBy(p => p.Status.GetPlaceAtLeaderBoard())
+                .Where(p => !string.IsNullOrWhiteSpace(p.Status.InGamePersonalLogsAll))
+                .Where(p => canRevealPrivateCharacter || !UnknownBug.Is(p))
+                .ToList();
 
         if (playersWithLogs.Count > 0)
         {
@@ -1886,7 +1986,8 @@ public static class GameStateMapper
                 sb.AppendLine();
                 var heading = UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name;
                 sb.AppendLine($"**{heading}** (#{p.Status.GetPlaceAtLeaderBoard()}, {p.Status.GetScore()} очков):");
-                var rounds = p.Status.InGamePersonalLogsAll.Split("|||")
+                var personalLogs = p.Status.InGamePersonalLogsAll;
+                var rounds = personalLogs.Split("|||")
                     .Select(r => r.Trim())
                     .Where(r => r.Length > 0)
                     .ToList();
@@ -1946,8 +2047,21 @@ public static class GameStateMapper
     private static string ReplaceUsernames(string text, Dictionary<string, string> nameMap)
     {
         if (string.IsNullOrEmpty(text) || nameMap.Count == 0) return text;
+
+        // Encoded phrase fields may contain an exact dynamic nickname (Kira's L assignment) and
+        // base64 can coincidentally contain a short username. Preserve that structured payload;
+        // only unambiguous, isolated username tokens in ordinary chronicle text are rewritten.
+        text = PhrasePayload.ProtectEncoded(text, out var encodedPhrases);
         foreach (var pair in nameMap)
-            text = text.Replace(pair.Key, pair.Value);
-        return text;
+        {
+            var isolatedUsername =
+                $@"(?<![\p{{L}}\p{{N}}_]){Regex.Escape(pair.Key)}(?![\p{{L}}\p{{N}}_])";
+            text = Regex.Replace(
+                text,
+                isolatedUsername,
+                _ => pair.Value,
+                RegexOptions.CultureInvariant);
+        }
+        return PhrasePayload.RestoreEncoded(text, encodedPhrases);
     }
 }

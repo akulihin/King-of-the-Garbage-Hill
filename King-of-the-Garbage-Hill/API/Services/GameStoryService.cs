@@ -172,17 +172,21 @@ public class GameStoryService
 
     private GameStorySnapshot CaptureSnapshot(GameClass game)
     {
+        var forceProVisibility = game.PlayersList.Any(player => player.IsProMode);
         // Build username → character name mapping for log replacement
         var nameMap = game.PlayersList
             .Where(p => !string.IsNullOrWhiteSpace(p.DiscordUsername) && !string.IsNullOrWhiteSpace(p.GameCharacter.Name))
-            .ToDictionary(p => p.DiscordUsername, p => p.GameCharacter.Name);
+            .GroupBy(p => p.DiscordUsername, StringComparer.Ordinal)
+            .Where(group => group.Count() == 1)
+            .Select(group => group.Single())
+            .ToDictionary(p => p.DiscordUsername, p => p.GameCharacter.Name, StringComparer.Ordinal);
 
         var characterByPlayerId = game.PlayersList.ToDictionary(
             p => p.GetPlayerId(),
             p => p.GameCharacter.Name);
         var personalLogsByPlayerId = game.PlayersList.ToDictionary(
             p => p.GetPlayerId(),
-            p => (p.Status.InGamePersonalLogsAll ?? "")
+            p => (forceProVisibility ? "" : p.Status.InGamePersonalLogsAll ?? "")
                 .Split("|||")
                 .Select(log => CleanPromptText(ReplaceUsernames(log, nameMap)))
                 .ToList());
@@ -210,7 +214,8 @@ public class GameStoryService
             .Select(round => new RoundSnapshot
             {
                 RoundNo = round.RoundNo,
-                GlobalLogs = CleanPromptText(ReplaceUsernames(round.GlobalLogs ?? "", nameMap)),
+                GlobalLogs = CleanPromptText(ReplaceUsernames(
+                    SanitizeStoryGlobalLogs(round.GlobalLogs ?? "", game, forceProVisibility), nameMap)),
                 Fights = round.FightLog
                     .Select(fight => CaptureFight(fight, nameMap))
                     .ToList(),
@@ -229,7 +234,8 @@ public class GameStoryService
         // the terminal boundary itself is never advertised as a combat round.
         if (rounds.Count == 0)
         {
-            var globalRounds = SplitGlobalLogsByRound(game.GetAllGlobalLogs() ?? "");
+            var globalRounds = SplitGlobalLogsByRound(
+                SanitizeStoryGlobalLogs(game.GetAllGlobalLogs() ?? "", game, forceProVisibility));
             var playableRoundCount = Math.Max(0, game.RoundNo - 1);
             for (var roundNo = 1; roundNo <= playableRoundCount; roundNo++)
             {
@@ -258,17 +264,23 @@ public class GameStoryService
         if (lastReplayRound != null)
         {
             finalSettlement.GlobalLogs = CleanPromptText(
-                ReplaceUsernames(lastReplayRound.FinalSettlementGlobalLogs ?? "", nameMap));
-            finalSettlement.CharacterLogs = lastReplayRound.Players
-                .Where(player => characterByPlayerId.ContainsKey(player.PlayerId)
-                                 && !string.IsNullOrWhiteSpace(player.FinalSettlementLogs))
-                .Select(player => new CharacterLogSnapshot
-                {
-                    CharacterName = characterByPlayerId[player.PlayerId],
-                    Text = CleanPromptText(ReplaceUsernames(player.FinalSettlementLogs, nameMap))
-                })
-                .Where(log => !string.IsNullOrWhiteSpace(log.Text))
-                .ToList();
+                ReplaceUsernames(
+                    SanitizeStoryGlobalLogs(
+                        lastReplayRound.FinalSettlementGlobalLogs ?? "", game, forceProVisibility),
+                    nameMap));
+            if (!forceProVisibility)
+            {
+                finalSettlement.CharacterLogs = lastReplayRound.Players
+                    .Where(player => characterByPlayerId.ContainsKey(player.PlayerId)
+                                     && !string.IsNullOrWhiteSpace(player.FinalSettlementLogs))
+                    .Select(player => new CharacterLogSnapshot
+                    {
+                        CharacterName = characterByPlayerId[player.PlayerId],
+                        Text = CleanPromptText(ReplaceUsernames(player.FinalSettlementLogs, nameMap))
+                    })
+                    .Where(log => !string.IsNullOrWhiteSpace(log.Text))
+                    .ToList();
+            }
         }
 
         return new GameStorySnapshot
@@ -326,13 +338,54 @@ public class GameStoryService
     {
         if (string.IsNullOrEmpty(text) || nameMap.Count == 0) return text;
 
-        // Replace longer names first to avoid partial matches
+        text = PhrasePayload.RewriteBodies(
+            text,
+            body => ReplacePlainUsernames(body, nameMap));
+        text = PhrasePayload.ProtectEncoded(text, out var encodedPhrases);
+        // Replace longer, isolated names first to avoid partial matches and never corrupt a
+        // PhraseV2 token or a canonical source that merely contains a short nickname.
+        text = ReplacePlainUsernames(text, nameMap);
+
+        return PhrasePayload.RestoreEncoded(text, encodedPhrases);
+    }
+
+    private static string ReplacePlainUsernames(
+        string text,
+        IReadOnlyDictionary<string, string> nameMap)
+    {
         foreach (var pair in nameMap.OrderByDescending(p => p.Key.Length))
         {
-            text = text.Replace(pair.Key, pair.Value);
+            var isolatedUsername =
+                $@"(?<![\p{{L}}\p{{N}}_]){Regex.Escape(pair.Key)}(?![\p{{L}}\p{{N}}_])";
+            text = Regex.Replace(
+                text,
+                isolatedUsername,
+                _ => pair.Value,
+                RegexOptions.CultureInvariant);
         }
-
         return text;
+    }
+
+    private static string SanitizeStoryGlobalLogs(
+        string logs,
+        GameClass game,
+        bool forceProVisibility)
+    {
+        if (string.IsNullOrEmpty(logs)) return logs;
+
+        foreach (var snippet in game.AllHiddenGlobalLogSnippets
+                     .Concat(game.DopaShadowGlobalLogSnippets))
+            if (!string.IsNullOrEmpty(snippet))
+                logs = logs.Replace(snippet, "", StringComparison.Ordinal);
+
+        if (!forceProVisibility) return logs;
+
+        logs = game.ApplyProGlobalLogVisibility(logs, null, forceProVisibility: true);
+        return logs
+            .Replace("(Блок)", "(?)", StringComparison.Ordinal)
+            .Replace("(Скип)", "(?)", StringComparison.Ordinal)
+            .Replace("(Block)", "(?)", StringComparison.Ordinal)
+            .Replace("(Skip)", "(?)", StringComparison.Ordinal);
     }
 
     // ── Prompt ────────────────────────────────────────────────────────

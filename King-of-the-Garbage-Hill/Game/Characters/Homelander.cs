@@ -499,6 +499,7 @@ public static class Homelander
             AttackerName = StanEdgar,
             AttackerCharName = StanEdgar,
             AttackerAvatar = StanEdgarAvatar,
+            DefenderPlayerId = homelander.GetPlayerId(),
             DefenderName = homelander.DiscordUsername,
             DefenderCharName = homelander.GameCharacter.Name,
             DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(

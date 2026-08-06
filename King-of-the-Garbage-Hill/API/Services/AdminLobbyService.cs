@@ -197,10 +197,13 @@ public sealed class AdminLobbyService
             var account = _userAccounts.GetOrAddUserAccount(inviteeId);
             if (account == null || account.PlayerType == 404 || inviteeId <= 1_000_000)
                 return (null, "User is not available");
-            if (account.IsPlaying)
-                return (null, "пользователь уже играет");
-            if (!_reservations.TryAdd(inviteeId, ownerId))
-                return (null, "User is already reserved");
+            lock (account)
+            {
+                if (account.IsPlaying)
+                    return (null, "пользователь уже играет");
+                if (!_reservations.TryAdd(inviteeId, ownerId))
+                    return (null, "User is already reserved");
+            }
 
             invitedSlot = new AdminLobbySlot
             {
@@ -314,9 +317,15 @@ public sealed class AdminLobbyService
             if (lobby.Slots[slotIndex].Kind == "empty")
                 return (null, "Seat a player or bot first");
 
+            var selectedCharacter = characterName.Length > 0
+                ? _charactersPull.GetAdminSelectableCharacters()
+                    .FirstOrDefault(character => character.Name == characterName)
+                : null;
+            if (characterName.Length > 0 && selectedCharacter == null)
+                return (null, "Character not found");
             if (characterName.Length > 0
-                && _charactersPull.GetAdminSelectableCharacters()
-                    .All(character => character.Name != characterName))
+                && lobby.Slots[slotIndex].Kind == "bot"
+                && !StartGameLogic.CanNaturallyAssignToBot(selectedCharacter))
                 return (null, "Character not found");
 
             if (characterName.Length > 0 && lobby.Slots
@@ -624,8 +633,12 @@ public sealed class AdminLobbyService
             var characterName = slots[slotIndex].CharacterName;
             if (string.IsNullOrEmpty(characterName))
                 continue;
+            var character = catalog[characterName];
+            if (slots[slotIndex].Kind != "human"
+                && !StartGameLogic.CanNaturallyAssignToBot(character))
+                throw new InvalidOperationException("The final character roster is invalid.");
             game.PlayersList[slotIndex] = ReplaceCharacter(
-                game.PlayersList[slotIndex], catalog[characterName]);
+                game.PlayersList[slotIndex], character);
         }
     }
 
@@ -659,6 +672,8 @@ public sealed class AdminLobbyService
                 var candidates = _charactersPull.GetRollableCharacters()
                     .Where(character => strictBotCount >= 2
                                         || character.Name != Naruto.CharacterName)
+                    .Where(character => slots[slotIndex].Kind == "human"
+                                        || StartGameLogic.CanNaturallyAssignToBot(character))
                     .Where(character => taken.All(name =>
                         name != character.Name
                         && !StartGameLogic.AreMutuallyExclusiveCharacters(
@@ -707,6 +722,11 @@ public sealed class AdminLobbyService
 
     private static void ValidateFinalRoster(GameClass game)
     {
+        if (game.PlayersList.Any(player =>
+                player.PlayerType == 404
+                && !StartGameLogic.CanNaturallyAssignToBot(player.GameCharacter)))
+            throw new InvalidOperationException("The final character roster is invalid.");
+
         for (var first = 0; first < game.PlayersList.Count; first++)
         for (var second = first + 1; second < game.PlayersList.Count; second++)
         {

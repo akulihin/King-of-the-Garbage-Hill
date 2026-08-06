@@ -18,6 +18,7 @@ const props = defineProps<{
   phase: string
   shotCount: number
   canDeploySummon: boolean
+  disabled?: boolean
   boardingPlacementPending: boolean
   waitingRamReturnActive: boolean
   deployableSummons: string[]
@@ -96,14 +97,29 @@ function posLabel(row: number, col: number): string {
 }
 
 function chooseSummon(type: string) {
-  if (props.waitingRamReturnActive) return
+  if (props.disabled || props.waitingRamReturnActive) return
   summonType.value = type
   if (props.deployableSummons.includes(type)) emit('enterDeploy')
 }
 
 function pendingBlocked(pending: BattleshipPendingSummon): boolean {
-  if (props.waitingRamReturnActive) return true
+  if (props.disabled || props.waitingRamReturnActive) return true
   return props.boardingPlacementPending && !pending.isMandatoryBoarding
+}
+
+function enterReentryDeploy(summon: BattleshipSummon) {
+  if (props.disabled) return
+  emit('enterReentryDeploy', summon)
+}
+
+function enterPendingDeploy(pending: BattleshipPendingSummon) {
+  if (pendingBlocked(pending)) return
+  emit('enterPendingDeploy', pending)
+}
+
+function cancelDeploy() {
+  if (props.disabled) return
+  emit('cancelDeploy')
 }
 </script>
 
@@ -122,8 +138,8 @@ function pendingBlocked(pending: BattleshipPendingSummon): boolean {
           class="bs-seg-btn"
           type="button"
           :aria-pressed="summonType === type"
-          :disabled="waitingRamReturnActive || !deployableSummons.includes(type)"
-          :class="{ 'summon-choice-unavailable': waitingRamReturnActive || !deployableSummons.includes(type) }"
+          :disabled="disabled || waitingRamReturnActive || !deployableSummons.includes(type)"
+          :class="{ 'summon-choice-unavailable': disabled || waitingRamReturnActive || !deployableSummons.includes(type) }"
           @mouseenter="showTip($event, summonDescriptions[type] ?? '')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
@@ -168,10 +184,11 @@ function pendingBlocked(pending: BattleshipPendingSummon): boolean {
           v-if="s.waitingForTurnBack && s.type === 'Ram'"
           type="button"
           class="summon-wait"
+          :disabled="disabled"
           @mouseenter="showTip($event, 'Ожидает разворота')"
           @mousemove="moveTip"
           @mouseleave="hideTip"
-          @click="emit('enterReentryDeploy', s)"
+          @click="enterReentryDeploy(s)"
         >&#x21A9; Вернуть на карту</button>
       </span>
     </div>
@@ -186,7 +203,7 @@ function pendingBlocked(pending: BattleshipPendingSummon): boolean {
         class="pending-entry"
         :class="{ 'pending-entry--blocked': pendingBlocked(ps) }"
         :disabled="pendingBlocked(ps)"
-        @click="emit('enterPendingDeploy', ps)"
+        @click="enterPendingDeploy(ps)"
       >
         <span class="sb-seg-icon" v-html="iconFor(ps.type)" />
         <span class="pending-name">{{ ps.sourceShipName || ps.type }}</span>
@@ -216,7 +233,12 @@ function pendingBlocked(pending: BattleshipPendingSummon): boolean {
       <span v-if="summonDeployMode.pendingCols" class="deploy-cols bs-mono">
         (столбцы: {{ summonDeployMode.pendingCols.map(c => String.fromCharCode(65 + c)).join(', ') }})
       </span>
-      <button class="bs-btn bs-btn--sm sb-cancel-btn" @click="emit('cancelDeploy')">Отмена</button>
+      <button
+        type="button"
+        class="bs-btn bs-btn--sm sb-cancel-btn"
+        :disabled="disabled"
+        @click="cancelDeploy"
+      >Отмена</button>
     </div>
 
     <!-- Tooltip -->

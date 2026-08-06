@@ -34,6 +34,8 @@ const props = defineProps<{
   maneuverActive?: boolean
   maneuverShipCell?: boolean
   maneuverTarget?: boolean
+  replacementOptionA?: boolean
+  replacementOptionB?: boolean
   captureFocus?: boolean
   captureShipCell?: boolean
 }>()
@@ -99,6 +101,8 @@ const cellClass = computed(() => {
   if (props.marked) classes.push('cell-marked')
   if (props.maneuverActive) classes.push('cell-maneuver-muted')
   if (props.maneuverShipCell) classes.push('cell-maneuver-ship')
+  if (props.replacementOptionA) classes.push('cell-replacement-option-a')
+  if (props.replacementOptionB) classes.push('cell-replacement-option-b')
   if (props.maneuverTarget) classes.push('cell-maneuver-target')
   if (props.captureFocus) classes.push('cell-capture-muted')
   if (props.captureShipCell) classes.push('cell-capture-focused')
@@ -205,8 +209,9 @@ const cellTooltip = computed(() => {
     if (props.cell.isGhostSummon) {
       base = `${message('battleship.summon.ghost')} | ${base}`
     }
-    // ТЗ #1: material enemy creature in the penalty zone (rows 1-3 of the own board)
-    if (!props.isEnemy && !props.cell.isGhostSummon && props.cell.row <= 2) {
+    // ТЗ #1: material non-boarding enemy creature in the penalty zone (rows 1-3 of the own board)
+    if (!props.isEnemy && !props.cell.isGhostSummon
+      && !props.cell.isBoardingSummon && props.cell.row <= 2) {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
     }
   }
@@ -551,6 +556,30 @@ const cellTooltip = computed(() => {
   outline-offset: -3px;
   z-index: 5;
 }
+.cell-replacement-option-a {
+  filter: none;
+  opacity: 1;
+  background-image: linear-gradient(rgba(56, 189, 248, 0.34), rgba(56, 189, 248, 0.34)) !important;
+  box-shadow: inset 0 0 0 3px #38bdf8;
+  z-index: 5;
+}
+.cell-replacement-option-b {
+  filter: none;
+  opacity: 1;
+  background-image: linear-gradient(rgba(192, 132, 252, 0.34), rgba(192, 132, 252, 0.34)) !important;
+  box-shadow: inset 0 0 0 3px #c084fc;
+  z-index: 5;
+}
+.cell-replacement-option-a.cell-replacement-option-b {
+  background-image: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.42) 0 50%,
+    rgba(192, 132, 252, 0.42) 50% 100%
+  ) !important;
+  box-shadow:
+    inset 3px 0 0 #38bdf8,
+    inset -3px 0 0 #c084fc;
+}
 .cell-maneuver-target {
   filter: none;
   opacity: 1;
@@ -562,6 +591,22 @@ const cellTooltip = computed(() => {
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
   z-index: 6;
   animation: maneuver-target-pulse 0.75s ease-in-out infinite alternate;
+}
+.cell-maneuver-target.cell-replacement-option-a:not(.cell-replacement-option-b)::after,
+.cell-maneuver-target.cell-replacement-option-b:not(.cell-replacement-option-a)::after {
+  position: absolute;
+  right: 2px;
+  top: 1px;
+  color: #052e16;
+  font-size: 0.58rem;
+  font-weight: 950;
+  line-height: 1;
+}
+.cell-maneuver-target.cell-replacement-option-a:not(.cell-replacement-option-b)::after {
+  content: 'I';
+}
+.cell-maneuver-target.cell-replacement-option-b:not(.cell-replacement-option-a)::after {
+  content: 'II';
 }
 .cell-capture-muted {
   filter: grayscale(1) brightness(0.52);

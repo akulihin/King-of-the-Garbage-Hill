@@ -21,6 +21,8 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
 public class CheckIfReady : IServiceSingleton
 {
+    private const string CaptainObviousSource = "Капитан Очевидность";
+
     private readonly UserAccounts _accounts;
     private readonly BotsBehavior _botsBehavior;
     private readonly CharacterPassives _characterPassives;
@@ -401,9 +403,18 @@ public class CheckIfReady : IServiceSingleton
 
             Homelander.RunWithoutProtection(scoreVictim, () =>
                 scoreVictim.Status.AddBonusPoints(
-                    -TheBoys.VirusPointsPerInfected, TheBoys.VirusUltimate));
+                    -TheBoys.VirusPointsPerInfected,
+                    TheBoys.VirusUltimate,
+                    FeedbackSourceVisibility.RevealedTarget));
             scoreVictim.Status.AddInGamePersonalLogs(
-                $"☣️ Смертельный вирус Француза: -{TheBoys.VirusPointsPerInfected} бонусных очка\n");
+                PhrasePayload.EncodeOwnerOnly(
+                    TheBoys.VirusUltimate,
+                    $"☣️ Смертельный вирус Француза: -{TheBoys.VirusPointsPerInfected} бонусных очка",
+                    "Deadly Virus",
+                    $"☣️ Frenchie's Deadly Virus: -{TheBoys.VirusPointsPerInfected} bonus points",
+                    "",
+                    "",
+                    scoreVictim.GetPlayerId()) + "\n");
             virusStolen.TryGetValue(src, out var cur);
             virusStolen[src] = cur + TheBoys.VirusPointsPerInfected;
         }
@@ -531,6 +542,8 @@ public class CheckIfReady : IServiceSingleton
             _logs.Critical(exception.Message);
             _logs.Critical(exception.StackTrace);
         }
+
+        HandleCaptainObvious(game);
 
         // Premade: if Support and Carry both in top 2, Support wins
         var supportPlayer = game.PlayersList.FirstOrDefault(x =>
@@ -857,15 +870,23 @@ public class CheckIfReady : IServiceSingleton
                     && player.DiscordId == game.CreatorId
                     && !account.IsBot())
                 {
-                    account.EloRating += player.Status.GetPlaceAtLeaderBoard() switch
+                    var shinigamiPenalty = game.RankedShinigamiPenaltyApplied
+                        ? RankedElo.ShinigamiPenalty
+                        : 0;
+                    var blackjackRecovery = game.RankedBlackjackRecoveryAwarded;
+                    var ratingBefore = game.RankedEloRatingAtStart
+                                       ?? account.EloRating - shinigamiPenalty - blackjackRecovery;
+                    var placementDelta = RankedElo.GetPlacementDelta(account.EloRating, rewardPlace);
+                    account.EloRating += placementDelta;
+                    game.RankedEloSettlement = new GameClass.RankedEloSettlementClass
                     {
-                        1 => 10,
-                        2 => 5,
-                        3 => 1,
-                        4 => 0,
-                        5 => -1,
-                        6 => -5,
-                        _ => 0,
+                        RatingBefore = ratingBefore,
+                        RatingAfter = account.EloRating,
+                        Delta = account.EloRating - ratingBefore,
+                        FinalPlace = rewardPlace,
+                        PlacementDelta = placementDelta,
+                        ShinigamiPenalty = shinigamiPenalty,
+                        BlackjackRecovery = blackjackRecovery,
                     };
                 }
 
@@ -971,6 +992,9 @@ public class CheckIfReady : IServiceSingleton
             catch (Exception ex) { _logs.Critical($"Replay save failed: {ex.Message}"); }
         }
 
+        if (game.IsRanked)
+            _global.StoreFinishedGame(game);
+
         // Broadcast final state to web clients BEFORE removing the game.
         // Without this, PreferWeb players never see the last round's results because
         // HandleLastRound completes too fast (no Discord API delay) and the game
@@ -992,6 +1016,54 @@ public class CheckIfReady : IServiceSingleton
         {
             _global.GamesList.Remove(game);
         }
+    }
+
+    private static void HandleCaptainObvious(GameClass game)
+    {
+        if (game.PlayersList.Count != 6 || game.PlayersList.Count(player => player.IsBot()) > 5)
+            return;
+
+        var leader = game.PlayersList.FirstOrDefault(player =>
+            player.Status.GetPlaceAtLeaderBoard() == 1);
+        var runnerUp = game.PlayersList.FirstOrDefault(player =>
+            player.Status.GetPlaceAtLeaderBoard() == 2);
+        if (leader == null
+            || runnerUp == null
+            || runnerUp.Passives.IsDead
+            || runnerUp.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Тетрадь смерти")
+            || runnerUp.GameCharacter.DoomRollMode
+            || Naruto.IsDispersedClone(runnerUp)
+            || UnknownBug.Is(leader)
+            || Sakura.Is(leader)
+            || leader.GameCharacter.Passive.Any(passive =>
+                passive.PassiveName == "Выдуманный персонаж")
+            || !Naruto.PredictionAwardsPoints(runnerUp, leader)
+            || !runnerUp.Predict.Any(prediction =>
+                prediction.PlayerId == leader.GetPlayerId()
+                && prediction.CharacterName == leader.GameCharacter.Name)
+            || !Homelander.CanTransferFrom(leader, CaptainObviousSource))
+            return;
+
+        ScamRat.TransferExactBonusPoints(leader, runnerUp, 1, CaptainObviousSource);
+        runnerUp.Status.AddInGamePersonalLogs(
+            GameLocalization.MessageForUser(
+                runnerUp.DiscordId,
+                "kotgh.gameplay.captainObvious.guesser") + "\n");
+        leader.Status.AddInGamePersonalLogs(
+            GameLocalization.MessageForUser(
+                leader.DiscordId,
+                "kotgh.gameplay.captainObvious.target") + "\n");
+
+        game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
+        for (var index = 0; index < game.PlayersList.Count; index++)
+            game.PlayersList[index].Status.SetPlaceAtLeaderBoard(index + 1);
+
+        var changedLeader = runnerUp.Status.GetPlaceAtLeaderBoard() == 1;
+        runnerUp.Passives.AchievementTracker.CaptainObviousGuesser = true;
+        runnerUp.Passives.AchievementTracker.CaptainObviousChangedLeader = changedLeader;
+        leader.Passives.AchievementTracker.CaptainObviousTarget = true;
+        leader.Passives.AchievementTracker.CaptainObviousChangedLeader = changedLeader;
     }
 
     private async Task NotifyOwner(GameClass game)

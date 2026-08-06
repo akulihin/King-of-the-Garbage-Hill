@@ -460,6 +460,7 @@ public static class Cthulhu
             state.NechtoAttackedThisRound = true;
             game.WebFightLog.Add(new FightEntryDto
             {
+                AttackerPlayerId = attacker.GetPlayerId(),
                 AttackerName = attacker.DiscordUsername,
                 AttackerCharName = attacker.GameCharacter.Name,
                 AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(
@@ -468,6 +469,7 @@ public static class Cthulhu
                 DefenderCharName = Nechto,
                 DefenderAvatar = "/art/avatars/nechto.png",
                 Outcome = attackerWon ? "win" : "loss",
+                WinnerPlayerId = attackerWon ? attacker.GetPlayerId() : null,
                 WinnerName = attackerWon ? attacker.DiscordUsername : Nechto,
                 AttackerClass = attacker.FightCharacter.GetSkillClass(),
                 DefenderClass = state.NechtoBridge.FightCharacter.GetSkillClass(),

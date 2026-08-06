@@ -230,6 +230,12 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "auto-move":
+                        if (game.IsRanked)
+                        {
+                            await _upd.UpdateMessage(player);
+                            break;
+                        }
+
                         player.Status.AutoMoveTimes++;
                         player.Passives.AchievementTracker.ExplicitAutoMoveRounds.Add(game!.RoundNo);
                         await game!.Phrases.AutoMove.SendLogSeparate(player, true, 7000, false);

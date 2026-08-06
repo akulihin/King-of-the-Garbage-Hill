@@ -161,7 +161,7 @@ public class DoomsdayMachine : IServiceSingleton
         if (globalLogsNow.Length > globalLogsLengthBeforeFight)
         {
             var hiddenSnippet = globalLogsNow[globalLogsLengthBeforeFight..];
-            game.HiddenGlobalLogSnippets.Add(hiddenSnippet);
+            game.AddHiddenGlobalLogSnippet(hiddenSnippet);
             if (attacker.Status.IsShadowAction)
                 game.DopaShadowGlobalLogSnippets.Add(hiddenSnippet);
         }
@@ -874,13 +874,16 @@ public class DoomsdayMachine : IServiceSingleton
                     // Web fight entry for block
                     game.WebFightLog.Add(new FightEntryDto
                     {
+                        AttackerPlayerId = player.GetPlayerId(),
                         AttackerName = player.DiscordUsername,
                         AttackerCharName = player.GameCharacter.Name,
                         AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
+                        DefenderPlayerId = playerIamAttacking.GetPlayerId(),
                         DefenderName = playerIamAttacking.DiscordUsername,
                         DefenderCharName = playerIamAttacking.GameCharacter.Name,
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
                         Outcome = "block",
+                        WinnerPlayerId = playerIamAttacking.GetPlayerId(),
                         WinnerName = playerIamAttacking.DiscordUsername,
                         SkillGainedFromTarget = Math.Round(skillGainedFromTarget, 1),
                         SkillGainedFromClassAttacker = Math.Round(skillGainedFromClassAttacker, 1),
@@ -929,9 +932,11 @@ public class DoomsdayMachine : IServiceSingleton
                     // Web fight entry for skip
                     game.WebFightLog.Add(new FightEntryDto
                     {
+                        AttackerPlayerId = player.GetPlayerId(),
                         AttackerName = player.DiscordUsername,
                         AttackerCharName = player.GameCharacter.Name,
                         AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(player.GameCharacter.AvatarCurrent ?? player.GameCharacter.Avatar),
+                        DefenderPlayerId = playerIamAttacking.GetPlayerId(),
                         DefenderName = playerIamAttacking.DiscordUsername,
                         DefenderCharName = playerIamAttacking.GameCharacter.Name,
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(playerIamAttacking.GameCharacter.AvatarCurrent ?? playerIamAttacking.GameCharacter.Avatar),
@@ -1633,13 +1638,18 @@ public class DoomsdayMachine : IServiceSingleton
 
                     game.WebFightLog.Add(new FightEntryDto
                     {
+                        AttackerPlayerId = player.GetPlayerId(),
                         AttackerName = player.DiscordUsername,
                         AttackerCharName = me.Name,
                         AttackerAvatar = GameStateMapper.GetLocalAvatarUrl(me.AvatarCurrent ?? me.Avatar),
+                        DefenderPlayerId = playerIamAttacking.GetPlayerId(),
                         DefenderName = playerIamAttacking.DiscordUsername,
                         DefenderCharName = target.Name,
                         DefenderAvatar = GameStateMapper.GetLocalAvatarUrl(target.AvatarCurrent ?? target.Avatar),
                         Outcome = attackerWon ? "win" : "loss",
+                        WinnerPlayerId = attackerWon
+                            ? player.GetPlayerId()
+                            : playerIamAttacking.GetPlayerId(),
                         WinnerName = attackerWon ? player.DiscordUsername : playerIamAttacking.DiscordUsername,
                         AttackerClass = step1.AttackerClass,
                         DefenderClass = step1.DefenderClass,

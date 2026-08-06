@@ -4,19 +4,29 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using System.Timers;
 using King_of_the_Garbage_Hill.API.DTOs;
+using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.Services;
+using King_of_the_Garbage_Hill.Helpers;
+using King_of_the_Garbage_Hill.LocalPersistentData.UsersAccounts;
 
 namespace King_of_the_Garbage_Hill.API.Services;
 
-public class BlackjackService
+public class BlackjackService : IServiceSingleton
 {
     private readonly ConcurrentDictionary<ulong, BlackjackTable> _tables = new();
+    private readonly Global _global;
+    private readonly UserAccounts _userAccounts;
     private readonly List<WordCategory> _wordCategories;
     private readonly Timer _cleanupTimer;
 
-    public BlackjackService()
+    public BlackjackService(Global global, UserAccounts userAccounts)
     {
+        _global = global;
+        _userAccounts = userAccounts;
+
         // Load word list
         var wordsPath = Path.Combine(AppContext.BaseDirectory, "DataBase", "blackjack_words.json");
         if (File.Exists(wordsPath))
@@ -46,31 +56,124 @@ public class BlackjackService
 
     // ── Public API ─────────────────────────────────────────────────────
 
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// Seats a real human who has just entered the Shinigami world so the final-round client
+    /// can still join after the parent game leaves GamesList. For the Ranked creator it also
+    /// persists the one-time debit before arming exactly one possible recovery result.
+    /// </summary>
+    public bool RegisterShinigamiArrival(GameClass game, GamePlayerBridgeClass player)
+    {
+        if (game == null
+            || player == null
+            || player.IsBot()
+            || !player.Passives.IsDead
+            || player.Passives.DeathSource != "Kira")
+            return false;
+
+        BlackjackTable table;
+        BlackjackPlayer blackjackPlayer;
+        while (true)
+        {
+            table = _tables.GetOrAdd(game.GameId, _ => new BlackjackTable());
+            lock (table)
+            {
+                if (!IsOpenTable(game.GameId, table))
+                    continue;
+
+                blackjackPlayer = table.Players.FirstOrDefault(candidate =>
+                    candidate.DiscordId == player.DiscordId);
+                if (blackjackPlayer == null)
+                {
+                    if (table.Players.Count >= 5)
+                        return false;
+                    blackjackPlayer = CreatePlayer(player.DiscordId, player.DiscordUsername);
+                    table.Players.Add(blackjackPlayer);
+                }
+                table.LastActivity = DateTime.UtcNow;
+                break;
+            }
+        }
+
+        if (!game.IsRanked || player.DiscordId != game.CreatorId)
+            return false;
+
+        var account = _userAccounts.GetAccount(player.DiscordId);
+        if (account == null)
+            return false;
+
+        lock (game)
+        {
+            if (game.RankedShinigamiPenaltyApplied)
+                return false;
+
+            int ratingBeforePenalty;
+            lock (account)
+            {
+                ratingBeforePenalty = account.EloRating;
+                game.RankedEloRatingAtStart ??= ratingBeforePenalty;
+                account.EloRating += RankedElo.ShinigamiPenalty;
+                if (!_userAccounts.SaveAccount(account))
+                {
+                    Console.WriteLine(
+                        $"[Blackjack] Ranked Shinigami penalty for {player.DiscordId} is retained in memory for a save retry.");
+                }
+            }
+
+            game.RankedShinigamiPenaltyApplied = true;
+
+            lock (table)
+            {
+                table.RankedGame = game;
+                blackjackPlayer.RankedEloRecoveryEligible = true;
+                blackjackPlayer.RankedEloRatingBeforePenalty = ratingBeforePenalty;
+                table.LastActivity = DateTime.UtcNow;
+            }
+        }
+
+        return true;
+    }
+
     public (BlackjackTableStateDto state, string error) JoinTable(ulong gameId, ulong discordId, string username)
     {
-        var table = _tables.GetOrAdd(gameId, _ => new BlackjackTable());
-        lock (table)
+        while (true)
         {
-            // Already seated?
-            var existing = table.Players.FirstOrDefault(p => p.DiscordId == discordId);
-            if (existing != null)
-                return (ToDto(table, discordId), null);
-
-            if (table.Players.Count >= 5)
-                return (null, "Стол полон (максимум 5 игроков).");
-
-            table.Players.Add(new BlackjackPlayer
+            if (!_tables.TryGetValue(gameId, out var table))
             {
-                DiscordId = discordId,
-                Username = username,
-                Hand = new List<BlackjackCard>(),
-                Status = PlayerTurnStatus.Waiting,
-                Wins = 0,
-                CanSendMessage = false,
-            });
-            table.LastActivity = DateTime.UtcNow;
+                var game = FindActiveGame(gameId);
+                var player = game?.PlayersList.FirstOrDefault(candidate => candidate.DiscordId == discordId);
+                if (player == null || !player.Passives.IsDead || player.Passives.DeathSource != "Kira")
+                    return (null, GameLocalization.MessageForUser(discordId, "kotgh.blackjack.unavailable"));
 
-            return (ToDto(table, discordId), null);
+                table = _tables.GetOrAdd(gameId, _ => new BlackjackTable());
+            }
+
+            lock (table)
+            {
+                if (!IsOpenTable(gameId, table))
+                    continue;
+
+                // Already seated?
+                var existing = table.Players.FirstOrDefault(p => p.DiscordId == discordId);
+                if (existing != null)
+                    return (ToDto(gameId, table, discordId), null);
+
+                var activeGame = FindActiveGame(gameId);
+                var activePlayer = activeGame?.PlayersList.FirstOrDefault(candidate => candidate.DiscordId == discordId);
+                if (activePlayer == null
+                    || !activePlayer.Passives.IsDead
+                    || activePlayer.Passives.DeathSource != "Kira")
+                    return (null, GameLocalization.MessageForUser(discordId, "kotgh.blackjack.unavailable"));
+
+                if (table.Players.Count >= 5)
+                    return (null, "Стол полон (максимум 5 игроков).");
+
+                table.Players.Add(CreatePlayer(discordId, username));
+                table.LastActivity = DateTime.UtcNow;
+
+                return (ToDto(gameId, table, discordId), null);
+            }
         }
     }
 
@@ -81,6 +184,9 @@ public class BlackjackService
 
         lock (table)
         {
+            if (!IsOpenTable(gameId, table))
+                return (null, "Стол не найден.");
+
             if (table.Phase != GamePhase.PlayerTurns)
                 return (null, "Сейчас нельзя брать карту.");
 
@@ -104,7 +210,7 @@ public class BlackjackService
                 AdvanceToNextPlayer(table);
             }
 
-            return (ToDto(table, discordId), null);
+            return (ToDto(gameId, table, discordId), null);
         }
     }
 
@@ -115,6 +221,9 @@ public class BlackjackService
 
         lock (table)
         {
+            if (!IsOpenTable(gameId, table))
+                return (null, "Стол не найден.");
+
             if (table.Phase != GamePhase.PlayerTurns)
                 return (null, "Сейчас нельзя остановиться.");
 
@@ -126,7 +235,7 @@ public class BlackjackService
             table.LastActivity = DateTime.UtcNow;
             AdvanceToNextPlayer(table);
 
-            return (ToDto(table, discordId), null);
+            return (ToDto(gameId, table, discordId), null);
         }
     }
 
@@ -137,6 +246,19 @@ public class BlackjackService
 
         lock (table)
         {
+            if (!IsOpenTable(gameId, table))
+                return (null, "Стол не найден.");
+
+            var requestingPlayer = table.Players.FirstOrDefault(player =>
+                player.DiscordId == discordId);
+            if (requestingPlayer == null)
+                return (null, "Вы не за этим столом.");
+            if (table.RankedGame != null
+                && table.RankedGame.CreatorId != requestingPlayer.DiscordId)
+                return (null, GameLocalization.MessageForUser(
+                    discordId,
+                    "kotgh.blackjack.unavailable"));
+
             if (table.Phase != GamePhase.Waiting && table.Phase != GamePhase.Finished)
                 return (null, "Раунд ещё идёт.");
 
@@ -184,7 +306,7 @@ public class BlackjackService
             if (table.Players[0].Status != PlayerTurnStatus.Playing)
                 AdvanceToNextPlayer(table);
 
-            return (ToDto(table, discordId), null);
+            return (ToDto(gameId, table, discordId), null);
         }
     }
 
@@ -195,6 +317,9 @@ public class BlackjackService
 
         lock (table)
         {
+            if (!IsOpenTable(gameId, table))
+                return (null, "Стол не найден.");
+
             var player = table.Players.FirstOrDefault(p => p.DiscordId == discordId);
             if (player == null)
                 return (null, "Вы не за этим столом.");
@@ -223,13 +348,38 @@ public class BlackjackService
             };
             table.LastActivity = DateTime.UtcNow;
 
-            return (ToDto(table, discordId), message);
+            return (ToDto(gameId, table, discordId), message);
         }
     }
 
     public bool HasActiveTable(ulong gameId)
     {
-        return _tables.ContainsKey(gameId);
+        if (!_tables.TryGetValue(gameId, out var table))
+            return false;
+
+        lock (table)
+            return IsOpenTable(gameId, table);
+    }
+
+    public bool HasPendingRankedRecovery(ulong discordId)
+    {
+        foreach (var entry in _tables)
+        {
+            var table = entry.Value;
+            lock (table)
+            {
+                if (!IsOpenTable(entry.Key, table))
+                    continue;
+
+                if (table.Players.Any(player =>
+                        player.DiscordId == discordId
+                        && player.RankedEloRecoveryEligible
+                        && !player.RankedEloRecoverySettled))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     public BlackjackTableStateDto GetTableState(ulong gameId, ulong discordId)
@@ -239,7 +389,10 @@ public class BlackjackService
 
         lock (table)
         {
-            return ToDto(table, discordId);
+            if (!IsOpenTable(gameId, table))
+                return null;
+
+            return ToDto(gameId, table, discordId);
         }
     }
 
@@ -249,6 +402,29 @@ public class BlackjackService
     }
 
     // ── Internal game logic ────────────────────────────────────────────
+
+    private GameClass FindActiveGame(ulong gameId)
+    {
+        lock (_global.GamesList)
+            return _global.GamesList.Find(game => game.GameId == gameId);
+    }
+
+    private bool IsOpenTable(ulong gameId, BlackjackTable table)
+    {
+        return !table.Closed
+               && _tables.TryGetValue(gameId, out var current)
+               && ReferenceEquals(current, table);
+    }
+
+    private static BlackjackPlayer CreatePlayer(ulong discordId, string username) => new()
+    {
+        DiscordId = discordId,
+        Username = username,
+        Hand = new List<BlackjackCard>(),
+        Status = PlayerTurnStatus.Waiting,
+        Wins = 0,
+        CanSendMessage = false,
+    };
 
     private static List<BlackjackCard> MakeShoe(int deckCount)
     {
@@ -350,7 +526,7 @@ public class BlackjackService
         ResolveRound(table);
     }
 
-    private static void ResolveRound(BlackjackTable table)
+    private void ResolveRound(BlackjackTable table)
     {
         var dealerTotal = HandTotal(table.DealerHand);
         var dealerBusted = dealerTotal > 21;
@@ -395,9 +571,55 @@ public class BlackjackService
             {
                 p.Result = "push";
             }
+
+            SettleRankedEloRecovery(table, p);
         }
 
         table.Phase = GamePhase.Finished;
+    }
+
+    private void SettleRankedEloRecovery(BlackjackTable table, BlackjackPlayer player)
+    {
+        if (!player.RankedEloRecoveryEligible || player.RankedEloRecoverySettled)
+            return;
+
+        player.RankedEloRecoverySettled = true;
+        if (player.Result is not "win" and not "blackjack")
+            return;
+
+        var account = _userAccounts.GetAccount(player.DiscordId);
+        if (account == null)
+            return;
+
+        lock (account)
+        {
+            account.EloRating += RankedElo.BlackjackRecovery;
+            if (!_userAccounts.SaveAccount(account))
+                Console.WriteLine(
+                    $"[Blackjack] Ranked recovery for {player.DiscordId} is retained in memory for a save retry.");
+
+            player.RankedEloRecoveryAwarded = RankedElo.BlackjackRecovery;
+            var game = table.RankedGame;
+            if (game != null)
+            {
+                game.RankedBlackjackRecoveryAwarded = RankedElo.BlackjackRecovery;
+                if (game.RankedEloSettlement != null)
+                {
+                    var previous = game.RankedEloSettlement;
+                    game.RankedEloSettlement = new GameClass.RankedEloSettlementClass
+                    {
+                        RatingBefore = previous.RatingBefore,
+                        RatingAfter = account.EloRating,
+                        Delta = account.EloRating - previous.RatingBefore,
+                        FinalPlace = previous.FinalPlace,
+                        PlacementDelta = previous.PlacementDelta,
+                        ShinigamiPenalty = previous.ShinigamiPenalty,
+                        BlackjackRecovery = RankedElo.BlackjackRecovery,
+                    };
+                    _global.StoreFinishedGame(game);
+                }
+            }
+        }
     }
 
     private void CleanupStaleTables()
@@ -405,17 +627,28 @@ public class BlackjackService
         var cutoff = DateTime.UtcNow.AddMinutes(-30);
         foreach (var kvp in _tables)
         {
-            if (kvp.Value.LastActivity < cutoff)
+            var table = kvp.Value;
+            lock (table)
             {
-                _tables.TryRemove(kvp.Key, out _);
-                Console.WriteLine($"[Blackjack] Cleaned up stale table for game {kvp.Key}");
+                if (!IsOpenTable(kvp.Key, table) || table.LastActivity >= cutoff)
+                    continue;
+
+                if (_tables.TryRemove(kvp.Key, out var removed)
+                    && ReferenceEquals(removed, table))
+                {
+                    table.Closed = true;
+                    Console.WriteLine($"[Blackjack] Cleaned up stale table for game {kvp.Key}");
+                }
             }
         }
     }
 
     // ── DTO mapping ────────────────────────────────────────────────────
 
-    private BlackjackTableStateDto ToDto(BlackjackTable table, ulong requestingDiscordId)
+    private BlackjackTableStateDto ToDto(
+        ulong gameId,
+        BlackjackTable table,
+        ulong requestingDiscordId)
     {
         var dealerCards = table.DealerHand?.Select(c => new BlackjackCardDto
         {
@@ -434,6 +667,7 @@ public class BlackjackService
 
         return new BlackjackTableStateDto
         {
+            GameId = gameId,
             Phase = table.Phase.ToString().ToLowerInvariant(),
             CurrentPlayerIndex = table.CurrentPlayerIndex,
             DealerName = "Рюк",
@@ -449,6 +683,7 @@ public class BlackjackService
                 Name = c.Name,
                 Words = c.Words,
             }).ToList(),
+            RankedEloRecovery = BuildRankedEloRecovery(table, requestingDiscordId),
             Players = table.Players.Select((p, idx) => new BlackjackPlayerDto
             {
                 DiscordId = p.DiscordId.ToString(),
@@ -470,6 +705,29 @@ public class BlackjackService
         };
     }
 
+    private RankedEloRecoveryDto BuildRankedEloRecovery(BlackjackTable table, ulong requestingDiscordId)
+    {
+        var player = table.Players.FirstOrDefault(candidate =>
+            candidate.DiscordId == requestingDiscordId && candidate.RankedEloRecoveryEligible);
+        if (player == null)
+            return null;
+
+        var account = _userAccounts.GetAccount(requestingDiscordId);
+        return new RankedEloRecoveryDto
+        {
+            RatingBeforePenalty = player.RankedEloRatingBeforePenalty,
+            CurrentRating = account?.EloRating
+                            ?? player.RankedEloRatingBeforePenalty + RankedElo.ShinigamiPenalty
+                            + player.RankedEloRecoveryAwarded,
+            Penalty = RankedElo.ShinigamiPenalty,
+            Recovered = player.RankedEloRecoveryAwarded,
+            Remaining = player.RankedEloRecoverySettled
+                ? 0
+                : RankedElo.BlackjackRecovery,
+            Settled = player.RankedEloRecoverySettled,
+        };
+    }
+
     // ── Internal models ────────────────────────────────────────────────
 
     private class BlackjackTable
@@ -481,6 +739,8 @@ public class BlackjackService
         public int CurrentPlayerIndex { get; set; }
         public DateTime LastActivity { get; set; } = DateTime.UtcNow;
         public BlackjackMessage LastMessage { get; set; }
+        public GameClass RankedGame { get; set; }
+        public bool Closed { get; set; }
     }
 
     private class BlackjackPlayer
@@ -492,6 +752,10 @@ public class BlackjackService
         public string Result { get; set; }
         public int Wins { get; set; }
         public bool CanSendMessage { get; set; }
+        public bool RankedEloRecoveryEligible { get; set; }
+        public bool RankedEloRecoverySettled { get; set; }
+        public int RankedEloRatingBeforePenalty { get; set; }
+        public int RankedEloRecoveryAwarded { get; set; }
     }
 
     private class BlackjackCard

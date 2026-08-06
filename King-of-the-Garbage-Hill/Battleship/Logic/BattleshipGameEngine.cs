@@ -408,7 +408,6 @@ public static class BattleshipGameEngine
         }
 
         game.ShotCount++;
-        ApplyWhiteStoneStun(game, shooter, shooter);
         ConsumeSelectedWeaponAmmo(game, shooter);
         cell.IsRevealed = true;
         cell.IsHit = true;
@@ -523,7 +522,7 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// Shoot own board to kill an enemy summon. Turn is always interrupted + penalty for rows 0-2.
+    /// Shoot own board to damage an enemy summon or boarding hull.
     /// </summary>
     public static ShotResult ProcessOwnBoardShot(BattleshipGame game, BattleshipPlayer shooter, int row, int col)
     {
@@ -536,8 +535,12 @@ public static class BattleshipGameEngine
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false,
                 Message = "На этой клетке нет вражеского призыва." };
 
+        var summon = cell.SummonRef;
         game.ShotCount++;
-        ApplyWhiteStoneStun(game, shooter, shooter);
+        var stunRecipient = summon.IsBoardingShip
+            ? game.GetPlayer(summon.OwnerId)
+            : shooter;
+        ApplyWhiteStoneStun(game, shooter, stunRecipient);
         ConsumeSelectedWeaponAmmo(game, shooter);
         return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
     }
@@ -565,6 +568,7 @@ public static class BattleshipGameEngine
         var anyHit = false;
         var anyDestroyed = false;
         var anySunk = false;
+        var anyResettingDestruction = false;
         var penaltyApplied = false;
 
         // Process 2x2 area
@@ -605,6 +609,9 @@ public static class BattleshipGameEngine
                 {
                     anyDestroyed |= summonHit.Destroyed;
                     anySunk |= summonHit.ShipSunk;
+                    // A destroyed boarding deck keeps the ordinary deck reset; only the
+                    // final hull kill is explicitly non-resetting.
+                    anyResettingDestruction |= summonHit.Destroyed && !summonHit.ShipSunk;
                 }
                 continue;
             }
@@ -633,6 +640,7 @@ public static class BattleshipGameEngine
                 if (deck.IsDestroyed)
                 {
                     anyDestroyed = true;
+                    anyResettingDestruction = true;
                     cell.WasScratched = false; // No longer scratched — deck is destroyed (ТЗ #9)
                     // ТЗ #20: shooter's mast spots the Maneuvering Double (same rule as ProcessShipHit)
                     if (wasAlive && ship.Abilities.Contains("manual_move_after_hit") &&
@@ -652,6 +660,7 @@ public static class BattleshipGameEngine
                 if (ship.IsDestroyed)
                 {
                     anySunk = true;
+                    anyResettingDestruction = true;
                     RevealShip(opponent.Board, ship, shooter);
                     HandleShipDeath(game, opponent, ship);
                     game.AddBoardDetailLog(opponent.DiscordId,
@@ -660,8 +669,9 @@ public static class BattleshipGameEngine
             }
         }
 
-        // Only ship deck kills/sinks reset the turn, not summon kills (Bug #6)
-        if (anySunk || anyDestroyed) aggregate.TurnContinues = true;
+        // A final Boarding hull kill never resets a Buckshot action. A surviving hull's
+        // destroyed deck, or an ordinary ship deck in the same area, still does.
+        aggregate.TurnContinues = anyResettingDestruction;
 
         aggregate.Hit = anyHit;
         aggregate.Destroyed = anyDestroyed;
@@ -781,7 +791,7 @@ public static class BattleshipGameEngine
                     Burned = true,
                     Row = row,
                     Col = col,
-                    TurnContinues = true,
+                    TurnContinues = false,
                     Message = $"{sourceName} сгорел!",
                     AffectedShipName = sourceName,
                 };
@@ -816,16 +826,6 @@ public static class BattleshipGameEngine
                 MarkBoardingSourceDestroyed(owner, summon);
             }
 
-            var boardingPenalty = false;
-            if (!summon.IsAlive && summon.OwnerId != shooter.DiscordId &&
-                shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire) &&
-                row <= 2 && game.ShotCount - summon.SpawnedAtShot > 1)
-            {
-                shooter.HasPenalty = true;
-                boardingPenalty = true;
-                game.AddLog($"{shooter.Username} получает штраф за уничтожение абордажного корабля в тылу!");
-            }
-
             if (deckDestroyed)
             {
                 cell.WasScratched = false;
@@ -839,11 +839,10 @@ public static class BattleshipGameEngine
                     Hit = true,
                     Destroyed = true,
                     ShipSunk = !summon.IsAlive,
-                    PenaltyApplied = boardingPenalty,
                     Row = row,
                     Col = col,
-                    TurnContinues = true,
-                    Message = boardingPenalty ? $"{message} Штраф: пропуск хода." : message,
+                    TurnContinues = summon.IsAlive,
+                    Message = message,
                     AffectedShipName = sourceName,
                 };
             }
@@ -875,10 +874,10 @@ public static class BattleshipGameEngine
         if (summon.Type == SummonType.Brander)
             DetonateBrander(game, game.GetOpponent(summon.OwnerId), summon, row, col, shooter);
 
-        // Summon kill penalty: rows 0-2 = penalty, unless just spawned
+        // Ordinary summon kill penalty: rows 0-2 = penalty, unless just spawned.
         var turnContinues = false;
         var penalty = false;
-        if (summon.OwnerId != shooter.DiscordId &&
+        if (!summon.IsBoardingShip && summon.OwnerId != shooter.DiscordId &&
             shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire) &&
             row <= 2)
         {
@@ -1119,19 +1118,19 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
-    /// White Stone stuns the owner of the physical board where a valid shot lands.
+    /// White Stone stuns the explicitly selected recipient of a valid shot.
     /// Call only after the shot has passed validation and incremented <see cref="BattleshipGame.ShotCount"/>.
     /// </summary>
     public static void ApplyWhiteStoneStun(
         BattleshipGame game,
         BattleshipPlayer shooter,
-        BattleshipPlayer targetBoardOwner)
+        BattleshipPlayer recipient)
     {
-        if (game == null || shooter == null || targetBoardOwner == null ||
+        if (game == null || shooter == null || recipient == null ||
             shooter.SelectedShotType != ShotType.WhiteStone)
             return;
 
-        targetBoardOwner.StunShotExpiry = game.ShotCount + 1;
+        recipient.StunShotExpiry = game.ShotCount + 1;
     }
 
     private static int GetDeckIndexAtCell(Ship ship, int row, int col)
@@ -1307,6 +1306,33 @@ public static class BattleshipGameEngine
             cell.IsMiss = true;
     }
 
+    /// <summary>
+    /// Persist one discarded Matryoshka deck independently of the live ShipRef occupying the
+    /// board. Transport code can therefore render the red wreck after the parent is removed.
+    /// </summary>
+    public static void MarkMatryoshkaWreck(Cell cell, Ship sourceShip, int sourceDeckIndex)
+    {
+        if (cell == null || sourceShip == null) return;
+        cell.Wreck = new CellWreckState
+        {
+            Kind = CellWreckKind.Matryoshka,
+            SourceShipId = sourceShip.Id,
+            SourceShipName = sourceShip.Name,
+            SourceDeckIndex = sourceDeckIndex,
+        };
+        cell.IsRevealed = true;
+        cell.IsHit = true;
+        cell.IsMiss = false;
+        cell.WasShipHit = true;
+        cell.WasScratched = false;
+        cell.SunkShipName = sourceShip.Name;
+    }
+
+    public static void ClearCellWreck(Cell cell)
+    {
+        if (cell != null) cell.Wreck = null;
+    }
+
     private static void ReconcileManeuverHistory(Board board, Ship ship, BattleshipPlayer beneficiary)
     {
         if (!ship.IsDestroyed) return;
@@ -1348,6 +1374,32 @@ public static class BattleshipGameEngine
         ship.LastManeuverDodgeCol = -1;
     }
 
+    private static void MarkManeuverDodgeMiss(Board board, Ship ship, int row, int col)
+    {
+        ClearLatestManeuverDodge(board, ship);
+
+        var cell = board.GetCell(row, col);
+        if (cell == null) return;
+
+        // ProcessShot observes the occupied cell before the Light Wood ability resolves.
+        // A successful dodge supersedes that provisional deck snapshot with revealed water.
+        ClearKnownDeckSnapshot(cell);
+        cell.KnownShipId = null;
+        cell.KnownDeckIndex = -1;
+        cell.IsRevealed = true;
+        cell.IsHit = false;
+        cell.IsMiss = true;
+        cell.WasShipHit = false;
+        cell.WasScratched = false;
+        cell.WasRevealedShip = false;
+        cell.BurnResistMarked = false;
+        cell.WasDodge = false;
+        cell.SunkShipName = null;
+        cell.WasManeuverDodge = true;
+        ship.LastManeuverDodgeRow = row;
+        ship.LastManeuverDodgeCol = col;
+    }
+
     private static void IncrementRevealedCount(BattleshipPlayer player)
     {
         if (player.RevealedCellCount < 100)
@@ -1362,6 +1414,13 @@ public static class BattleshipGameEngine
         Ship ship,
         ShipDestructionCause cause = ShipDestructionCause.Shot)
     {
+        if (cause == ShipDestructionCause.Capture)
+            ship.MatryoshkaReplacementSuppressionReasons |=
+                MatryoshkaReplacementSuppression.Capture;
+        else if (cause == ShipDestructionCause.Devastated)
+            ship.MatryoshkaReplacementSuppressionReasons |=
+                MatryoshkaReplacementSuppression.Devastated;
+
         var passiveDisabled = ship.Statuses.Contains(ShipStatusType.Capture);
         var suppressDeathSummon = passiveDisabled || cause is ShipDestructionCause.Incendiary or
             ShipDestructionCause.EvilIncendiary or ShipDestructionCause.GreekFire
@@ -1777,22 +1836,6 @@ public static class BattleshipGameEngine
                         game.AddBoardDetailLog(p.DiscordId,
                             $"Доп. снаряды: +2 {projectile} для {ship.Name}!");
                     }
-                }
-            }
-        }
-
-        // All Tetracatapults get +1 of their placement-time projectile on boarding.
-        foreach (var p in game.GetPlayers())
-        {
-            foreach (var ship in p.Board.PlacedShips)
-            {
-                if (ship.IsDestroyed) continue;
-                foreach (var w in ship.Weapons.Where(w =>
-                             w.Type == WeaponType.Tetracatapult && IsWeaponOperational(ship, w)))
-                {
-                    w.Ammo += 1;
-                    w.MaxAmmo += 1;
-                    AddSharedTetracatapultAmmo(game, p, w.ConfiguredShotType, 1);
                 }
             }
         }
@@ -2433,6 +2476,71 @@ public static class BattleshipGameEngine
     }
 
     /// <summary>
+    /// A mandatory Matryoshka replacement can appear while summon movement is paused. Re-run
+    /// persistent board hazards and physical overlap resolution before movement resumes from
+    /// the already-advanced cursor at its next unprocessed work item.
+    /// </summary>
+    public static void ResolveMatryoshkaPlacementInteractions(
+        BattleshipGame game,
+        BattleshipPlayer boardOwner,
+        Ship placedShip)
+    {
+        if (game == null || boardOwner == null || placedShip == null) return;
+
+        if (placedShip.GetOccupiedCells().Any(position =>
+                boardOwner.Board.GetCell(position.row, position.col)?.IsBurning == true))
+        {
+            foreach (var deck in placedShip.Decks) deck.CurrentHp = 0;
+            if (!placedShip.Statuses.Contains(ShipStatusType.Burn))
+                placedShip.Statuses.Add(ShipStatusType.Burn);
+            RevealShip(boardOwner.Board, placedShip, game.GetOpponent(boardOwner.DiscordId));
+            HandleShipDeath(game, boardOwner, placedShip, ShipDestructionCause.GreekFire);
+            return;
+        }
+
+        var hostileDrakkars = game.GetPlayers()
+            .Where(owner => owner.DiscordId != boardOwner.DiscordId)
+            .SelectMany(owner => owner.Summons.Select(summon => (owner, summon)))
+            .Where(value =>
+                value.summon.IsAlive &&
+                BoardingHasAbility(value.summon, "freeze_nearby") &&
+                GetLiveSummonOccupiedCells(value.summon).Any(position =>
+                    boardOwner.Board.GetCell(position.row, position.col)?.SummonRef ==
+                    value.summon))
+            .ToList();
+
+        foreach (var (owner, summon) in hostileDrakkars)
+        {
+            ProcessBoardingDrakkarFreezeAura(game, owner, boardOwner, summon);
+            if (placedShip.IsDestroyed) return;
+        }
+
+        var overlappingSummons = placedShip.GetOccupiedCells()
+            .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.SummonRef)
+            .Where(summon => summon is { IsAlive: true })
+            .DistinctBy(summon => summon.Id)
+            .ToList();
+
+        foreach (var summon in overlappingSummons)
+        {
+            var owner = game.GetPlayer(summon.OwnerId);
+            if (owner == null || owner.DiscordId == boardOwner.DiscordId) continue;
+            ResolveSummonEntry(game, owner, boardOwner, summon);
+            if (placedShip.IsDestroyed) return;
+        }
+
+        RefreshPoisonZones(game);
+        if (!game.PoisonZonesByBoardOwner.TryGetValue(
+                boardOwner.DiscordId, out var poisonZone) ||
+            !placedShip.GetOccupiedCells().Any(poisonZone.Contains))
+            return;
+
+        foreach (var deck in placedShip.Decks) deck.CurrentHp = 0;
+        RevealShip(boardOwner.Board, placedShip, game.GetOpponent(boardOwner.DiscordId));
+        HandleShipDeath(game, boardOwner, placedShip, ShipDestructionCause.Poison);
+    }
+
+    /// <summary>
     /// Poison is indiscriminate, but a converted Alchi hull cannot collide with the stale cone
     /// produced by its own previous position while it advances. Resolve current physical sources
     /// directly and exclude only the entering source itself.
@@ -2462,75 +2570,202 @@ public static class BattleshipGameEngine
 
     // ── Summon Movement ──────────────────────────────────────────────
 
-    public static void MoveSummons(BattleshipGame game)
+    /// <summary>
+    /// Move every eligible summon in stable player/list order. When <paramref name="shouldPause"/>
+    /// returns true, the durable cursor on <paramref name="game"/> retains the next unprocessed
+    /// work item. Calling this method again resumes instead of replaying movement or poison damage.
+    /// </summary>
+    /// <returns>True when the whole movement and poison resolution completed; false when paused.</returns>
+    public static bool MoveSummons(
+        BattleshipGame game,
+        Func<BattleshipGame, bool> shouldPause = null)
     {
-        RefreshPoisonZones(game);
-        foreach (var player in game.GetPlayers())
+        if (game == null) return true;
+        if (game.SummonMovementState == null)
         {
-            var opponent = game.GetOpponent(player.DiscordId);
-            if (opponent == null) continue;
-
-            var justMaterialized = player.Summons
-                .Where(summon => summon.IsAlive && summon.IsGhost &&
-                                 summon.SpawnedAtShot < game.ShotCount)
-                .ToList();
-            foreach (var summon in justMaterialized)
+            RefreshPoisonZones(game);
+            game.SummonMovementState = new SummonMovementResolutionState
             {
-                summon.IsGhost = false;
-                RegisterSummonOnTargetBoard(game, player, summon);
-            }
-            var justMaterializedIds = justMaterialized.Select(summon => summon.Id).ToHashSet();
-
-            foreach (var summon in player.Summons.Where(s => s.IsAlive && !s.IsGhost &&
-                         !justMaterializedIds.Contains(s.Id) && !s.WaitingForTurnBack &&
-                         !s.WaitingForDirectionChoice && s.SpawnedAtShot < game.ShotCount).ToList())
-            {
-                for (var step = 0; step < summon.Speed; step++)
-                {
-                    var (newRow, newCol) = GetNextPosition(summon.Row, summon.Col, summon.MoveDirection);
-                    var destination = GetLiveSummonOccupiedCells(
-                        summon, newRow, newCol, summon.MoveDirection);
-
-                    // A multi-deck hull turns back before any living deck would leave the map.
-                    if (destination.Count == 0 || destination.Any(position =>
-                            position.row is < 0 or >= 10 || position.col is < 0 or >= 10))
-                    {
-                        // Every Ram, including a converted boarding ship, can be redirected.
-                        if (summon.Type == SummonType.Ram || summon.IsBoardingShip)
-                        {
-                            ClearSummonFromBoard(opponent.Board, summon);
-                            summon.WaitingForTurnBack = true;
-                        }
-                        else
-                        {
-                            DestroySummonAtCurrentPosition(game, player, opponent, summon);
-                        }
-                        break;
-                    }
-
-                    // Another live summon blocks the whole destination atomically. The old hull
-                    // remains registered and no trail/hazard/collision is resolved.
-                    if (!TryPlaceSummonOnBoard(
-                            opponent.Board, summon, newRow, newCol, summon.MoveDirection))
-                        break;
-
-                    var outcome = ResolveSummonEntry(game, player, opponent, summon);
-                    if (outcome != SummonEntryOutcome.Continue) break;
-                }
-            }
-
-            // Remove dead summons (but keep WaitingForTurnBack ones)
-            // Clear SummonRef for dead summons
-            foreach (var deadSummon in player.Summons.Where(s => !s.IsAlive))
-            {
-                ClearSummonFromBoard(opponent.Board, deadSummon);
-                MarkBoardingSourceDestroyed(player, deadSummon);
-            }
-            player.Summons.RemoveAll(s => !s.IsAlive);
+                PlayerIds = game.GetPlayers().Select(player => player.DiscordId).ToList(),
+            };
         }
 
-        // Rebuild zones and resolve ships after all stable-order summon movement.
-        ProcessPoisonCones(game);
+        var state = game.SummonMovementState;
+        while (true)
+        {
+            switch (state.Phase)
+            {
+                case SummonMovementPhase.PreparePlayer:
+                {
+                    if (state.PlayerIndex >= state.PlayerIds.Count)
+                    {
+                        state.Phase = SummonMovementPhase.ResolvePoison;
+                        continue;
+                    }
+
+                    var player = game.GetPlayer(state.PlayerIds[state.PlayerIndex]);
+                    var opponent = player == null ? null : game.GetOpponent(player.DiscordId);
+                    if (player == null || opponent == null)
+                    {
+                        state.PlayerIndex++;
+                        continue;
+                    }
+
+                    state.JustMaterializedSummonIds = player.Summons
+                        .Where(summon => summon.IsAlive && summon.IsGhost &&
+                                         summon.SpawnedAtShot < game.ShotCount)
+                        .Select(summon => summon.Id)
+                        .ToList();
+                    state.MaterializeIndex = 0;
+                    state.MovingSummonIds.Clear();
+                    state.MovingSummonIndex = 0;
+                    state.MovingStepIndex = 0;
+                    state.Phase = SummonMovementPhase.MaterializeGhosts;
+                    continue;
+                }
+
+                case SummonMovementPhase.MaterializeGhosts:
+                {
+                    var player = game.GetPlayer(state.PlayerIds[state.PlayerIndex]);
+                    if (state.MaterializeIndex < state.JustMaterializedSummonIds.Count)
+                    {
+                        var summonId = state.JustMaterializedSummonIds[state.MaterializeIndex++];
+                        var summon = player?.Summons.FirstOrDefault(value => value.Id == summonId);
+                        if (player != null && summon != null)
+                        {
+                            summon.IsGhost = false;
+                            RegisterSummonOnTargetBoard(game, player, summon);
+                        }
+
+                        if (shouldPause?.Invoke(game) == true) return false;
+                        continue;
+                    }
+
+                    if (player != null)
+                    {
+                        var justMaterializedIds = state.JustMaterializedSummonIds.ToHashSet();
+                        state.MovingSummonIds = player.Summons
+                            .Where(summon => summon.IsAlive && !summon.IsGhost &&
+                                             !justMaterializedIds.Contains(summon.Id) &&
+                                             !summon.WaitingForTurnBack &&
+                                             !summon.WaitingForDirectionChoice &&
+                                             summon.SpawnedAtShot < game.ShotCount)
+                            .Select(summon => summon.Id)
+                            .ToList();
+                    }
+
+                    state.MovingSummonIndex = 0;
+                    state.MovingStepIndex = 0;
+                    state.Phase = SummonMovementPhase.MoveSummons;
+                    continue;
+                }
+
+                case SummonMovementPhase.MoveSummons:
+                {
+                    if (state.MovingSummonIndex >= state.MovingSummonIds.Count)
+                    {
+                        state.Phase = SummonMovementPhase.CleanupPlayer;
+                        continue;
+                    }
+
+                    var player = game.GetPlayer(state.PlayerIds[state.PlayerIndex]);
+                    var opponent = player == null ? null : game.GetOpponent(player.DiscordId);
+                    var summon = player?.Summons.FirstOrDefault(value =>
+                        value.Id == state.MovingSummonIds[state.MovingSummonIndex]);
+                    if (player == null || opponent == null || summon is not { IsAlive: true } ||
+                        state.MovingStepIndex >= summon.Speed)
+                    {
+                        AdvanceSummonMovementCursor(state);
+                        continue;
+                    }
+
+                    var continueMoving = MoveSummonOneStep(game, player, opponent, summon);
+                    state.MovingStepIndex++;
+                    if (!continueMoving || state.MovingStepIndex >= summon.Speed)
+                        AdvanceSummonMovementCursor(state);
+
+                    if (shouldPause?.Invoke(game) == true) return false;
+                    continue;
+                }
+
+                case SummonMovementPhase.CleanupPlayer:
+                {
+                    var player = game.GetPlayer(state.PlayerIds[state.PlayerIndex]);
+                    var opponent = player == null ? null : game.GetOpponent(player.DiscordId);
+                    if (player != null && opponent != null)
+                    {
+                        foreach (var deadSummon in player.Summons.Where(summon => !summon.IsAlive))
+                        {
+                            ClearSummonFromBoard(opponent.Board, deadSummon);
+                            MarkBoardingSourceDestroyed(player, deadSummon);
+                        }
+                        player.Summons.RemoveAll(summon => !summon.IsAlive);
+                    }
+
+                    state.PlayerIndex++;
+                    state.Phase = SummonMovementPhase.PreparePlayer;
+                    if (shouldPause?.Invoke(game) == true) return false;
+                    continue;
+                }
+
+                case SummonMovementPhase.ResolvePoison:
+                    state.PoisonState ??= CreatePoisonResolutionState(game);
+                    if (!ContinuePoisonResolution(game, state.PoisonState, shouldPause))
+                        return false;
+                    state.Phase = SummonMovementPhase.Complete;
+                    continue;
+
+                case SummonMovementPhase.Complete:
+                    game.SummonMovementState = null;
+                    return true;
+
+                default:
+                    throw new InvalidOperationException($"Unknown summon movement phase: {state.Phase}");
+            }
+        }
+    }
+
+    private static void AdvanceSummonMovementCursor(SummonMovementResolutionState state)
+    {
+        state.MovingSummonIndex++;
+        state.MovingStepIndex = 0;
+    }
+
+    /// <summary>Resolve exactly one speed step; false means the current summon is done this cycle.</summary>
+    private static bool MoveSummonOneStep(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        BattleshipPlayer opponent,
+        Summon summon)
+    {
+        var (newRow, newCol) = GetNextPosition(summon.Row, summon.Col, summon.MoveDirection);
+        var destination = GetLiveSummonOccupiedCells(
+            summon, newRow, newCol, summon.MoveDirection);
+
+        // A multi-deck hull turns back before any living deck would leave the map.
+        if (destination.Count == 0 || destination.Any(position =>
+                position.row is < 0 or >= 10 || position.col is < 0 or >= 10))
+        {
+            // Every Ram, including a converted boarding ship, can be redirected.
+            if (summon.Type == SummonType.Ram || summon.IsBoardingShip)
+            {
+                ClearSummonFromBoard(opponent.Board, summon);
+                summon.WaitingForTurnBack = true;
+            }
+            else
+            {
+                DestroySummonAtCurrentPosition(game, player, opponent, summon);
+            }
+            return false;
+        }
+
+        // Another live summon blocks the whole destination atomically. The old hull remains
+        // registered and no trail/hazard/collision is resolved.
+        if (!TryPlaceSummonOnBoard(
+                opponent.Board, summon, newRow, newCol, summon.MoveDirection))
+            return false;
+
+        return ResolveSummonEntry(game, player, opponent, summon) == SummonEntryOutcome.Continue;
     }
 
     private static void FreezeSummon(
@@ -2789,6 +3024,8 @@ public static class BattleshipGameEngine
         }
 
         ship.Statuses.Remove(ShipStatusType.Devastated);
+        ship.MatryoshkaReplacementSuppressionReasons &=
+            ~MatryoshkaReplacementSuppression.Devastated;
         ship.Statuses.Remove(ShipStatusType.Burn);
         foreach (var deck in ship.Decks)
         {
@@ -2927,7 +3164,15 @@ public static class BattleshipGameEngine
     /// </summary>
     public static void ProcessPoisonCones(BattleshipGame game)
     {
+        if (game == null) return;
+        var state = CreatePoisonResolutionState(game);
+        ContinuePoisonResolution(game, state, shouldPause: null);
+    }
+
+    private static PoisonResolutionState CreatePoisonResolutionState(BattleshipGame game)
+    {
         RefreshPoisonZones(game);
+        var state = new PoisonResolutionState();
 
         foreach (var player in game.GetPlayers())
         {
@@ -2936,41 +3181,205 @@ public static class BattleshipGameEngine
                 if (ship.IsDestroyed || ship.Statuses.Contains(ShipStatusType.Capture) ||
                     !ship.Abilities.Contains("poison_cone")) continue;
 
-                var coneCells = GetPoisonConeCells(ship);
-                var opponent = game.GetOpponent(player.DiscordId);
-
-                foreach (var (cr, cc) in coneCells)
+                foreach (var (row, col) in GetPoisonConeCells(ship))
                 {
-                    // Enemy summons physically occupy this player's board.
-                    if (opponent != null)
+                    state.NormalCells.Add(new NormalPoisonCellWorkItem
                     {
-                        foreach (var summon in opponent.Summons.Where(s =>
-                                     s.IsAlive && !s.IsGhost &&
-                                     GetLiveSummonOccupiedCells(s).Contains((cr, cc))).ToList())
-                        {
-                            DestroySummonAtCurrentPosition(game, opponent, player, summon);
-                            AddPoisonSummonMastWarning(game, opponent);
-                        }
-                    }
-
-                    // The cone exists only on its source's physical board.
-                    var allyCell = player.Board.GetCell(cr, cc);
-                    if (allyCell?.ShipRef != null && !allyCell.ShipRef.IsDestroyed && allyCell.ShipRef.Id != ship.Id)
-                    {
-                        var allyShip = allyCell.ShipRef;
-                        foreach (var d in allyShip.Decks) d.CurrentHp = 0;
-                        RevealShip(player.Board, allyShip, opponent);
-                        HandleShipDeath(game, player, allyShip, ShipDestructionCause.Poison);
-                        game.AddBoardDetailLog(player.DiscordId,
-                            $"Ядовитый конус {ship.Name} уничтожил союзный {allyShip.Name}!");
-                    }
+                        BoardOwnerId = player.DiscordId,
+                        SourceShipId = ship.Id,
+                        Row = row,
+                        Col = col,
+                    });
                 }
             }
         }
 
-        // A converted Alchi-Barge keeps its cone on the physical board it is boarding.
-        // The cone remains indiscriminate: it can kill defending ships and any other summon,
-        // including allied boats, while never targeting its own source hull.
+        return state;
+    }
+
+    /// <summary>
+    /// Continue one poison resolution until complete or until the callback requests a pause.
+    /// Every cursor is advanced before yielding, so already applied damage is never replayed.
+    /// </summary>
+    private static bool ContinuePoisonResolution(
+        BattleshipGame game,
+        PoisonResolutionState state,
+        Func<BattleshipGame, bool> shouldPause)
+    {
+        while (true)
+        {
+            switch (state.Phase)
+            {
+                case PoisonResolutionPhase.NormalShipCells:
+                {
+                    if (state.NormalCellIndex < state.NormalCells.Count)
+                    {
+                        var item = state.NormalCells[state.NormalCellIndex++];
+                        var sourceKey = $"{item.BoardOwnerId}:{item.SourceShipId}";
+                        if (state.CurrentNormalSourceKey != sourceKey)
+                        {
+                            state.CurrentNormalSourceKey = sourceKey;
+                            var boardOwner = game.GetPlayer(item.BoardOwnerId);
+                            state.CurrentNormalSourceActive = boardOwner?.Board.PlacedShips.Any(ship =>
+                                ship.Id == item.SourceShipId &&
+                                !ship.IsDestroyed &&
+                                !ship.Statuses.Contains(ShipStatusType.Capture) &&
+                                ship.Abilities.Contains("poison_cone")) == true;
+                        }
+
+                        if (state.CurrentNormalSourceActive)
+                            ProcessNormalPoisonCell(game, item);
+                        if (shouldPause?.Invoke(game) == true) return false;
+                        continue;
+                    }
+
+                    InitializeBoardingPoisonSources(game, state);
+                    state.Phase = PoisonResolutionPhase.BoardingSources;
+                    continue;
+                }
+
+                case PoisonResolutionPhase.BoardingSources:
+                {
+                    if (state.BoardingSourceIndex >= state.BoardingSources.Count)
+                    {
+                        state.Phase = PoisonResolutionPhase.Complete;
+                        continue;
+                    }
+
+                    var work = state.BoardingSources[state.BoardingSourceIndex];
+                    var boardOwner = game.GetPlayer(work.BoardOwnerId);
+                    var sourceOwner = game.GetPlayer(work.SourceOwnerId);
+                    var source = sourceOwner?.Summons.FirstOrDefault(summon =>
+                        summon.Id == work.SourceSummonId);
+
+                    if (!state.CurrentSourceInitialized)
+                    {
+                        if (boardOwner == null || sourceOwner == null || source == null ||
+                            !source.IsAlive || !BoardingHasAbility(source, "poison_cone") ||
+                            !GetLiveSummonOccupiedCells(source).Any(position =>
+                                boardOwner.Board.GetCell(position.row, position.col)?.SummonRef == source))
+                        {
+                            AdvanceBoardingPoisonSource(state);
+                            continue;
+                        }
+
+                        state.CurrentBoardingConeCells = GetBoardingPoisonConeCells(source);
+                        state.CurrentPoisonedShipIds = state.CurrentBoardingConeCells
+                            .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.ShipRef)
+                            .Where(ship => ship is { IsDestroyed: false })
+                            .DistinctBy(ship => ship.Id)
+                            .Select(ship => ship.Id)
+                            .ToList();
+                        state.CurrentPoisonedShipIndex = 0;
+                        state.CurrentPoisonedSummonIds.Clear();
+                        state.CurrentPoisonedSummonIndex = 0;
+                        state.CurrentSummonTargetsInitialized = false;
+                        state.CurrentSourceInitialized = true;
+                    }
+
+                    if (state.CurrentPoisonedShipIndex < state.CurrentPoisonedShipIds.Count)
+                    {
+                        var targetId = state.CurrentPoisonedShipIds[state.CurrentPoisonedShipIndex++];
+                        var poisonedShip = boardOwner?.Board.PlacedShips.FirstOrDefault(ship =>
+                            ship.Id == targetId && !ship.IsDestroyed);
+                        if (poisonedShip != null && sourceOwner != null && source != null)
+                        {
+                            foreach (var deck in poisonedShip.Decks) deck.CurrentHp = 0;
+                            RevealShip(boardOwner.Board, poisonedShip, sourceOwner);
+                            HandleShipDeath(game, boardOwner, poisonedShip, ShipDestructionCause.Poison);
+                            game.AddBoardDetailLog(boardOwner.DiscordId,
+                                $"Ядовитый конус {source.SourceShipName ?? "абордажного корабля"} уничтожил {poisonedShip.Name}!");
+                        }
+
+                        if (shouldPause?.Invoke(game) == true) return false;
+                        continue;
+                    }
+
+                    if (!state.CurrentSummonTargetsInitialized)
+                    {
+                        state.CurrentPoisonedSummonIds = state.CurrentBoardingConeCells
+                            .Select(position => boardOwner?.Board.GetCell(position.row, position.col)?.SummonRef)
+                            .Where(target => target is { IsAlive: true, IsGhost: false } &&
+                                             target.Id != work.SourceSummonId)
+                            .DistinctBy(target => target.Id)
+                            .Select(target => target.Id)
+                            .ToList();
+                        state.CurrentPoisonedSummonIndex = 0;
+                        state.CurrentSummonTargetsInitialized = true;
+                    }
+
+                    if (state.CurrentPoisonedSummonIndex < state.CurrentPoisonedSummonIds.Count)
+                    {
+                        var targetId = state.CurrentPoisonedSummonIds[state.CurrentPoisonedSummonIndex++];
+                        var poisonedSummon = game.GetPlayers()
+                            .SelectMany(player => player.Summons)
+                            .FirstOrDefault(target => target.Id == targetId && target.IsAlive && !target.IsGhost);
+                        var poisonedOwner = poisonedSummon == null
+                            ? null
+                            : game.GetPlayer(poisonedSummon.OwnerId);
+                        if (poisonedSummon != null && poisonedOwner != null && boardOwner != null)
+                        {
+                            DestroySummonAtCurrentPosition(
+                                game, poisonedOwner, boardOwner, poisonedSummon);
+                            AddPoisonSummonMastWarning(game, poisonedOwner);
+                        }
+
+                        if (shouldPause?.Invoke(game) == true) return false;
+                        continue;
+                    }
+
+                    AdvanceBoardingPoisonSource(state);
+                    continue;
+                }
+
+                case PoisonResolutionPhase.Complete:
+                    return true;
+
+                default:
+                    throw new InvalidOperationException($"Unknown poison resolution phase: {state.Phase}");
+            }
+        }
+    }
+
+    private static void ProcessNormalPoisonCell(
+        BattleshipGame game,
+        NormalPoisonCellWorkItem item)
+    {
+        var boardOwner = game.GetPlayer(item.BoardOwnerId);
+        var source = boardOwner?.Board.PlacedShips.FirstOrDefault(ship =>
+            ship.Id == item.SourceShipId);
+        if (boardOwner == null || source == null) return;
+        var opponent = game.GetOpponent(boardOwner.DiscordId);
+
+        // Enemy summons physically occupy this player's board.
+        if (opponent != null)
+        {
+            foreach (var summon in opponent.Summons.Where(candidate =>
+                         candidate.IsAlive && !candidate.IsGhost &&
+                         GetLiveSummonOccupiedCells(candidate).Contains((item.Row, item.Col))).ToList())
+            {
+                DestroySummonAtCurrentPosition(game, opponent, boardOwner, summon);
+                AddPoisonSummonMastWarning(game, opponent);
+            }
+        }
+
+        // The cone exists only on its source's physical board.
+        var allyCell = boardOwner.Board.GetCell(item.Row, item.Col);
+        if (allyCell?.ShipRef == null || allyCell.ShipRef.IsDestroyed ||
+            allyCell.ShipRef.Id == source.Id) return;
+        var allyShip = allyCell.ShipRef;
+        foreach (var deck in allyShip.Decks) deck.CurrentHp = 0;
+        RevealShip(boardOwner.Board, allyShip, opponent);
+        HandleShipDeath(game, boardOwner, allyShip, ShipDestructionCause.Poison);
+        game.AddBoardDetailLog(boardOwner.DiscordId,
+            $"Ядовитый конус {source.Name} уничтожил союзный {allyShip.Name}!");
+    }
+
+    private static void InitializeBoardingPoisonSources(
+        BattleshipGame game,
+        PoisonResolutionState state)
+    {
+        if (state.BoardingSourcesInitialized) return;
         foreach (var boardOwner in game.GetPlayers())
         foreach (var sourceOwner in game.GetPlayers())
         foreach (var source in sourceOwner.Summons.Where(summon =>
@@ -2979,35 +3388,27 @@ public static class BattleshipGameEngine
                      GetLiveSummonOccupiedCells(summon).Any(position =>
                          boardOwner.Board.GetCell(position.row, position.col)?.SummonRef == summon)))
         {
-            var coneCells = GetBoardingPoisonConeCells(source);
-            var poisonedShips = coneCells
-                .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.ShipRef)
-                .Where(ship => ship is { IsDestroyed: false })
-                .DistinctBy(ship => ship.Id)
-                .ToList();
-            foreach (var poisonedShip in poisonedShips)
+            state.BoardingSources.Add(new BoardingPoisonSourceWorkItem
             {
-                foreach (var deck in poisonedShip.Decks) deck.CurrentHp = 0;
-                RevealShip(boardOwner.Board, poisonedShip, sourceOwner);
-                HandleShipDeath(game, boardOwner, poisonedShip, ShipDestructionCause.Poison);
-                game.AddBoardDetailLog(boardOwner.DiscordId,
-                    $"Ядовитый конус {source.SourceShipName ?? "абордажного корабля"} уничтожил {poisonedShip.Name}!");
-            }
-
-            var poisonedSummons = coneCells
-                .Select(position => boardOwner.Board.GetCell(position.row, position.col)?.SummonRef)
-                .Where(target => target is { IsAlive: true, IsGhost: false } && target != source)
-                .DistinctBy(target => target.Id)
-                .ToList();
-            foreach (var poisonedSummon in poisonedSummons)
-            {
-                var poisonedOwner = game.GetPlayer(poisonedSummon.OwnerId);
-                if (poisonedOwner == null) continue;
-                DestroySummonAtCurrentPosition(game, poisonedOwner, boardOwner, poisonedSummon);
-                AddPoisonSummonMastWarning(game, poisonedOwner);
-            }
+                BoardOwnerId = boardOwner.DiscordId,
+                SourceOwnerId = sourceOwner.DiscordId,
+                SourceSummonId = source.Id,
+            });
         }
 
+        state.BoardingSourcesInitialized = true;
+    }
+
+    private static void AdvanceBoardingPoisonSource(PoisonResolutionState state)
+    {
+        state.BoardingSourceIndex++;
+        state.CurrentSourceInitialized = false;
+        state.CurrentPoisonedShipIds.Clear();
+        state.CurrentPoisonedShipIndex = 0;
+        state.CurrentBoardingConeCells.Clear();
+        state.CurrentSummonTargetsInitialized = false;
+        state.CurrentPoisonedSummonIds.Clear();
+        state.CurrentPoisonedSummonIndex = 0;
     }
 
     public static void RefreshPoisonZones(BattleshipGame game)
@@ -3178,20 +3579,7 @@ public static class BattleshipGameEngine
         {
             game.AddBoardDetailLog(shipOwner.DiscordId,
                 $"{ship.Name} увернулся от выстрела! ({(char)('A' + col)}{row + 1})");
-            // The cell is now empty — mark as miss
-            var cell = shipOwner.Board.GetCell(row, col);
-            if (cell != null)
-            {
-                cell.IsMiss = true;
-                cell.IsHit = false;
-                cell.WasShipHit = false;
-                cell.WasScratched = false;
-                cell.WasDodge = false;
-                ClearLatestManeuverDodge(shipOwner.Board, ship);
-                cell.WasManeuverDodge = true;
-                ship.LastManeuverDodgeRow = row;
-                ship.LastManeuverDodgeCol = col;
-            }
+            MarkManeuverDodgeMiss(shipOwner.Board, ship, row, col);
 
             // Check if ship dodged into hazards (burning cells, poison cones) (Bug #10)
             foreach (var (nr, nc) in ship.GetOccupiedCells())
@@ -3282,11 +3670,7 @@ public static class BattleshipGameEngine
         {
             var oldCell = owner.Board.Grid[r, c];
             if (oldCell.ShipRef == ship)
-            {
-                if (oldCell.IsRevealed && !oldCell.WasShipHit)
-                    oldCell.WasRevealedShip = true;
                 oldCell.ShipRef = null;
-            }
             if (!newCells.Contains((r, c)) && !ship.ManeuverStaleHitCells.Contains((r, c)))
                 ship.ManeuverStaleHitCells.Add((r, c));
         }
@@ -3438,11 +3822,7 @@ public static class BattleshipGameEngine
         {
             var oldCell = player.Board.Grid[r, c];
             if (oldCell.ShipRef == ship)
-            {
-                if (oldCell.IsRevealed && !oldCell.WasShipHit)
-                    oldCell.WasRevealedShip = true;
                 oldCell.ShipRef = null;
-            }
             oldCell.IsHit = false;
             if (!newCells.Contains((r, c)) && !ship.ManeuverStaleHitCells.Contains((r, c)))
                 ship.ManeuverStaleHitCells.Add((r, c));
@@ -3458,6 +3838,8 @@ public static class BattleshipGameEngine
         foreach (var (target, deck, row, col) in collisions)
         {
             var originalDeckIndex = deck.Index;
+            target.MatryoshkaReplacementSuppressionReasons |=
+                MatryoshkaReplacementSuppression.StructuralDeckRemoval;
             target.Weapons.RemoveAll(weapon => weapon.DeckIndex == originalDeckIndex);
             target.Decks.Remove(deck);
             game.AddLogFor(player.DiscordId,
