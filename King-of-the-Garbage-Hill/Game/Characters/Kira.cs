@@ -17,7 +17,7 @@ public class Kira
     /// Upserts one prediction while enforcing Kira's special one-candidate rule. Submitted rows and
     /// bot PredictionEvidence are cleared together so retained AI evidence cannot restore an old suspect.
     /// </summary>
-    public static List<Guid> SetPrediction(
+    public static void SetPrediction(
         GamePlayerBridgeClass player,
         Guid targetId,
         string characterName)
@@ -38,16 +38,17 @@ public class Kira
         }
 
         player.Predict.RemoveAll(prediction => prediction.PlayerId == targetId);
+        player.AiKnowledge.PredictionEvidence.Remove(targetId);
         player.Predict.Add(new PredictClass(characterName, targetId));
-        return displacedKiraTargets;
+        EnforceSingleKiraPrediction(player);
     }
 
     /// <summary>Compatibility cleanup for an old sheet that already contains several Kira rows.</summary>
-    public static List<Guid> EnforceSingleKiraPrediction(GamePlayerBridgeClass player)
+    public static void EnforceSingleKiraPrediction(GamePlayerBridgeClass player)
     {
         var kiraRows = player.Predict.Where(prediction => IsKiraGuess(prediction.CharacterName)).ToList();
         if (kiraRows.Count <= 1)
-            return new List<Guid>();
+            return;
 
         var retainedTarget = kiraRows[^1].PlayerId;
         var removedTargets = kiraRows
@@ -59,7 +60,6 @@ public class Kira
                                                && prediction.PlayerId != retainedTarget);
         foreach (var removedTargetId in removedTargets)
             player.AiKnowledge.PredictionEvidence.Remove(removedTargetId);
-        return removedTargets;
     }
 
     public static bool HasCorrectKiraPrediction(
@@ -85,16 +85,16 @@ public class Kira
                 passive.PassiveName is "Тетрадь смерти" or "Булькает"))
             return;
 
+        EnforceSingleKiraPrediction(predictor);
+        var predictorId = predictor.GetPlayerId();
         foreach (var kira in game.PlayersList.Where(candidate =>
                      candidate.Passives.KiraL.LPlayerId != Guid.Empty))
         {
             var state = kira.Passives.KiraL;
-            var predictorId = predictor.GetPlayerId();
-            state.ConfirmedPredictionPlayerIds.Add(predictorId);
+            if (!state.ConfirmedPredictionPlayerIds.Add(predictorId))
+                continue;
             if (HasCorrectKiraPrediction(predictor, kira))
                 state.ConfirmedCorrectKiraGuessPlayerIds.Add(predictorId);
-            else
-                state.ConfirmedCorrectKiraGuessPlayerIds.Remove(predictorId);
         }
     }
 
@@ -131,7 +131,7 @@ public class Kira
             var jonDeathThisRound = lPlayer != null
                                     && lPlayer.Passives.JonSnow.WatchEnded
                                     && lPlayer.Passives.JonSnow.WatchDeathRound == game.RoundNo;
-            if (lPlayer == null || !lPlayer.Passives.IsDead && !jonDeathThisRound)
+            if (lPlayer == null || (!lPlayer.Passives.IsDead && !jonDeathThisRound))
                 continue;
 
             state.LDeathObserved = true;
@@ -181,6 +181,7 @@ public class Kira
 
         var survivingInvestigators = game.PlayersList.Where(candidate =>
                 candidate.GetPlayerId() != kira.GetPlayerId()
+                && candidate.GetPlayerId() != state.LPlayerId
                 && !candidate.Passives.IsDead)
             .ToList();
         state.ArrestQualified = survivingInvestigators.Count > 0

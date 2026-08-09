@@ -195,9 +195,7 @@ public static class BotInformation
     public static void ReplacePrediction(GamePlayerBridgeClass viewer, Guid targetId, string characterName,
         int confidence, string evidence, int round, bool exactReveal = false)
     {
-        var displacedKiraTargets = Kira.SetPrediction(viewer, targetId, characterName);
-        foreach (var displacedTargetId in displacedKiraTargets)
-            viewer.AiKnowledge.PredictionEvidence.Remove(displacedTargetId);
+        Kira.SetPrediction(viewer, targetId, characterName);
 
         viewer.AiKnowledge.PredictionEvidence[targetId] = new BotPredictionEvidence
         {
@@ -211,8 +209,7 @@ public static class BotInformation
 
     public static void EnforceSingleKiraPrediction(GamePlayerBridgeClass viewer)
     {
-        foreach (var removedTargetId in Kira.EnforceSingleKiraPrediction(viewer))
-            viewer.AiKnowledge.PredictionEvidence.Remove(removedTargetId);
+        Kira.EnforceSingleKiraPrediction(viewer);
     }
 
     public static void RemovePrediction(GamePlayerBridgeClass viewer, Guid targetId)

@@ -452,7 +452,7 @@ public class General : ModuleBaseCustom
                     var teamMember = playersList.Find(x => x.GetPlayerId() == teamMemberId);
                     if (teamPayer.GetPlayerId() == teamMember.GetPlayerId() || UnknownBug.Is(teamMember)) continue;
 
-                    teamPayer.Predict.Add(new PredictClass(teamMember.GameCharacter.Name, teamMember.GetPlayerId()));
+                    Kira.SetPrediction(teamPayer, teamMember.GetPlayerId(), teamMember.GameCharacter.Name);
                 }
             }
 

@@ -1278,6 +1278,8 @@ public class WebGameService
             return Task.FromResult((false, "Dead players cannot confirm predictions"));
         if (game.RoundNo != 8)
             return Task.FromResult((false, "Predictions can only be confirmed on round 8"));
+        if (player.Status.ConfirmedPredict)
+            return Task.FromResult((false, "Already confirmed"));
 
         player.Status.ConfirmedPredict = true;
         Kira.RecordPredictionConfirmation(game, player);
@@ -1429,7 +1431,7 @@ public class WebGameService
         if (player == null) return Task.FromResult((false, "Player not in this game"));
         if (player.Passives.IsDead)
             return Task.FromResult((false, "Dead players cannot change predictions"));
-        if (game.RoundNo >= 8 && player.Status.ConfirmedPredict)
+        if (game.RoundNo >= 9 || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
             return Task.FromResult((false, "Predictions are already confirmed"));
         if (Madara.IsMadara(player))
             return Task.FromResult((false, "У Мадары нет предположений"));

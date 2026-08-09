@@ -378,7 +378,8 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "confirm-prefict":
-                        if (game == null || game.RoundNo != 8 || player.Passives.IsDead)
+                        if (game == null || game.RoundNo != 8 || player.Passives.IsDead
+                                         || player.Status.ConfirmedPredict)
                             break;
                         player.Status.ConfirmedPredict = true;
                         Kira.RecordPredictionConfirmation(game, player);
@@ -736,7 +737,8 @@ public sealed class GameReaction : IServiceSingleton
         if (account == null) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null || player.Passives.IsDead
-                         || game.RoundNo >= 8 && player.Status.ConfirmedPredict)
+                         || game.RoundNo >= 9
+                         || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
             return;
 
 
@@ -770,7 +772,10 @@ public sealed class GameReaction : IServiceSingleton
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает")) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return;
-        if (player.Passives.IsDead || game.RoundNo >= 8 && player.Status.ConfirmedPredict) return;
+        if (player.Passives.IsDead
+            || game.RoundNo >= 9
+            || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
+            return;
 
         var embed  = _upd.FightPage(player);
         var builder = await _upd.GetGameButtons(player, game);
