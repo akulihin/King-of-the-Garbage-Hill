@@ -100,23 +100,23 @@ public class GamePlayerBridgeClass
             ? DiscordAccountClass.ProMode
             : DiscordAccountClass.CasualMode;
 
-    /// <summary>Per-player bot AI difficulty override (sim measurement probe only). -1 = inherit the game's
-    /// AiDifficulty. Set by the sim's --ai-probe to run one bot at a different level than the rest of the
-    /// field, so a character's piloting can be A/B-measured in an otherwise-identical line-up.</summary>
+    /// <summary>Per-player bot AI difficulty override for curated admin seats and simulation probes.
+    /// -1 = inherit the game's AiDifficulty.</summary>
     public int AiDifficulty { get; set; } = -1;
 
-    /// <summary>Persistent L2/L3 bot plan selected once per match. Empty for legacy L1 bots and
-    /// humans; the simulation report records it so individual builds can be measured.</summary>
+    /// <summary>Persistent L2/L3 bot plan selected once per match. Empty for Legacy and ordinarily for
+    /// Legacy+, except its explicit Kratos V2-pilot fallback; humans stay empty. Simulation reports record it.</summary>
     public string AiPlaystyle { get; set; } = "";
 
-    /// <summary>Number of consecutive voluntary Block actions submitted by AI levels 1-3. The bot
+    /// <summary>Number of consecutive voluntary Block actions submitted by AI levels 1-4. The bot
     /// attack policy uses this seat-level counter to guarantee an attack after a short defensive streak;
     /// successful attacks reset it. L0 stays an unrestricted random-control baseline.</summary>
     public int ConsecutiveBotBlocks { get; set; }
 
     /// <summary>
-    /// What a strict bot has actually observed as an ordinary player. Target selection for AI levels 2/3
-    /// must go through this memory instead of reading another bridge's hidden character/action state.
+    /// What a strict bot has actually observed as an ordinary player. The round-10 Monster hunt for every
+    /// AI level, Level 2/3 targeting and every fair Legacy+ channel must go through this memory instead of
+    /// reading hidden target state.
     /// This belongs to the persistent seat, not CharacterClass/FightCharacter, so DeepCopy is unaffected.
     /// </summary>
     public BotKnowledgeState AiKnowledge { get; set; } = new();

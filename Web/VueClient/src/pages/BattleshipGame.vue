@@ -20,6 +20,18 @@ const store = useBattleshipStore()
 const router = useRouter()
 
 const phase = computed(() => store.phase)
+const overheatShotCount = computed(() => {
+  const disabledShipIds = new Set((store.myBoard?.cells ?? []).flatMap(cell =>
+    cell.shipId && (cell.isCaptured || cell.isDevastated || cell.isFrozen)
+      ? [cell.shipId]
+      : []))
+  const hasLivingOverheatShip = store.myFleet.some(ship =>
+    !ship.isDestroyed
+    && !disabledShipIds.has(ship.id)
+    && ship.abilities.includes('overheat_after_20_shots'))
+  if (!hasLivingOverheatShip || (phase.value !== 'Combat' && phase.value !== 'Boarding')) return null
+  return Math.min(store.myPlayer?.totalShotsFired ?? 0, 20)
+})
 const combatKeyboardLocked = computed(() => !!(
   store.myPlayer?.pendingManeuver
   || store.myPlayer?.pendingCursedBoatDirection
@@ -112,6 +124,7 @@ async function handleLeave() {
       :phase="phase"
       :turn-number="store.turnNumber"
       :shot-count="store.shotCount"
+      :overheat-shot-count="overheatShotCount"
       :is-my-turn="store.isMyTurn"
       mode="player"
       @forfeit="requestForfeit"

@@ -161,7 +161,9 @@ function canToggleUpgrade(globalIndex: number, upgradeId: string): boolean {
   return upgrade.cost <= coinsLeft.value
 }
 
-function upgradeDescription(upgrade: { name: string; description: string; cost: number }): string {
+function upgradeDescription(upgrade: { name: string; description: string | null; descriptionKey: string | null; cost: number }): string {
+  if (upgrade.descriptionKey)
+    return message(upgrade.descriptionKey, { cost: String(upgrade.cost) })
   const description = upgrade.description?.trim() || upgrade.name
   return /цена\s*:/i.test(description)
     ? description
@@ -250,8 +252,10 @@ function abilityLabel(a: string): string {
     case 'ramming_maneuver': return 'Таранный маневр — может войти в Space союзника и уничтожить перекрытые палубы'
     case 'diagonal_shape': return 'Диагональный корпус из четырёх палуб'
     case 'merge_maneuver': return message('battleship.ability.mergeManeuver.description')
+    case 'merge_maneuver_after_hit': return message('battleship.ability.mergeAfterHit.description')
     case 'double_shot_while_alive': return message('battleship.ability.doubleShot.description')
     case 'overheat_after_20_shots': return message('battleship.ability.overheat.description')
+    case 'warming_chain_until_two_misses': return message('battleship.ability.warmingChain.description')
     case 'capturing_shape': return message('battleship.ability.capturingShape.description')
     case 'grab_summon': return message('battleship.ability.grabSummon.description')
     case 'capture_reward': return message('battleship.ability.captureReward.description')
@@ -278,8 +282,10 @@ function abilityShortLabel(a: string): string {
     case 'ramming_maneuver': return t('Ramming maneuver', 'Таранный маневр')
     case 'diagonal_shape': return t('Diagonal hull', 'Диагональный корпус')
     case 'merge_maneuver': return message('battleship.ability.mergeManeuver.label')
+    case 'merge_maneuver_after_hit': return message('battleship.ability.mergeAfterHit.label')
     case 'double_shot_while_alive': return message('battleship.ability.doubleShot.label')
     case 'overheat_after_20_shots': return message('battleship.ability.overheat.label')
+    case 'warming_chain_until_two_misses': return message('battleship.ability.warmingChain.label')
     case 'capturing_shape': return message('battleship.ability.capturingShape.label')
     case 'grab_summon': return message('battleship.ability.grabSummon.label')
     case 'capture_reward': return message('battleship.ability.captureReward.label')

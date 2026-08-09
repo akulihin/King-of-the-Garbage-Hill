@@ -23,6 +23,15 @@ public static class GameStateMapper
 
     // Cache of locally available avatar filenames (lowercase → actual filename)
     private static readonly HashSet<string> _localAvatars;
+    private static readonly HashSet<string> GordonPrivateLogSources =
+        new(StringComparer.Ordinal) { GordonFreeman.HalfLife3 };
+    private static readonly (string Russian, string English)[] LegacyHalfLifePostponementMessages =
+    {
+        ("Внимание! Halflife 3 был перенесен.", "Attention! Half-Life 3 has been delayed."),
+        ("Внимание! Halflife 3 был перенесен повторно.", "Attention! Half-Life 3 has been delayed again."),
+        ("Внимание! Halflife 3 был перенесен в третий раз!!!",
+            "Attention! Half-Life 3 has been delayed for the third time!!!"),
+    };
 
     // Cache of all public character names; live prediction catalogs are scoped to account unlocks.
     private static readonly List<string> _allCharacterNames;
@@ -147,6 +156,25 @@ public static class GameStateMapper
             ? game.RankedEloSettlement
             : null;
 
+        var scopedGlobalLogs = isAdmin
+            ? game.GetGlobalLogs()
+            : StripHiddenLogs(
+                game.GetGlobalLogs(),
+                game.HiddenGlobalLogSnippets,
+                requestingPlayer,
+                game,
+                forceProVisibility);
+        var scopedAllGlobalLogs = isAdmin
+            ? game.GetAllGlobalLogs()
+            : StripHiddenLogs(
+                game.GetAllGlobalLogs(),
+                game.AllHiddenGlobalLogSnippets,
+                requestingPlayer,
+                game,
+                forceProVisibility);
+        scopedGlobalLogs = SanitizeGordonGlobalLogs(scopedGlobalLogs);
+        scopedAllGlobalLogs = SanitizeGordonGlobalLogs(scopedAllGlobalLogs);
+
         var dto = new GameStateDto
         {
             GameId = game.GameId,
@@ -193,13 +221,11 @@ public static class GameStateMapper
                 ? OmniMan.GetUndergroundTrainPhrase(game)
                 : null,
             GlobalLogs = requestingPlayer == null
-                ? (isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility))
-                : GameLocalization.TextForClient(requestingPlayer.DiscordId,
-                    isAdmin ? game.GetGlobalLogs() : StripHiddenLogs(game.GetGlobalLogs(), game.HiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility)),
+                ? scopedGlobalLogs
+                : GameLocalization.TextForClient(requestingPlayer.DiscordId, scopedGlobalLogs),
             AllGlobalLogs = requestingPlayer == null
-                ? (isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.AllHiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility))
-                : GameLocalization.TextForClient(requestingPlayer.DiscordId,
-                    isAdmin ? game.GetAllGlobalLogs() : StripHiddenLogs(game.GetAllGlobalLogs(), game.AllHiddenGlobalLogSnippets, requestingPlayer, game, forceProVisibility)),
+                ? scopedAllGlobalLogs
+                : GameLocalization.TextForClient(requestingPlayer.DiscordId, scopedAllGlobalLogs),
             MyPlayerId = requestingPlayer?.GetPlayerId(),
             MyPlayerType = requestingPlayer?.PlayerType ?? 0,
             IsProMode = proVisibilityActive && !isAdmin,
@@ -677,7 +703,14 @@ public static class GameStateMapper
                                     FinalPoints = halfLife.FinalPoints,
                                     FreezeLabel = GordonFreeman.GetFreezeLabel(gordon),
                                     PostponeLabel = GordonFreeman.GetPostponeLabel(gordon),
-                                    DecisionMessage = GordonFreeman.GetDecisionMessage(gordon),
+                                    DecisionMessage = halfLife.PendingDecision
+                                        ? GordonFreeman.GetDecisionMessage(gordon)
+                                        : "",
+                                    DecisionMessageText = halfLife.PendingDecision
+                                                          && !halfLife.PendingReleaseConfirmation
+                                        ? GameLocalization.MessageText(
+                                            GordonFreeman.HalfLifeFailureMessageKey)
+                                        : null,
                                 },
                             };
                             anySet = true;
@@ -733,7 +766,10 @@ public static class GameStateMapper
                                 RollMode = doom.RollMode,
                                 RollAvailable = game.RoundNo == 1 && !doom.RollMode,
                                 CurrentStage = stage,
-                                CurrentOptions = DoomGuy.GetOptions(doom, stage).Select(x => new DoomModuleDto
+                                CurrentOptions = DoomGuy.GetOptions(
+                                    doom,
+                                    stage,
+                                    player.PlayerType == 404).Select(x => new DoomModuleDto
                                 {
                                     Name = x.Name,
                                     Stage = x.Stage,
@@ -1559,6 +1595,7 @@ public static class GameStateMapper
             {
                 RoundMultiplier = status.ActualRoundMultiplier,
                 ExpectedRoundMultiplier = status.ExpectedRoundMultiplier,
+                RegularPointsMultiplier = status.PreviousRoundRegularPointsMultiplier,
                 Entries = mappedEntries,
             };
         }
@@ -1649,6 +1686,54 @@ public static class GameStateMapper
             : GameLocalization.TextForUser(owner.DiscordId, text);
 
         return localized;
+    }
+
+    internal static string RedactGordonFailureForNonOwner(string text) =>
+        PhrasePayload.MaskPassiveNames(
+            text,
+            GordonPrivateLogSources,
+            hidePhraseBody: true,
+            forcePublicProjection: true);
+
+    internal static string SanitizeGordonGlobalLogs(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        text = PhrasePayload.RemovePayloadsByRussianBodyPrefix(
+            text,
+            GordonFreeman.HalfLife3,
+            "Недостаточно профита, нельзя",
+            "Halflife 3: Недостаточно профита, нельзя");
+
+        var postponed = GameLocalization.MessageText(GordonFreeman.HalfLifePostponedMessageKey);
+        var neutralPostponement = PhrasePayload.EncodeText("", postponed.Ru, "", postponed.En);
+        foreach (var legacy in LegacyHalfLifePostponementMessages)
+        {
+            text = text.Replace(legacy.Russian, neutralPostponement, StringComparison.Ordinal);
+            text = text.Replace(legacy.English, neutralPostponement, StringComparison.Ordinal);
+        }
+
+        return string.Join('\n', text.Split('\n').Where(line => !IsPrivateGordonGlobalLine(line)));
+    }
+
+    private static bool IsPrivateGordonGlobalLine(string line)
+    {
+        var value = line.TrimEnd('\r');
+        return value.Contains("потенциальный итог при релизе.", StringComparison.Ordinal)
+               || value.Contains("the potential release total.", StringComparison.OrdinalIgnoreCase)
+               || value.Contains(
+                   "Halflife 3 был отменен: для переноса нужно ",
+                   StringComparison.Ordinal)
+               && value.Contains(" очк., доступно ", StringComparison.Ordinal)
+               || value.Contains(
+                   "Halflife 3: Недостаточно профита, нельзя выпускать игру.",
+                   StringComparison.Ordinal)
+               || value.Contains(
+                   "Halflife 3: Недостаточно профита, нельзя  выпускать игру.",
+                   StringComparison.Ordinal)
+               || value.Contains(
+                   "Half-Life 3: Not enough profit to release the game.",
+                   StringComparison.Ordinal);
     }
 
     private static bool IsDepthsCallPromptActive(
@@ -1947,6 +2032,7 @@ public static class GameStateMapper
 
         // Section 1: Fight History (global logs already contain round headers like "Раунд #N")
         var globalLogs = game.GetAllGlobalLogs() ?? "";
+        globalLogs = SanitizeGordonGlobalLogs(globalLogs);
         if (requestingPlayer?.GameCharacter.Name != Dopa.CharacterName)
             globalLogs = StripLogSnippets(globalLogs, game.DopaShadowGlobalLogSnippets);
         if (replaySafe || requestingPlayer?.PlayerType != 2)
@@ -1987,6 +2073,8 @@ public static class GameStateMapper
                 var heading = UnknownBug.Is(p) && !canRevealPrivateCharacter ? "???" : p.GameCharacter.Name;
                 sb.AppendLine($"**{heading}** (#{p.Status.GetPlaceAtLeaderBoard()}, {p.Status.GetScore()} очков):");
                 var personalLogs = p.Status.InGamePersonalLogsAll;
+                if (replaySafe || requestingPlayer?.GetPlayerId() != p.GetPlayerId())
+                    personalLogs = RedactGordonFailureForNonOwner(personalLogs);
                 var rounds = personalLogs.Split("|||")
                     .Select(r => r.Trim())
                     .Where(r => r.Length > 0)

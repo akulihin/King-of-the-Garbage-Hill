@@ -135,6 +135,9 @@ const hasMoral = computed(() => props.isMe && !isMadara.value && moral.value >= 
 const roundNo = computed(() => store.gameState?.roundNo ?? 0)
 const isLastRound = computed(() => roundNo.value === 10)
 const roundMultiplier = computed(() => props.scoreBreakdown?.roundMultiplier ?? 1)
+const regularPointsMultiplier = computed(() =>
+  Math.max(1, props.scoreBreakdown?.regularPointsMultiplier ?? 1),
+)
 
 const isMultiplierModified = computed(() => {
   if (!props.scoreBreakdown) return false
@@ -324,6 +327,7 @@ const theBoys = computed(() => passiveStates.value?.theBoys ?? null)
 const doomGuy = computed(() => passiveStates.value?.doomGuy ?? null)
 
 const hasPassive = (name: string) => props.player?.character.passives.some((passive: { name: string }) => passive.name === name) ?? false
+const canonicalEnglishGameplayLabels = new Set(['Mute', "Let's Roll!", 'Rumbling'])
 
 const carryPoints = computed(() => passiveStates.value?.scamRat?.carryPoints ?? 0)
 const canPurchaseCarryStats = computed(() =>
@@ -1224,7 +1228,7 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <!-- Эрен Йегер -->
     <div v-if="passiveStates?.eren" class="pc-passive-widget eren-widget" :data-widget-help="widgetHelp('eren')" :aria-description="widgetHelp('eren')" tabindex="0">
       <div class="pw-header">
-        <span class="pw-title eren-title">{{ t('RUMBLING', 'РОКОТ ЗЕМЛИ') }}</span>
+        <span class="pw-title eren-title" lang="en" translate="no">Rumbling</span>
         <span class="pw-status" :class="passiveStates.eren.losses < 2 ? 'eren-ready' : 'eren-failed'">
           {{ passiveStates.eren.losses }}/2 {{ t('losses', 'поражений') }}
         </span>
@@ -1997,8 +2001,8 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
     <div class="pc-score-row" :class="{ 'confetti-burst': showConfetti }">
       <ScoreOdometer :value="player.status.score" size="lg" :flash-color="animatedScoreDelta > 0 ? '#5ba85b' : animatedScoreDelta < 0 ? '#e05545' : null" class="pc-score" />
       <span class="pc-score-label" :class="{ 'pc-score-label-geralt': isGeralt }">{{ isGeralt ? t('minted\ncoins', 'чеканные\nмонеты') : 'pts' }}</span>
-      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHitCount >= 4, 'delta-huge': comboHitCount >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="animatedScoreDelta">
-        {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}
+      <span v-if="animatedScoreDelta !== 0" class="pc-score-delta" :class="{ 'delta-big': comboHitCount >= 4, 'delta-huge': comboHitCount >= 6, 'delta-negative': animatedScoreDelta < 0 }" :key="`${animatedScoreDelta}:${regularPointsMultiplier}`">
+        {{ animatedScoreDelta > 0 ? '+' : '' }}{{ animatedScoreDelta }}<template v-if="regularPointsMultiplier > 1"> (x{{ regularPointsMultiplier }}!)</template>
       </span>
       <span v-if="hitActiveIdx >= 0 && allAnimHits[hitActiveIdx]?.comboIndex > 0" class="combo-multiplier" :key="hitActiveIdx"
         :style="comboHeatStyle(allAnimHits[hitActiveIdx].comboIndex + 1)">
@@ -2057,7 +2061,11 @@ function doomModuleStatus(module: string): { text: string; state: 'live' | 'done
             <span v-if="!hit.hidePoints" class="combo-hit-pts" :class="{ 'combo-hit-negative': group.type === 'negative' }">
               {{ hit.pointsEarned > 0 ? '+' : '' }}{{ hit.pointsEarned }}
             </span>
-            <span class="combo-hit-label">{{ hit.name }}</span>
+            <span
+              class="combo-hit-label"
+              :lang="canonicalEnglishGameplayLabels.has(hit.name) ? 'en' : undefined"
+              :translate="canonicalEnglishGameplayLabels.has(hit.name) ? 'no' : undefined"
+            >{{ hit.name }}</span>
             <span v-if="hit.comboIndex > 0" class="combo-badge" :style="comboHeatStyle(hit.comboIndex + 1)">COMBO {{ hit.comboIndex + 1 }}</span>
           </div>
 

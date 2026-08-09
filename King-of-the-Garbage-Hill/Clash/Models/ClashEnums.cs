@@ -6,6 +6,13 @@ public enum ClashSide
     Guest,
 }
 
+public enum ClashAttackPattern
+{
+    AdjacentForward,
+    ForwardReach,
+    RangedColumn,
+}
+
 public enum ClashGamePhase
 {
     Lobby,

@@ -589,7 +589,7 @@ public class BattleshipService
 
             DescribeShot(game, shooter, result, ownBoard: false);
             result.TurnContinues = RegisterResolvedPlayerShot(
-                game, shooter, shotCountBefore, result.TurnContinues, allowSecondShot: true);
+                game, shooter, shotCountBefore, result, allowSecondShot: true);
             ResetExpendedSelection(game, shooter);
             shooter.HasShotThisTurn = true;
             game.LastActivity = DateTime.UtcNow;
@@ -678,11 +678,12 @@ public class BattleshipService
             }
 
             DescribeShot(game, shooter, result, ownBoard: true);
+            result.TurnContinues = false;
             var resolvedTurnContinues = RegisterResolvedPlayerShot(
                 game,
                 shooter,
                 shotCountBefore,
-                requestedTurnContinues: false,
+                result,
                 allowSecondShot: !isEvilGreekFireReaction);
             if (!isEvilGreekFireReaction)
                 result.TurnContinues = resolvedTurnContinues;
@@ -824,35 +825,54 @@ public class BattleshipService
         BattleshipGameEngine.HasLivingMast(player);
 
     /// <summary>
-    /// Count one validated attack action for owner-scoped passives. The warming ship guarantees
-    /// a second attack even after a miss; ordinary reset rules resume after that second action.
+    /// Count one validated attack action for owner-scoped passives. The original warming ship
+    /// guarantees a second attack; Ver.2 continues until it explodes or misses twice in a row.
     /// Out-of-turn Evil Greek Fire still counts toward overheating but never takes over the turn.
     /// </summary>
     private static bool RegisterResolvedPlayerShot(
         BattleshipGame game,
         BattleshipPlayer shooter,
         int shotCountBefore,
-        bool requestedTurnContinues,
+        ShotResult result,
         bool allowSecondShot)
     {
         var resolvedShots = Math.Max(0, game.ShotCount - shotCountBefore);
-        if (resolvedShots == 0) return requestedTurnContinues;
+        if (resolvedShots == 0) return result?.TurnContinues ?? false;
 
         shooter.TotalShotsFired += resolvedShots;
         if (allowSecondShot)
+        {
             shooter.ShotsFiredThisTurn += resolvedShots;
+            shooter.ConsecutiveWarmingMisses = result?.Miss == true
+                ? shooter.ConsecutiveWarmingMisses + 1
+                : 0;
+        }
+
+        var hadLivingWarmingV2 = allowSecondShot && shooter.Board.PlacedShips.Any(ship =>
+            IsOperationalPassiveSource(ship, "warming_chain_until_two_misses"));
         BattleshipGameEngine.TriggerOverheatExplosion(game, shooter);
+        if (result?.ForcesTurnEnd == true) return false;
+
+        var hasLivingWarmingV2 = allowSecondShot && shooter.Board.PlacedShips.Any(ship =>
+            IsOperationalPassiveSource(ship, "warming_chain_until_two_misses"));
+        if (hadLivingWarmingV2 && !hasLivingWarmingV2)
+            return false;
+        if (hasLivingWarmingV2)
+            return shooter.ConsecutiveWarmingMisses < 2;
 
         var hasLivingDoubleShotSource = shooter.Board.PlacedShips.Any(ship =>
-            !ship.IsDestroyed &&
-            !ship.Statuses.Any(status => status is
-                ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
-            ship.Abilities.Contains("double_shot_while_alive"));
+            IsOperationalPassiveSource(ship, "double_shot_while_alive"));
         var guaranteedSecondShot = allowSecondShot &&
                                    shooter.ShotsFiredThisTurn < 2 &&
                                    hasLivingDoubleShotSource;
-        return requestedTurnContinues || guaranteedSecondShot;
+        return (result?.TurnContinues ?? false) || guaranteedSecondShot;
     }
+
+    private static bool IsOperationalPassiveSource(Ship ship, string ability) =>
+        !ship.IsDestroyed &&
+        !ship.Statuses.Any(status => status is
+            ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+        ship.Abilities.Contains(ability);
 
     /// <summary>
     /// Status-resolution logs are produced by the engine before the personalized state push.
@@ -1287,6 +1307,7 @@ public class BattleshipService
 
         var opponent = game.GetOpponent(player.DiscordId);
         if (opponent == null) return false;
+        var hasFinalRush = HasFinalRush(game, player);
 
         bool EntryIsOpen(int row, int col) =>
             opponent.Board.GetCell(row, col)?.SummonRef is not { IsAlive: true };
@@ -1297,7 +1318,7 @@ public class BattleshipService
         if (waitingRams.Count > 0)
         {
             var returnCooldownReady =
-                game.Phase == BsGamePhase.Boarding ||
+                hasFinalRush ||
                 game.ShotCount - player.LastSummonDeployShotCount >= 2;
             if (!returnCooldownReady) return false;
             foreach (var waiting in waitingRams)
@@ -1338,16 +1359,20 @@ public class BattleshipService
         foreach (var pending in player.PendingSummons.Where(p => !p.IsMandatoryBoarding))
         {
             if (!pending.IsFree && player.SummonSlotsUsed >= player.MaxSummonSlots) continue;
+            if (!pending.IsFree && !hasFinalRush &&
+                (game.ShotCount - player.LastSummonDeployShotCount < 2 ||
+                 player.RevealedCellCount < 5 * (player.SummonSlotsUsed + 1)))
+                continue;
             if (GetLegalPendingSummonColumns(game, player, pending).Count > 0) return true;
         }
 
         var summonCooldownReady =
-            game.Phase == BsGamePhase.Boarding ||
+            hasFinalRush ||
             game.ShotCount - player.LastSummonDeployShotCount >= 2;
         if (!summonCooldownReady) return false;
 
         var summonIndex = player.SummonSlotsUsed;
-        if (game.Phase != BsGamePhase.Boarding &&
+        if (!hasFinalRush &&
             player.RevealedCellCount < 5 * (summonIndex + 1))
             return false;
 
@@ -1374,6 +1399,11 @@ public class BattleshipService
             !ship.Statuses.Contains(ShipStatusType.Capture) &&
             ship.Abilities.Contains("brander_summon"));
     }
+
+    private static bool HasFinalRush(BattleshipGame game, BattleshipPlayer player) =>
+        game?.Phase == BsGamePhase.Boarding &&
+        player != null &&
+        game.BoardingPlayerId == player.DiscordId;
 
     private static PendingManeuverDto GetPendingManeuver(
         BattleshipGame game,
@@ -1955,6 +1985,7 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            var hasFinalRush = HasFinalRush(game, player);
 
             var matryoshkaError = GetMatryoshkaLockError(game, discordId);
             if (matryoshkaError != null) return (false, matryoshkaError);
@@ -2035,11 +2066,11 @@ public class BattleshipService
             // Deployment threshold: need 5 revealed cells per summon index
             var summonIndex = player.SummonSlotsUsed;
             if (waitingSummon == null &&
-                player.RevealedCellCount < 5 * (summonIndex + 1) && game.Phase != BsGamePhase.Boarding)
+                player.RevealedCellCount < 5 * (summonIndex + 1) && !hasFinalRush)
                 return (false, $"Нужно разведать ещё {5 * (summonIndex + 1) - player.RevealedCellCount} клеток для призыва.");
 
             // Deployment cooldown: 2 shots between deployments
-            if (game.ShotCount - player.LastSummonDeployShotCount < 2 && game.Phase != BsGamePhase.Boarding)
+            if (game.ShotCount - player.LastSummonDeployShotCount < 2 && !hasFinalRush)
                 return (false, "Слишком рано для нового призыва (перезарядка 2 выстрела).");
 
             // Re-send waiting summon (turn-back)
@@ -2206,7 +2237,8 @@ public class BattleshipService
 
     /// <summary>
     /// Deploy a pending summon (pirate/cursed boat from ship death, or boarding ship).
-    /// Free, no cooldown, no revelation threshold. Column restricted for pirate/cursed.
+    /// Free pending units bypass cooldown/revelation; any future paid pending unit follows
+    /// ordinary cadence unless its owner holds final_rush. Column restricted for pirate/cursed.
     /// </summary>
     public (bool success, string error) DeployPendingSummon(string gameId, string discordId, string pendingId, int col)
     {
@@ -2221,6 +2253,7 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            var hasFinalRush = HasFinalRush(game, player);
 
             var matryoshkaError = GetMatryoshkaLockError(game, discordId);
             if (matryoshkaError != null) return (false, matryoshkaError);
@@ -2258,6 +2291,15 @@ public class BattleshipService
 
             if (!pending.IsFree && player.SummonSlotsUsed >= player.MaxSummonSlots)
                 return (false, "Лимит обычных призывов исчерпан.");
+            if (!pending.IsFree && !hasFinalRush)
+            {
+                var summonIndex = player.SummonSlotsUsed;
+                if (player.RevealedCellCount < 5 * (summonIndex + 1))
+                    return (false,
+                        $"Нужно разведать ещё {5 * (summonIndex + 1) - player.RevealedCellCount} клеток для призыва.");
+                if (game.ShotCount - player.LastSummonDeployShotCount < 2)
+                    return (false, "Слишком рано для нового призыва (перезарядка 2 выстрела).");
+            }
 
             var opponent = game.GetOpponent(discordId);
             if (opponent == null)
@@ -2284,7 +2326,10 @@ public class BattleshipService
                 return (false, "Клетки входа заняты другим призывом.");
             }
             if (!pending.IsFree)
+            {
                 player.SummonSlotsUsed++;
+                player.LastSummonDeployShotCount = game.ShotCount;
+            }
             player.PendingSummons.Remove(pending);
             if (pending.IsMandatoryBoarding)
                 CompleteMandatoryBoardingDeployment(game, player);
@@ -2297,7 +2342,17 @@ public class BattleshipService
             // Mast warning (personal — it's their mast)
             if (HasLivingMast(opponent))
             {
-                var warning = BattleshipGameEngine.GenerateMastWarning(opponent, pending.Type, summon.Row, summon.Col);
+                var warning = pending.IsBoarding
+                    ? _messageCatalog.Render(
+                        new LocalizedMessage(
+                            "battleship.mast.boardingShipIncoming",
+                            new Dictionary<string, string>
+                            {
+                                ["coordinate"] = $"{(char)('A' + summon.Col)}{summon.Row + 1}",
+                            }),
+                        GetPlayerLanguage(opponent.DiscordId))
+                    : BattleshipGameEngine.GenerateMastWarning(
+                        opponent, pending.Type, summon.Row, summon.Col);
                 if (warning != null) game.AddLogFor(opponent.DiscordId, warning);
             }
 
@@ -2322,6 +2377,7 @@ public class BattleshipService
                 return (false, "Сейчас не фаза боя.");
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
+            var hasFinalRush = HasFinalRush(game, player);
             var matryoshkaError = GetMatryoshkaLockError(game, discordId);
             if (matryoshkaError != null) return (false, matryoshkaError);
             var ship = player.Board.PlacedShips.FirstOrDefault(candidate =>
@@ -2358,11 +2414,11 @@ public class BattleshipService
             if (!regionShips.SelectMany(candidate => candidate.Regions).Contains(Region.South))
                 return (false, "Для Пиратской лодки нужен флот из региона Юг.");
             var summonIndex = player.SummonSlotsUsed;
-            if (game.Phase != BsGamePhase.Boarding &&
+            if (!hasFinalRush &&
                 player.RevealedCellCount < 5 * (summonIndex + 1))
                 return (false,
                     $"Нужно разведать ещё {5 * (summonIndex + 1) - player.RevealedCellCount} клеток для призыва.");
-            if (game.Phase != BsGamePhase.Boarding &&
+            if (!hasFinalRush &&
                 game.ShotCount - player.LastSummonDeployShotCount < 2)
                 return (false, "Слишком рано для нового призыва (перезарядка 2 выстрела).");
 
@@ -2483,7 +2539,7 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
             // ТЗ #20: only the mover sees the move message; the opponent gets their mast warning
             // at hit time (ProcessShipHit), not at move time
-            game.AddLogFor(discordId, isMergingManeuver
+            game.AddLogFor(discordId, isMergingManeuver || ship.DefinitionId == "merging_ship_v2"
                 ? "Сливающийся корабль маневрирует!"
                 : ship.DefinitionId == "famous_ramming_ship"
                     ? "Знаменитый Врезающийся корабль маневрирует!"
@@ -2651,7 +2707,10 @@ public class BattleshipService
                 Name = u.Name,
                 NameRu = u.NameRu,
                 Cost = u.Cost,
-                Description = $"{u.Description} Цена: {u.Cost} монет.",
+                Description = string.IsNullOrWhiteSpace(u.Description)
+                    ? null
+                    : $"{u.Description} Цена: {u.Cost} монет.",
+                DescriptionKey = u.DescriptionKey,
                 IsPreinstalled = u.IsPreinstalled,
             }).ToList() ?? new(),
         }).ToList();
@@ -3018,11 +3077,13 @@ public class BattleshipService
                 result = BattleshipGameEngine.ProcessShot(game, bot, targetRow, targetCol);
 
             DescribeShot(game, bot, result, ownBoard);
+            if (ownBoard)
+                result.TurnContinues = false;
             result.TurnContinues = RegisterResolvedPlayerShot(
                 game,
                 bot,
                 shotCountBefore,
-                requestedTurnContinues: ownBoard ? false : result.TurnContinues,
+                result,
                 allowSecondShot: true);
             bot.HasShotThisTurn = true;
             ResetExpendedSelection(game, bot);
@@ -3101,9 +3162,12 @@ public class BattleshipService
                 break;
 
             ship.HasManeuvered = true;
-            game.AddLogFor(bot.DiscordId, ship.DefinitionId == "famous_ramming_ship"
-                ? "Знаменитый Врезающийся корабль маневрирует!"
-                : "Маневрирующая двойка маневрирует!");
+            game.AddLogFor(bot.DiscordId, ship.DefinitionId switch
+            {
+                "famous_ramming_ship" => "Знаменитый Врезающийся корабль маневрирует!",
+                "merging_ship_v2" => "Сливающийся корабль маневрирует!",
+                _ => "Маневрирующая двойка маневрирует!",
+            });
         }
 
         // Voluntary merging maneuvers are independent one-time actions. Prefer an actual
@@ -3140,6 +3204,7 @@ public class BattleshipService
         {
             current.HasShotThisTurn = false;
             current.ShotsFiredThisTurn = 0;
+            current.ConsecutiveWarmingMisses = 0;
         }
         game.CurrentTurnPlayerId = game.CurrentTurnPlayerId == game.Player1.DiscordId
             ? game.Player2.DiscordId
@@ -3310,6 +3375,7 @@ public class BattleshipService
             SelectedShotType = player.SelectedShotType.ToString(),
             SelectedWeaponId = isMe ? player.SelectedWeapon?.Id : null,
             RevealedCellCount = player.RevealedCellCount,
+            TotalShotsFired = player.TotalShotsFired,
             StunShotExpiry = player.StunShotExpiry,
             HasPenalty = player.HasPenalty,
             HasShotThisTurn = player.HasShotThisTurn,
@@ -3350,7 +3416,11 @@ public class BattleshipService
             SummonCooldownRemaining = Math.Max(0, 2 - (gameShotCount - player.LastSummonDeployShotCount)),
             CanDeployAnySummon = isMe && CanDeployAnySummon(game, player),
             Fleet = isMe || isSpectator ? MapFleet(player.Fleet, player.RevealedCellCount) : null,
-            Board = showOwnBoard ? MapBoard(player.Board, isMe || isSpectator) : MapFogBoard(player.Board),
+            Board = showOwnBoard
+                ? MapBoard(player.Board, isMe || isSpectator)
+                : MapFogBoard(
+                    player.Board,
+                    BattleshipGameEngine.HasLivingMast(game.GetPlayer(requestingId))),
             Summons = player.Summons.Where(s => s.IsAlive).Select(s => new SummonDto
             {
                 Id = s.Id,
@@ -3528,6 +3598,9 @@ public class BattleshipService
                 Ammo = w.Ammo,
                 DeckIndex = w.DeckIndex,
                 HasAmmo = w.HasAmmo,
+                IsOperational = !s.Statuses.Any(status => status is
+                    ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze) &&
+                    BattleshipGameEngine.IsWeaponOperational(s, w),
                 AimSpeed = w.AimSpeed > 0 ? Math.Max(0, w.AimSpeed - opponentRevealedCount) : 0,
                 ConfiguredShotType = w.ConfiguredShotType?.ToString(),
             }).ToList(),
@@ -3557,6 +3630,10 @@ public class BattleshipService
             var boardingDeckIsScratched = boardingDeck is { CurrentHp: > 0 } &&
                                           (boardingDeck.CurrentHp < boardingDeck.MaxHp ||
                                            cell.BurnResistMarked);
+            var preservedBoardingHit = cell.WasBoardingSourceCell &&
+                                       liveDeck == null &&
+                                       cell.IsHit &&
+                                       cell.WasShipHit;
             cells.Add(new CellDto
             {
                 Row = r,
@@ -3565,8 +3642,8 @@ public class BattleshipService
                 // ТЗ #19: killed decks derive from the live Ship object, so the mark follows a
                 // Maneuvering Double to its new cells after a manual move
                 // Historical fog snapshots remain in Cell after hidden movement/assembly,
-                // but the physical board owner renders only the hull currently occupying it.
-                IsHit = deckIsDamaged || matryoshkaWreck,
+                // while a Boarding conversion explicitly retains any pre-existing source-cell paint.
+                IsHit = deckIsDamaged || matryoshkaWreck || preservedBoardingHit,
                 IsMiss = liveDeck == null && !matryoshkaWreck && cell.IsMiss,
                 IsBurning = cell.IsBurning,
                 HasShip = showShips && (cell.ShipRef != null || matryoshkaWreck),
@@ -3587,15 +3664,18 @@ public class BattleshipService
                 BoardingShipDeckCount = cell.SummonRef is { IsAlive: true, IsBoardingShip: true }
                     ? 1
                     : 0,
-                IsScratched = deckIsScratched || boardingDeckIsScratched,
+                IsScratched = deckIsScratched || boardingDeckIsScratched ||
+                               preservedBoardingHit && cell.WasScratched,
                 SummonTrails = cell.SummonTrails.Select(MapSummonMarker).ToList(),
                 SummonDeaths = cell.SummonDeaths.Select(MapSummonMarker).ToList(),
                 FrozenSummonDeathIndices = cell.FrozenSummonDeathIndices.ToList(),
                 IsBurnResistMarked = cell.BurnResistMarked &&
-                                     (deckIsScratched || boardingDeck is { CurrentHp: > 0 }),
+                                     (deckIsScratched || boardingDeck is { CurrentHp: > 0 } ||
+                                      preservedBoardingHit),
                 IsDodgeMarked = cell.WasDodge,
                 IsManeuverDodgeMarked = cell.WasManeuverDodge,
-                IsDestroyed = liveDeck?.IsDestroyed == true || matryoshkaWreck,
+                IsDestroyed = liveDeck?.IsDestroyed == true || matryoshkaWreck ||
+                              preservedBoardingHit && !cell.WasScratched,
                 IsShipSunk = cell.ShipRef?.IsDestroyed == true || matryoshkaWreck,
                 IsFrozen = cell.ShipRef?.Statuses.Contains(ShipStatusType.Freeze) == true,
                 IsDevastated = cell.ShipRef?.Statuses.Contains(ShipStatusType.Devastated) == true,
@@ -3612,7 +3692,7 @@ public class BattleshipService
         return new BoardDto { Cells = cells };
     }
 
-    private static BoardDto MapFogBoard(Board board)
+    private static BoardDto MapFogBoard(Board board, bool includeSunkShipNames)
     {
         var cells = new List<CellDto>();
         for (var r = 0; r < 10; r++)
@@ -3670,7 +3750,7 @@ public class BattleshipService
                 IsCaptured = !hiddenMovedShip &&
                              cell.ShipRef?.Statuses.Contains(ShipStatusType.Capture) == true,
                 IsFirePermanent = cell.IsBurning,
-                SunkShipName = cell.SunkShipName,
+                SunkShipName = includeSunkShipNames ? cell.SunkShipName : null,
             });
         }
         return new BoardDto { Cells = cells };
@@ -3775,6 +3855,7 @@ public class BattleshipPlayerDto
     public string SelectedShotType { get; set; }
     public string SelectedWeaponId { get; set; }
     public int RevealedCellCount { get; set; }
+    public int TotalShotsFired { get; set; }
     public int StunShotExpiry { get; set; }
     public bool HasPenalty { get; set; }
     public bool HasShotThisTurn { get; set; }
@@ -3983,6 +4064,7 @@ public class WeaponDto
     public int Ammo { get; set; }
     public int DeckIndex { get; set; }
     public bool HasAmmo { get; set; }
+    public bool IsOperational { get; set; }
     public int AimSpeed { get; set; }
     public string ConfiguredShotType { get; set; }
 }
@@ -4056,5 +4138,6 @@ public class UpgradeDto
     public string NameRu { get; set; }
     public int Cost { get; set; }
     public string Description { get; set; }
+    public string DescriptionKey { get; set; }
     public bool IsPreinstalled { get; set; }
 }

@@ -8,7 +8,9 @@ client-only engine remains embedded inside Empire's Endgame campaign and `?qa=1`
 fixtures, where it owns campaign-local plans, turn logs and settlement. It is not this
 network game and has no standalone route; the redundant Clash lab page was removed.
 
-The normative design input is the 2026-07-29 redesign request. The unit audit in
+The normative design input is the 2026-07-29 redesign request plus the 2026-08-08
+designer correction for adjacent attacks, opposing forward directions and death-cell
+movement. The unit audit in
 Appendix A is grounded in the Discord export
 `DiscordExports/Empires_Endgame/Empire's Endgame_ Gamble for Glory - война
 [1287805881680920626].json` for the inclusive range 2025-04-09 through 2025-11-25.
@@ -249,10 +251,15 @@ outcome. Stable instance IDs order only otherwise equivalent events.
 
 Unit descriptions override the default action. For the strict live roster:
 
-- a melee unit attacks only when it is its side's front unit in the column, and targets
-  the opposing front unit in that column even when earlier casualties left empty cells
-  between the two fronts;
+- the default `AdjacentForward` pattern attacks only an enemy in the immediately adjacent
+  cell directly ahead in world space; it never crosses an empty cell or changes column;
 - a ranged unit attacks the current opposing front unit in its column from any depth;
+- authored reach patterns such as Противоконь are separate catalog values with an exact
+  forward range; ranged/reach behavior is never inferred from a unit-name substring or
+  parsed from display prose;
+- `IsRanged` (combat/reload/visual class) and `CanDefaultAdvance` (movement eligibility)
+  are independent catalog decisions, so neither is silently inferred from the targeting
+  pattern; the current ranged roster explicitly opts out of default movement;
 - a unit performs at most one default action per clash unless its authored rule explicitly
   grants multiple hits or actions.
 
@@ -264,35 +271,43 @@ When health reaches zero, the unit dies. It is removed from occupancy after its 
 A corpse may exist as a visual or unit-specific effect marker, but it does not occupy or
 block the cell under this standalone ruleset.
 
-## 6. Melee advance and territory crossing
+## 6. Forward movement, death-cell priority and territory crossing
 
-After all speed bands have resolved, the server computes advancement once from the final
-clash state. A unit receives at most one advancement event per clash.
+The battlefield is one world-space grid. `Host` faces increasing board rows (`+1`) and
+`Guest` faces decreasing board rows (`−1`); both therefore move toward the center and then
+continue through the opposing territory toward the enemy home row. No movement code may
+use one unconditional screen direction or reinterpret both territories in the same local
+orientation.
 
-A melee unit advances when all of the following are true:
+When one atomic resolution kills a deployed unit, its now-empty cell is handled before
+ordinary marching:
 
-1. it was its side's snapshotted front melee unit for its column;
-2. the snapshotted opposing front died during this clash;
-3. the defeated unit's cell is empty after death resolution;
-4. the advancing unit is still alive and able to move.
+1. The directly adjacent opposing unit whose forward direction enters that cell claims it
+   if it is alive and explicitly eligible for default melee advance.
+2. Otherwise, the directly adjacent allied unit behind the casualty claims the cell. The
+   designer's restriction to non-ranged applies only to the enemy claimant; this allied
+   formation-close may move a ranged unit.
+3. A claimant moves exactly one cell and cannot claim another death cell or receive the
+   ordinary march in the same atomic resolution.
 
-The unit enters the defeated unit's cell even when that cell belongs to enemy territory.
-If earlier casualties had left a gap, this is still one kill-advance event even though it
-crosses more than one empty board cell.
-Ranged or support units do not use this kill advance. They may still use the empty-column
-march below. If both opposing front units die, neither advances. A kill does not permit a
-second attack or chain advance in the same clash.
+The rule runs after the bleeding death batch and after every same-speed death batch, before
+terminal evaluation or the next speed band. It also runs after all duplicated applications
+of one morale-5 active selection. An active performs only this death-cell fill; it does not
+trigger the whole army's ordinary march.
 
-Once across the border, a unit continues toward the enemy's increasing local row number.
-Entering an enemy cell in row `length` is a breach and participates in the atomic victory
-check.
+After every nonterminal clash, the server snapshots final living occupancy and gives each
+not-yet-moved unit with `CanDefaultAdvance`, and speed above zero, one default forward claim when its immediately
+forward cell is empty in that snapshot. Claims are one adjacent cell only: no remote-kill
+teleport, no multi-cell chain, and no rear unit following into a cell vacated later in the
+same pass. Ranged units never receive this default march. Crossing the center is ordinary
+movement; entering the enemy static home row `length` is a breach.
 
-There is one deliberate deadlock-closure rule. If the opposing side has no living unit
-anywhere in a column, that side's surviving front unit — melee or ranged — marches one
-adjacent empty cell toward the enemy home row after the clash. It cannot also use a kill
-advance in the same clash, never marches more than one cell, and receives no second
-attack. This preserves the classic Clash lane advance while preventing disjoint surviving
-columns from stalling forever.
+The export does not decide two remaining termination/collision cases. If opposing melee
+claims target the same empty cell, the live resolver applies neither claim rather than
+granting an arbitrary side or random instance-ID priority. A ranged-only disjoint-column
+position likewise has no source-authored march or cross-column target. These are explicit
+designer blockers, not permission to restore the superseded through-gap attack or ranged
+empty-column march from finding `m68`.
 
 ## 7. Between clashes
 
@@ -340,7 +355,8 @@ and every other required parameter. It is rejected if any parameter is illegal a
 current revision.
 
 Victory is checked after each atomic active selection. A morale-5 double application is
-one atomic selection for this purpose.
+one atomic selection for this purpose. Any deaths from that selection resolve the §6
+enemy-first/allied-backfill rule before the terminal check.
 
 ## 8. Боевой дух / morale
 
@@ -446,8 +462,11 @@ A conforming implementation must cover at least:
 - same-speed mutual kills;
 - faster kill suppressing a slower action;
 - damage event timestamps matching animation impact timestamps;
-- melee occupancy of the fallen opposing front across the territory border;
-- one-cell empty-enemy-column march and a disjoint-column no-stall simulation;
+- no default melee attack through one or more empty cells;
+- one-cell melee marching in both world directions, including across the center;
+- enemy-melee priority over allied-backfill for a newly fallen cell;
+- allied ranged backfill but no ranged default march;
+- no remote-kill teleport and no second movement for one unit in a clash;
 - simultaneous breach draw and mutual-elimination draw;
 - reinforcement placement only in rows `3…length`;
 - permanent per-subphase effect of «Продолжить»;
@@ -510,6 +529,8 @@ Animation state is driven by authoritative `startOffsetMs`/`impactOffsetMs` even
 speed-9 effects arrive immediately, damage/status counters change at impact, death and
 advance follow their matching events, reduced-motion clients receive the same final
 state without delayed transitions, and reconnect playback starts at elapsed server time.
+Attack and advance anticipation face viewer-relative up for the viewer's army and down for
+the opponent; world-space coordinates and terminal evaluation never depend on that view.
 
 ### A.3. Seventy-eight complete cards with blockers
 

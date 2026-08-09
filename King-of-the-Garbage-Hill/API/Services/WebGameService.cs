@@ -102,6 +102,7 @@ public class WebGameService
         // privileged implementation state and gives the new owner predictions they never made.
         // Replace the collection before publishing the new owner identity. State projection is
         // lock-free, so mutating the old list in place could expose one stale DTO or race its mapper.
+        Kira.ClearPredictionConfirmation(game, seat);
         seat.Predict = new List<PredictClass>();
         seat.AiKnowledge = new BotKnowledgeState();
         seat.AiPlaystyle = "";
@@ -458,7 +459,8 @@ public class WebGameService
             IsCheckIfReady = false,
             IsRanked = ranked,
             RankedEloRatingAtStart = rankedEloRatingAtStart,
-            AiDifficulty = 3,
+            // Ordinary games follow the Legacy+ default; Ranked remains the strict V3 challenge.
+            AiDifficulty = ranked ? 3 : 4,
         };
         publishedGame = game;
         game.NanobotsList.Add(new BotsBehavior.NanobotClass(playersList));
@@ -1272,8 +1274,13 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (player.Passives.IsDead)
+            return Task.FromResult((false, "Dead players cannot confirm predictions"));
+        if (game.RoundNo != 8)
+            return Task.FromResult((false, "Predictions can only be confirmed on round 8"));
 
         player.Status.ConfirmedPredict = true;
+        Kira.RecordPredictionConfirmation(game, player);
         return Task.FromResult((true, (string)null));
     }
 
@@ -1420,6 +1427,10 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
+        if (player.Passives.IsDead)
+            return Task.FromResult((false, "Dead players cannot change predictions"));
+        if (game.RoundNo >= 8 && player.Status.ConfirmedPredict)
+            return Task.FromResult((false, "Predictions are already confirmed"));
         if (Madara.IsMadara(player))
             return Task.FromResult((false, "У Мадары нет предположений"));
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
@@ -1435,11 +1446,7 @@ public class WebGameService
         if (Sakura.Is(target))
             return Task.FromResult((false, "Target is not available for predictions"));
 
-        var existing = player.Predict.Find(p => p.PlayerId == targetPlayerId);
-        if (existing == null)
-            player.Predict.Add(new PredictClass(characterName, targetPlayerId));
-        else
-            existing.CharacterName = characterName;
+        Kira.SetPrediction(player, targetPlayerId, characterName);
 
         return Task.FromResult((true, (string)null));
     }

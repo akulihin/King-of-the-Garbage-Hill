@@ -1708,7 +1708,10 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
         if (player.GameCharacter.Name == DoomGuy.CharacterName)
         {
             var stage = DoomGuy.StageForRound(game.RoundNo);
-            var modules = DoomGuy.GetOptions(player.Passives.DoomGuy, stage);
+            var modules = DoomGuy.GetOptions(
+                player.Passives.DoomGuy,
+                stage,
+                player.PlayerType == 404);
             var doomMenu = new SelectMenuBuilder()
                 .WithMinValues(1)
                 .WithMaxValues(1)

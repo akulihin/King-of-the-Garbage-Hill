@@ -350,6 +350,7 @@ export type GordonHalfLifeState = {
   freezeLabel: string
   postponeLabel: string
   decisionMessage: string
+  decisionMessageText?: LocalizedText
 }
 
 export type GordonState = {
@@ -588,6 +589,8 @@ export type ScoreBreakdownEntry = {
 export type ScoreBreakdown = {
   roundMultiplier: number
   expectedRoundMultiplier: number
+  /** Settled passive multiplier for regular points; absent in legacy replay snapshots. */
+  regularPointsMultiplier?: number
   entries: ScoreBreakdownEntry[]
 }
 
@@ -1134,6 +1137,7 @@ export type BattleshipPlayerState = {
   selectedShotType: string
   selectedWeaponId: string | null
   revealedCellCount: number
+  totalShotsFired: number
   stunShotExpiry: number
   hasPenalty: boolean
   hasShotThisTurn: boolean
@@ -1331,6 +1335,7 @@ export type BattleshipWeapon = {
   ammo: number
   deckIndex: number
   hasAmmo: boolean
+  isOperational: boolean
   aimSpeed: number
   configuredShotType: string | null
 }
@@ -1382,7 +1387,8 @@ export type BattleshipUpgrade = {
   name: string
   nameRu: string
   cost: number
-  description: string
+  description: string | null
+  descriptionKey: string | null
   isPreinstalled: boolean
 }
 

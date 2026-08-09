@@ -26,6 +26,7 @@ const props = withDefaults(
     lastShotCell?: { row: number; col: number } | null
     markedCells?: Set<string>
     shipNameMap?: Map<string, string>
+    revealShipNames?: boolean
     rangeOverlayCells?: Map<string, string>
     maneuverActive?: boolean
     maneuverShipCells?: { row: number; col: number }[]
@@ -154,6 +155,7 @@ function getShipEdges(row: number, col: number) {
 }
 
 function getShipName(row: number, col: number): string | undefined {
+  if (props.revealShipNames === false) return undefined
   const cell = getCell(row, col)
   if (cell?.sunkShipName) return cell.sunkShipName
   if (!cell?.shipId) return undefined
@@ -238,6 +240,7 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
           :marked="isMarked(r - 1, c - 1)"
           :ship-edges="getShipEdges(r - 1, c - 1)"
           :ship-name="getShipName(r - 1, c - 1)"
+          :reveal-ship-name="revealShipNames !== false"
           :range-overlay="getRangeOverlay(r - 1, c - 1)"
           :deck-symbols="getDeckVisual(r - 1, c - 1)?.symbols"
           :bow-direction="getDeckVisual(r - 1, c - 1)?.bowDirection"

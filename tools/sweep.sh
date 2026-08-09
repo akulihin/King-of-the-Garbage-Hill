@@ -1,11 +1,11 @@
 #!/bin/bash
 # sweep.sh — compare every bot AI level in one large, concurrent balance sweep.
 #
-# One command runs AI levels 0, 1, 2 and 3 at the same time, with exactly 100 000
-# requested games per level by default (400 000 total):
+# One command runs AI levels 0 through 4 at the same time, with exactly 100 000
+# requested games per level by default (500 000 total):
 #
-#   bash tools/sweep.sh                  # 4 × 100 000 games, batches of 5 000
-#   bash tools/sweep.sh 1000 250         # small 4 × 1 000 comparison
+#   bash tools/sweep.sh                  # 5 × 100 000 games, batches of 5 000
+#   bash tools/sweep.sh 1000 250         # small 5 × 1 000 comparison
 #
 # Each level first runs forced-coverage batches, then spends the rest of its exact
 # game budget on natural bot rolls. The default coverage target is 1% of the per-level
@@ -18,7 +18,7 @@
 # visits, so unrelated CPU load can make a sweep slower but cannot create false STUCK rows.
 #
 # Output: King-of-the-Garbage-Hill/DataBase/Simulations/sweep-<timestamp>/
-#   ai-{0,1,2,3}/batch-*.json + merged.json + sweep.log
+#   ai-{0,1,2,3,4}/batch-*.json + merged.json + sweep.log
 #   comparison.json, comparison.csv, summary.md, index.html
 #   winrate.svg, avg-place.svg, avg-score.svg
 #
@@ -26,9 +26,9 @@
 # versus L1: blue = better, red = worse, neutral = no meaningful difference; saturation
 # reflects the size of the difference relative to sampling noise.
 #
-# Exit: 0 = all four levels clean; 1 = errors/stuck games in any level;
+# Exit: 0 = all five levels clean; 1 = errors/stuck games in any level;
 #       2 = invalid input, build/report/harness failure. Ctrl-C stops all arms.
-# Run from anywhere. Simulation account persistence is disabled, so the four arms do
+# Run from anywhere. Simulation account persistence is disabled, so the five arms do
 # not touch each other or a running development server's account files.
 
 set -uo pipefail
@@ -63,7 +63,7 @@ SWEEP_REL="DataBase/Simulations/sweep-$TS"
 SWEEP_ABS="King-of-the-Garbage-Hill/$SWEEP_REL"
 mkdir -p "$SWEEP_ABS"
 
-echo "[sweep] AI 0/1/2/3 concurrently: $TOTAL games each ($((TOTAL * 4)) total), batches ≤$BATCH"
+echo "[sweep] AI 0/1/2/3/4 concurrently: $TOTAL games each ($((TOTAL * 5)) total), batches ≤$BATCH"
 echo "[sweep] L1 baseline; forced coverage target: $COVERAGE appearance(s)/character/level"
 echo "[sweep] output: $SWEEP_ABS"
 echo "[sweep] building once…"
@@ -189,7 +189,7 @@ run_level() {
 }
 
 declare -a PIDS=()
-declare -a LEVELS=(0 1 2 3)
+declare -a LEVELS=(0 1 2 3 4)
 INTERRUPTED=0
 stop_arms() {
     INTERRUPTED=1
@@ -225,7 +225,7 @@ if [ "$OVERALL_RC" -eq 2 ]; then
     exit 2
 fi
 
-echo "[sweep] merging all four levels and rendering reports…"
+echo "[sweep] merging all five levels and rendering reports…"
 if ! python3 tools/sweep-report.py build "$SWEEP_ABS" "$TOTAL"; then
     echo "[sweep] report generation FAILED"
     exit 2

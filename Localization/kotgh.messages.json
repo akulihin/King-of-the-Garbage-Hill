@@ -26,6 +26,31 @@
       "ru": "Капитан Очевидность: Вас разоблачили, вы были слишком... очевидны.",
       "en": "Captain Obvious: You were exposed; you were too... obvious."
     },
+    "kotgh.gameplay.kira.deathNoteInterrupted": {
+      "visibility": "owner",
+      "ru": "Черт, не могу записать его имя, пока он так пристально смотрит... Надо попробовать еще раз",
+      "en": "Damn, I can't write his name while he's staring at me so intently... I'll have to try again"
+    },
+    "kotgh.gameplay.gordon.halfLifeFailure": {
+      "visibility": "owner",
+      "ru": "Halflife 3: Недостаточно профита, нельзя выпускать игру.",
+      "en": "Half-Life 3: Not enough profit to release the game."
+    },
+    "kotgh.gameplay.gordon.halfLifePostponed": {
+      "visibility": "public",
+      "ru": "Внимание! HalfLife 3 был перенесен!",
+      "en": "Attention! Half-Life 3 has been delayed!"
+    },
+    "kotgh.audio.mute": {
+      "visibility": "public",
+      "ru": "Выключить звук",
+      "en": "Mute"
+    },
+    "kotgh.audio.unmute": {
+      "visibility": "public",
+      "ru": "Включить звук",
+      "en": "Unmute"
+    },
     "kotgh.ranked.autoMoveDisabled": {
       "visibility": "owner",
       "ru": "В ранговой игре ручной Авто Ход недоступен.",
@@ -110,6 +135,16 @@
       "visibility": "public",
       "ru": "Текущий Elo",
       "en": "Current Elo"
+    },
+    "kotgh.adminLobby.defaultLegacyPlus": {
+      "visibility": "public",
+      "ru": "Legacy+ по умолчанию",
+      "en": "Default Legacy+"
+    },
+    "kotgh.adminLobby.emptySeatsLegacyPlus": {
+      "visibility": "public",
+      "ru": "Свободные места станут обычными ботами Legacy+ со случайными персонажами.",
+      "en": "Empty seats become default Legacy+ bots with random characters."
     }
   }
 }

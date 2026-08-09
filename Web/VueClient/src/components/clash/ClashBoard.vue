@@ -97,6 +97,11 @@ function isOwnRow(boardRow: number) {
   return props.viewer.isHost ? boardRow < props.length : boardRow >= props.length
 }
 
+function unitFacing(unit: ClashUnitState): 'up' | 'down' {
+  if (props.viewer) return unit.ownerId === props.viewer.playerId ? 'up' : 'down'
+  return unit.ownerSide === 'Guest' ? 'up' : 'down'
+}
+
 function cellAria(boardRow: number, column: number, unit: ClashUnitState | null, hidden: boolean) {
   const coordinate = `ряд ${boardRow + 1}, колонка ${column + 1}`
   if (hidden) return `${coordinate}: скрыто`
@@ -165,6 +170,7 @@ function cellAria(boardRow: number, column: number, unit: ClashUnitState | null,
                 :unit="displayedUnits.get(fieldCellKey(boardRow, columnIndex - 1))"
                 :definition="catalogById.get(displayedUnits.get(fieldCellKey(boardRow, columnIndex - 1))!.definitionId)"
                 :visual-override="visualOverrides.get(displayedUnits.get(fieldCellKey(boardRow, columnIndex - 1))!.instanceId)"
+                :facing="unitFacing(displayedUnits.get(fieldCellKey(boardRow, columnIndex - 1))!)"
                 :selected="selectedUnitId === displayedUnits.get(fieldCellKey(boardRow, columnIndex - 1))!.instanceId"
                 compact
               />

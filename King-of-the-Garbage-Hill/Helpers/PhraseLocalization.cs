@@ -314,6 +314,7 @@ public static class PhrasePayload
                 if (match.Groups["kind"].Value == "Owner") return phrase;
                 var kind = match.Groups["kind"].Value;
                 if (kind == "ProNeutralSource") return name;
+                if (kind == "Text" && string.IsNullOrEmpty(name)) return phrase;
                 var marker = includeLegacyMarker
                              && kind is not ("Text" or "Owner" or "ProNeutral")
                     ? "|>Phrase<|"
@@ -510,6 +511,35 @@ public static class PhrasePayload
                 return hidePhraseBody
                     ? EncodeCore(marker, "❓", "Способность сработала.", "❓", "Ability triggered.")
                     : EncodeCore(marker, $"❓ {values[0]}", values[1], $"❓ {values[2]}", values[3]);
+            }
+            catch
+            {
+                return match.Value;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Removes legacy authored payloads whose canonical source and Russian body prefix match an
+    /// explicitly retired receipt. This operates on the encoded record, before localization can
+    /// render private text into an otherwise public replay/log projection.
+    /// </summary>
+    public static string RemovePayloadsByRussianBodyPrefix(
+        string text,
+        string canonicalSource,
+        params string[] retiredBodyPrefixes)
+    {
+        if (string.IsNullOrEmpty(text) || retiredBodyPrefixes.Length == 0) return text;
+        return PayloadPattern.Replace(text, match =>
+        {
+            try
+            {
+                var values = Decode(match.Groups["token"].Value);
+                return values[0] == canonicalSource
+                       && retiredBodyPrefixes.Any(prefix =>
+                           values[1].StartsWith(prefix, StringComparison.Ordinal))
+                    ? ""
+                    : match.Value;
             }
             catch
             {

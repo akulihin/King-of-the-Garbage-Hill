@@ -56,6 +56,9 @@ export interface ClashUnitDefinition {
   attack: number
   maxHp: number
   speed: number
+  attackPattern: 'AdjacentForward' | 'ForwardReach' | 'RangedColumn'
+  attackRange: number
+  canDefaultAdvance: boolean
   isRanged: boolean
   reloadClashes: number
   shieldCharges: number
@@ -463,6 +466,15 @@ export function normalizeClashCatalog(value: unknown): ClashCatalog {
       attack: numberValue(unit.attack),
       maxHp: numberValue(unit.maxHp),
       speed: numberValue(unit.speed),
+      attackPattern: ['AdjacentForward', 'ForwardReach', 'RangedColumn'].includes(
+        stringValue(unit.attackPattern),
+      )
+        ? stringValue(unit.attackPattern) as ClashUnitDefinition['attackPattern']
+        : booleanValue(unit.isRanged) ? 'RangedColumn' : 'AdjacentForward',
+      attackRange: Math.max(1, numberValue(unit.attackRange, 1)),
+      canDefaultAdvance: unit.canDefaultAdvance === undefined
+        ? !booleanValue(unit.isRanged)
+        : booleanValue(unit.canDefaultAdvance),
       isRanged: booleanValue(unit.isRanged),
       reloadClashes: numberValue(unit.reloadClashes),
       shieldCharges: numberValue(unit.shieldCharges),

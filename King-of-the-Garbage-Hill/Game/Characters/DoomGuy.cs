@@ -23,6 +23,7 @@ public static class DoomGuy
     public const string HellBlock = "Адский блок";
     public const string CounterAttack = "Контр-атака";
     public const string SharkShield = "Щит-акула";
+    public const string GameDesignerShield = "Геймдизайнерский щит";
     public const string DemonNests = "Адеские гнезда";
     public const string MakeAMess = "Навести беспорядок";
     public const string InfernalEnergy = "Инфернальная энергия";
@@ -37,6 +38,7 @@ public static class DoomGuy
     public const string SharkPassive = "Ничего не понимает";
     public const decimal InfernalEnergyStealRate = 0.20m;
     public const int InfernalEnergySourceLimit = 3;
+    public const decimal GameDesignerShieldLossMarginPercent = 0.1m;
 
     public static readonly string[] StageOrder = { Rune, Shield, Mission, Gun };
 
@@ -46,7 +48,8 @@ public static class DoomGuy
         string Description,
         bool Reward,
         bool SpecialUnlock = false,
-        bool MeleeModule = false);
+        bool MeleeModule = false,
+        bool BotEligible = true);
 
     public static readonly IReadOnlyList<ModuleDefinition> Modules = new List<ModuleDefinition>
     {
@@ -60,6 +63,7 @@ public static class DoomGuy
         new(HellBlock, Shield, "Заблокируй две атаки одновременно, получишь 666 Скилла. Это одноразовая акция.", true),
         new(CounterAttack, Shield, "Враги, ударившие в блок, становятся уязвимы на один ход. Лишаются справедливости и *Скилла*.", true),
         new(SharkShield, Shield, "Ничего не понимает...", true),
+        new(GameDesignerShield, Shield, "Незаметно подкручивает случайности в битвах так, чтобы игрок всегда чувствовал себя охуенным.", true, BotEligible: false),
 
         new(DemonNests, Mission, "На таблице каждый ход появляются гнезда демонов. +1 очко за уничтожение гнезда, но если гнезд стало больше трех — −20 очков.", false),
         new(MakeAMess, Mission, "Каждая битва дополнительно приносит очко, независимо от исхода.", false),
@@ -191,11 +195,16 @@ public static class DoomGuy
             .ToDictionary(x => x.Key, x => x.Value.Where(v => !string.IsNullOrEmpty(v)).ToList());
     }
 
-    public static List<ModuleDefinition> GetOptions(DoomGuyState state, string stage)
+    public static List<ModuleDefinition> GetOptions(
+        DoomGuyState state,
+        string stage,
+        bool forStrictBot = false)
     {
         if (state == null || string.IsNullOrEmpty(stage)) return new List<ModuleDefinition>();
         var configured = state.LoadoutSlots.TryGetValue(stage, out var slots)
-            ? slots.Select(FindModule).Where(x => x != null).ToList()
+            ? slots.Select(FindModule)
+                .Where(x => x != null && (!forStrictBot || x.BotEligible))
+                .ToList()
             : new List<ModuleDefinition>();
 
         // A stale/pre-Fortress account snapshot must not strand a human behind the mandatory
@@ -203,7 +212,8 @@ public static class DoomGuy
         // this is the same safe baseline EnsureFortress would have supplied on re-authentication.
         return configured.Count > 0
             ? configured
-            : Modules.Where(x => x.Stage == stage && !x.Reward).ToList();
+            : Modules.Where(x => x.Stage == stage && !x.Reward
+                                                   && (!forStrictBot || x.BotEligible)).ToList();
     }
 
     public static bool ActivateRollMode(GamePlayerBridgeClass player)
@@ -224,9 +234,11 @@ public static class DoomGuy
     {
         var module = FindModule(moduleName);
         if (module == null || player?.GameCharacter?.Name != CharacterName) return false;
+        if (player.PlayerType == 404 && !module.BotEligible) return false;
         var state = player.Passives.DoomGuy;
         if (state.ActiveModules.ContainsKey(module.Stage)) return false;
-        if (!GetOptions(state, module.Stage).Any(x => x.Name == moduleName)) return false;
+        if (!GetOptions(state, module.Stage, player.PlayerType == 404)
+                .Any(x => x.Name == moduleName)) return false;
 
         state.ActiveModules[module.Stage] = moduleName;
         var passive = player.GameCharacter.Passive.Find(x => x.PassiveName == module.Stage);
@@ -278,10 +290,51 @@ public static class DoomGuy
     public static bool ApplyRandomModule(GamePlayerBridgeClass player, GameClass game, SecureRandom random)
     {
         var stage = StageForRound(game.RoundNo);
-        var options = GetOptions(player.Passives.DoomGuy, stage);
+        var options = GetOptions(player.Passives.DoomGuy, stage, player.PlayerType == 404);
         if (options.Count == 0) return false;
         return ApplySelectedModule(player, game, options[random.Random(0, options.Count - 1)].Name, true);
     }
+
+    public static bool TryRigGameDesignerShieldRandom(
+        GamePlayerBridgeClass attacker,
+        GamePlayerBridgeClass defender,
+        int pointsFromJustice,
+        decimal maxRandomNumber,
+        ref int pointsFromRandom,
+        ref decimal displayedRandomForPoint,
+        ref decimal displayedRandomNumber)
+    {
+        var attackerProtected = HasGameDesignerShield(attacker) && pointsFromJustice >= 0;
+        var defenderProtected = HasGameDesignerShield(defender) && pointsFromJustice <= 0;
+        if (!attackerProtected && !defenderProtected) return false;
+
+        var margin = maxRandomNumber * GameDesignerShieldLossMarginPercent / 100m;
+        displayedRandomForPoint = Math.Clamp(
+            displayedRandomForPoint,
+            margin,
+            maxRandomNumber - margin);
+
+        if (attackerProtected)
+        {
+            pointsFromRandom = 1;
+            displayedRandomNumber = displayedRandomForPoint - margin;
+        }
+        else
+        {
+            pointsFromRandom = -1;
+            displayedRandomNumber = displayedRandomForPoint + margin;
+        }
+
+        return true;
+    }
+
+    private static bool HasGameDesignerShield(GamePlayerBridgeClass player) =>
+        player != null
+        && player.PlayerType != 404
+        && player.GameCharacter.Name == CharacterName
+        && !player.Passives.PassiveAbilitiesDisabledByKimiko
+        && player.GameCharacter.Passive.Any(passive => passive.PassiveName == Shield)
+        && player.Passives.DoomGuy.GetActive(Shield) == GameDesignerShield;
 
     public static void SpawnDemonNest(GamePlayerBridgeClass player, GameClass game)
     {
@@ -432,7 +485,9 @@ public static class DoomGuy
         for (var stageIndex = highestStageIndex; stageIndex >= 0; stageIndex--)
         {
             var stage = StageOrder[stageIndex];
-            var rewards = GetStandardRewardModules(stage).ToList();
+            var rewards = GetStandardRewardModules(stage)
+                .Where(module => !account.IsBot() || module.BotEligible)
+                .ToList();
             var missing = rewards.Where(x => !account.DoomFortress.UnlockedModules.Contains(x.Name)).ToList();
             if (missing.Count == 0) continue;
 

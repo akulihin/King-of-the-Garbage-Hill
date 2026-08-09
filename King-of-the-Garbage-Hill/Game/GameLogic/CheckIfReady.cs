@@ -325,7 +325,7 @@ public class CheckIfReady : IServiceSingleton
                              x.GetPlayerId() != player.GetPlayerId()
                              && !UnknownBug.Is(x) && !Sakura.Is(x)))
                 {
-                    player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
+                    Kira.SetPrediction(player, enemy.GetPlayerId(), enemy.GameCharacter.Name);
                 }
             } 
         }

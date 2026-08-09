@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.2.17";
+        GameVersion = "Версия: 5.2.23";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -83,10 +83,9 @@ public class GameClass
     public List<TeamPlay> Teams { get; set; }
     public uint TestFightNumber { get; set; }
 
-    /// <summary>Bot AI difficulty. 1 = legacy baseline, 2 = fair player-visible strategy,
-    /// 3 = fair strategy with longer memory and rule-based inference. Default 3 everywhere, incl.
-    /// Discord/web games; the sim harness can override per-run via --ai-difficulty.</summary>
-    public int AiDifficulty { get; set; } = 3;
+    /// <summary>Bot AI difficulty. 1 = Legacy, 2 = V2, 3 = V3, 4 = Legacy+ hybrid.
+    /// Ordinary games default to 4; Ranked explicitly stays at 3. The simulation harness can override it.</summary>
+    public int AiDifficulty { get; set; } = 4;
 
     public List<BotsBehavior.NanobotClass> NanobotsList { get; set; } = new();
 

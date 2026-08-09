@@ -14,6 +14,7 @@ const props = withDefaults(defineProps<{
   compact?: boolean
   selected?: boolean
   concealed?: boolean
+  facing?: 'up' | 'down'
 }>(), {
   unit: null,
   definition: null,
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<{
   compact: false,
   selected: false,
   concealed: false,
+  facing: 'up',
 })
 
 const imageFailed = ref(false)
@@ -49,6 +51,7 @@ watch(definitionId, () => {
     class="clash-unit"
     :class="[
       `is-${animation}`,
+      `is-facing-${facing}`,
       unitClass,
       {
         'is-compact': compact,

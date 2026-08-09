@@ -26,6 +26,8 @@ export function buildScoreGroups(breakdown: ScoreBreakdown | null | undefined): 
   if (!breakdown) return []
 
   const multiplier = breakdown.roundMultiplier
+  const regularPointsMultiplier = Math.max(1, breakdown.regularPointsMultiplier ?? 1)
+  const effectiveRegularMultiplier = multiplier * regularPointsMultiplier
   const negativeEntries: ScoreSourceEntry[] = []
   const regularEntries: ScoreSourceEntry[] = []
   const bonusEntries: ScoreSourceEntry[] = []
@@ -34,7 +36,9 @@ export function buildScoreGroups(breakdown: ScoreBreakdown | null | undefined): 
     const source: ScoreSourceEntry = {
       name: entry.source || (entry.isBonus ? 'Бонус' : 'Очки'),
       basePts: entry.points,
-      pointsEarned: entry.isBonus ? entry.points : Math.round(entry.points * multiplier),
+      pointsEarned: entry.isBonus
+        ? entry.points
+        : Math.round(entry.points * effectiveRegularMultiplier),
       hidePoints: entry.hidePoints === true,
     }
     const isNegative = entry.isNegative === true || source.pointsEarned < 0
@@ -59,7 +63,8 @@ export function buildScoreGroups(breakdown: ScoreBreakdown | null | undefined): 
       multiplier,
       entries: regularEntries,
       totalPoints: Math.round(
-        regularEntries.reduce((sum, entry) => sum + entry.basePts, 0) * multiplier,
+        regularEntries.reduce((sum, entry) => sum + entry.basePts, 0)
+          * effectiveRegularMultiplier,
       ),
     })
   }

@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useFocusTrapDialog } from 'src/composables/useFocusTrapDialog'
 import { currentLocale } from 'src/i18n'
+import { localizedText } from 'src/platform/localization'
 import type { GordonHalfLifeState } from 'src/services/signalr'
 
 const props = withDefaults(defineProps<{
@@ -101,7 +102,9 @@ onUnmounted(() => {
           </div>
           <h2 id="hl3-transition-title">HALFLIFE 3</h2>
           <p id="hl3-transition-description" class="hl3-failure">
-            {{ halfLife.decisionMessage || 'Недостаточно профита, нельзя  выпускать игру.' }}
+            {{ halfLife.decisionMessageText
+              ? localizedText(halfLife.decisionMessageText)
+              : halfLife.decisionMessage || 'Halflife 3: Недостаточно профита, нельзя выпускать игру.' }}
           </p>
 
           <div class="hl3-deadline" :class="{ expired: isExpired }" role="timer" aria-live="polite">

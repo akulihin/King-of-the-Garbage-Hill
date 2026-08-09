@@ -25,7 +25,8 @@ public static class BattleshipCompositeShipFactory
         composite = null;
         error = null;
         if (player == null || mergingShip == null ||
-            !mergingShip.Abilities.Contains("merge_maneuver"))
+            !mergingShip.Abilities.Contains("merge_maneuver") &&
+            !mergingShip.Abilities.Contains("merge_maneuver_after_hit"))
         {
             error = "Этот корабль не умеет сливаться.";
             return false;
@@ -48,7 +49,7 @@ public static class BattleshipCompositeShipFactory
         }
 
         var target = collidedShips[0];
-        if (target.IsAssemblyComponent)
+        if (target.IsAssemblyComponent && mergingShip.DefinitionId != "merging_ship_v2")
         {
             error = "Нельзя осиротить группу собирающихся палуб слиянием.";
             return false;
@@ -91,6 +92,9 @@ public static class BattleshipCompositeShipFactory
             overlappedTargetDecks.Contains(deck.Index));
         var replacedTargetCell = target.GetDeckCell(
             replacedTargetDeck, target.Row, target.Col, target.Orientation);
+        var preservedGrabCell = target.Abilities.Contains("grab_summon")
+            ? BattleshipCapturingMechanics.GetGrabCell(target)
+            : ((int row, int col)?)null;
 
         var retained = new List<RetainedDeck>();
         retained.AddRange(mergingShip.Decks
@@ -126,24 +130,32 @@ public static class BattleshipCompositeShipFactory
             Row = anchor.Row,
             Col = anchor.Col,
             Orientation = Orientation.Horizontal,
-            Range = RangeClass.Mid,
+            Range = target.Range,
             Cost = mergingShip.Cost + target.Cost,
-            Space = Math.Max(mergingShip.Space, target.Space),
-            ExplosionRadius = Math.Max(mergingShip.ExplosionRadius, target.ExplosionRadius),
-            Speed = mergingShip.Speed,
-            Regions = mergingShip.Regions.Concat(target.Regions).Distinct().ToList(),
-            // The design promises the weapon union, not re-anchored source passives. Spatial
-            // abilities (poison, Grab, Freeze, collision movement) have source-specific geometry
-            // and cannot be projected safely onto an arbitrary composite anchor.
-            Abilities = new List<string>(),
-            Upgrades = mergingShip.Upgrades.Concat(target.Upgrades)
+            Space = target.Space,
+            ExplosionRadius = target.ExplosionRadius,
+            Speed = target.Speed,
+            Regions = target.Regions.ToList(),
+            // The moving Merging Ship contributes its physical decks and weapons only. The
+            // resulting Cozy Joint keeps the struck target's gameplay properties and runtime
+            // state, including transferable passives such as Grab and Fast Warming.
+            Abilities = target.Abilities
+                .Where(ability => ability != "assembly_component")
                 .Distinct(StringComparer.Ordinal)
                 .ToList(),
-            Statuses = new List<ShipStatusType>(),
-            IsHome = mergingShip.IsHome || target.IsHome,
+            Upgrades = target.Upgrades.ToList(),
+            Statuses = target.Statuses.Distinct().ToList(),
+            IsHome = target.IsHome,
             IsPlaced = true,
-            HasManeuvered = true,
+            HasExploded = target.HasExploded,
+            HasManeuvered = target.HasManeuvered,
             HasHiddenMovement = true,
+            LastManeuverDodgeRow = target.LastManeuverDodgeRow,
+            LastManeuverDodgeCol = target.LastManeuverDodgeCol,
+            MatryoshkaReplacementQueued = target.MatryoshkaReplacementQueued,
+            MatryoshkaReplacementSuppressionReasons = target.MatryoshkaReplacementSuppressionReasons,
+            PreservedGrabRow = preservedGrabCell?.row,
+            PreservedGrabCol = preservedGrabCell?.col,
         };
 
         var deckMap = new Dictionary<(string shipId, int deckIndex), int>();

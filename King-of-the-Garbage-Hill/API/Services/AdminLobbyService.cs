@@ -280,8 +280,8 @@ public sealed class AdminLobbyService
             return (null, "Admin access required.");
         if (!_lobbies.TryGetValue(ownerId, out var lobby))
             return (null, "Admin lobby not found");
-        if (aiDifficulty is not (1 or 2 or 3))
-            return (null, "AI difficulty must be 1, 2, or 3");
+        if (aiDifficulty is not (1 or 2 or 3 or 4))
+            return (null, "AI difficulty must be Legacy (1), V2 (2), V3 (3), or Legacy+ (4)");
 
         lock (lobby)
         {

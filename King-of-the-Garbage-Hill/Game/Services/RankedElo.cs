@@ -2,16 +2,31 @@ namespace King_of_the_Garbage_Hill.Game.Services;
 
 /// <summary>
 /// Authoritative Ranked rating rules. Placement uses the economy active at the player's
-/// rating immediately before settlement, so dropping below 1200 re-enables the base table.
+/// rating immediately before settlement; the >1400 table begins strictly at 1401.
 /// </summary>
 public static class RankedElo
 {
     public const int AdvancedEconomyThreshold = 1200;
+    public const int EliteEconomyThreshold = 1400;
     public const int ShinigamiPenalty = -5;
     public const int BlackjackRecovery = 5;
 
     public static int GetPlacementDelta(int currentRating, int place)
     {
+        if (currentRating > EliteEconomyThreshold)
+        {
+            return place switch
+            {
+                1 => 20,
+                2 => 0,
+                3 => -1,
+                4 => -3,
+                5 => -5,
+                6 => -10,
+                _ => 0,
+            };
+        }
+
         if (currentRating >= AdvancedEconomyThreshold)
         {
             return place switch

@@ -266,6 +266,7 @@ function decodeBilingualPhrase(token: string, kind: string | undefined): string 
     const phrase = english ? values[3] : values[1]
     if (kind === 'Owner') return phrase
     if (kind === 'ProNeutralSource') return name
+    if (kind === 'Text' && !name) return phrase
     return `${kind === 'Text' || kind === 'ProNeutral' ? '' : '|>Phrase<|'}${name}: ${phrase}`
   } catch (error) {
     console.warn('[i18n] Invalid bilingual phrase payload:', error)

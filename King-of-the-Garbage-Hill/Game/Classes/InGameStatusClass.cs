@@ -145,10 +145,12 @@ public class InGameStatus
     public List<ScoreEntry> PreviousRoundScoreEntries { get; set; } = new();
     public int ActualRoundMultiplier { get; set; } = 1;
     public int ExpectedRoundMultiplier { get; set; } = 1;
+    public int PreviousRoundRegularPointsMultiplier { get; private set; } = 1;
     public bool WasRoundScoreMultiplierReducedByTolya { get; set; }
     public decimal LifetimeAbilityPointsEarned { get; private set; }
     public Guid IsFighting { get; set; }
     private decimal ScoresToGiveAtEndOfRound { get; set; }
+    private int PendingRegularPointsMultiplier { get; set; } = 1;
     private decimal BonusPointsEarnedThisRound { get; set; }
     public int LvlUpPoints { get; set; }
     private string InGamePersonalLogs { get; set; }
@@ -240,6 +242,17 @@ public class InGameStatus
     public void SetScoresToGiveAtEndOfRound(decimal score, string reason, bool isLog = true)
     {
         ScoresToGiveAtEndOfRound = score;
+        if (isLog)
+            ScoreSource += $"{reason}+";
+    }
+
+    public void MultiplyPendingRegularPoints(int multiplier, string reason, bool isLog = true)
+    {
+        if (multiplier < 1)
+            throw new ArgumentOutOfRangeException(nameof(multiplier), "Multiplier must be positive.");
+
+        ScoresToGiveAtEndOfRound *= multiplier;
+        PendingRegularPointsMultiplier *= multiplier;
         if (isLog)
             ScoreSource += $"{reason}+";
     }
@@ -476,6 +489,7 @@ public class InGameStatus
             $"{settledScore} points were transferred to the original.") + "\n");
         Score = 0;
         ScoresToGiveAtEndOfRound = 0;
+        PendingRegularPointsMultiplier = 1;
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
         ScoreEntries.Clear();
@@ -490,6 +504,8 @@ public class InGameStatus
         ScoreSource = "";
         ScoreEntries.Clear();
         PreviousRoundScoreEntries.Clear();
+        PendingRegularPointsMultiplier = 1;
+        PreviousRoundRegularPointsMultiplier = 1;
         WasRoundScoreMultiplierReducedByTolya = false;
     }
 
@@ -522,6 +538,7 @@ public class InGameStatus
         WasRoundScoreMultiplierReducedByTolya =
             multiplierDisabledByTolya && ordinaryRoundMultiplier < ExpectedRoundMultiplier;
         ActualRoundMultiplier = ordinaryRoundMultiplier;
+        PreviousRoundRegularPointsMultiplier = PendingRegularPointsMultiplier;
         PreviousRoundScoreEntries = new List<ScoreEntry>(ScoreEntries);
         ScoreEntries.Clear();
 
@@ -544,6 +561,7 @@ public class InGameStatus
             halfLifeSettlementAdjustment,
             GordonFreeman.HalfLife3);
         SetScoresToGiveAtEndOfRound(0, "", false);
+        PendingRegularPointsMultiplier = 1;
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
     }
@@ -610,6 +628,7 @@ public class InGameStatus
         HomelanderSevenPointsActive = homelanderSevenPointsActive;
         Score = capturedScore - (homelanderSevenPointsActive ? Homelander.SevenPoints : 0);
         ScoresToGiveAtEndOfRound = 0;
+        PendingRegularPointsMultiplier = 1;
         BonusPointsEarnedThisRound = 0;
         ScoreSource = "";
         ScoreEntries.Clear();

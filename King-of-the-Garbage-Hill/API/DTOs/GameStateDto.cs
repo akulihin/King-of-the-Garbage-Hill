@@ -312,6 +312,7 @@ public class ScoreBreakdownDto
 {
     public int RoundMultiplier { get; set; }
     public int ExpectedRoundMultiplier { get; set; }
+    public int RegularPointsMultiplier { get; set; } = 1;
     public List<ScoreEntryDto> Entries { get; set; } = new();
 }
 
@@ -529,7 +530,7 @@ public class FightEntryDto
 
     // Step3: Random roll (only if tie after step1+step2)
     public bool UsedRandomRoll { get; set; }
-    public int RandomNumber { get; set; }
+    public decimal RandomNumber { get; set; }
     public decimal MaxRandomNumber { get; set; }
 
     // Final
@@ -773,6 +774,8 @@ public class GordonHalfLifeStateDto
     public string FreezeLabel { get; set; }
     public string PostponeLabel { get; set; }
     public string DecisionMessage { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public LocalizedText DecisionMessageText { get; set; }
 }
 
 public class BulkStateDto

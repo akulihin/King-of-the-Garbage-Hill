@@ -603,6 +603,7 @@ public static class BattleshipGameEngine
                 var summonHit = ProcessSummonHit(game, shooter, opponent.Board, cell, r, c);
                 anyHit |= summonHit.Hit;
                 penaltyApplied |= summonHit.PenaltyApplied;
+                aggregate.ForcesTurnEnd |= summonHit.ForcesTurnEnd;
                 // Legacy summons remain non-resetting. A converted hull retains ship-like
                 // per-deck destruction and only sinks after its last living deck is gone.
                 if (summon.IsBoardingShip)
@@ -669,9 +670,9 @@ public static class BattleshipGameEngine
             }
         }
 
-        // A final Boarding hull kill never resets a Buckshot action. A surviving hull's
-        // destroyed deck, or an ordinary ship deck in the same area, still does.
-        aggregate.TurnContinues = anyResettingDestruction;
+        // Enemy Boarding decks retain ordinary reset behavior while the hull survives.
+        // Destroying any deck of the shooter's own Boarding hull ends the whole action.
+        aggregate.TurnContinues = anyResettingDestruction && !aggregate.ForcesTurnEnd;
 
         aggregate.Hit = anyHit;
         aggregate.Destroyed = anyDestroyed;
@@ -734,6 +735,7 @@ public static class BattleshipGameEngine
             cell.WasDodge = false;
             cell.WasManeuverDodge = false;
             var sourceName = summon.SourceShipName ?? "Абордажный корабль";
+            var targetsOwnBoardingHull = summon.OwnerId == shooter.DiscordId;
 
             if (shooter.SelectedShotType == ShotType.Ballista &&
                 BoardingHasAbility(summon, "ballista_immune"))
@@ -750,6 +752,7 @@ public static class BattleshipGameEngine
                     Row = row,
                     Col = col,
                     TurnContinues = false,
+                    ForcesTurnEnd = targetsOwnBoardingHull,
                     Message = $"{sourceName} не получает урон от Баллисты.",
                     AffectedShipName = sourceName,
                 };
@@ -773,6 +776,7 @@ public static class BattleshipGameEngine
                         Row = row,
                         Col = col,
                         TurnContinues = false,
+                        ForcesTurnEnd = targetsOwnBoardingHull,
                         Message = "Корабль устоял против огня. Поцарапано.",
                         AffectedShipName = sourceName,
                     };
@@ -792,6 +796,7 @@ public static class BattleshipGameEngine
                     Row = row,
                     Col = col,
                     TurnContinues = false,
+                    ForcesTurnEnd = targetsOwnBoardingHull,
                     Message = $"{sourceName} сгорел!",
                     AffectedShipName = sourceName,
                 };
@@ -841,7 +846,8 @@ public static class BattleshipGameEngine
                     ShipSunk = !summon.IsAlive,
                     Row = row,
                     Col = col,
-                    TurnContinues = summon.IsAlive,
+                    TurnContinues = summon.IsAlive && !targetsOwnBoardingHull,
+                    ForcesTurnEnd = targetsOwnBoardingHull,
                     Message = message,
                     AffectedShipName = sourceName,
                 };
@@ -856,6 +862,7 @@ public static class BattleshipGameEngine
                 Row = row,
                 Col = col,
                 TurnContinues = false,
+                ForcesTurnEnd = targetsOwnBoardingHull,
                 Message = "Поцарапал броню абордажного корабля!",
                 AffectedShipName = sourceName,
             };
@@ -1817,25 +1824,51 @@ public static class BattleshipGameEngine
                      player.BoardingDeploymentCapacity <= 0))
             DiscardMandatoryBoardingRemainder(game, player);
 
-        // Triple extra_ammo upgrade: +2 of the placement-configured projectile (both players)
+        // Every Buckshot-configured Tetracatapult receives one White Stone at Boarding.
+        // Second Ammo overrides that amount with two White Stones regardless of its loadout.
         foreach (var p in game.GetPlayers())
         {
             foreach (var ship in p.Board.PlacedShips)
             {
-                if (!ship.IsDestroyed && ship.Abilities.Contains("extra_ammo_boarding"))
+                if (ship.IsDestroyed) continue;
+                var operationalTetracatapults = ship.Weapons
+                    .Where(weapon => weapon.Type == WeaponType.Tetracatapult &&
+                                     IsWeaponOperational(ship, weapon))
+                    .ToList();
+                foreach (var tetraWeapon in operationalTetracatapults)
                 {
-                    var tetraWeapon = ship.Weapons.Find(w => w.Type == WeaponType.Tetracatapult);
-                    if (tetraWeapon != null && IsWeaponOperational(ship, tetraWeapon))
+                    var hasSecondAmmo = ship.Abilities.Contains("extra_ammo_boarding");
+                    var bonus = hasSecondAmmo
+                        ? 2
+                        : tetraWeapon.ConfiguredShotType == ShotType.Buckshot ? 1 : 0;
+                    if (bonus == 0) continue;
+
+                    var whiteStoneWeapon = ship.Weapons.FirstOrDefault(weapon =>
+                        weapon.Type == WeaponType.Tetracatapult &&
+                        weapon.DeckIndex == tetraWeapon.DeckIndex &&
+                        weapon.ConfiguredShotType == ShotType.WhiteStone);
+                    if (whiteStoneWeapon == null)
                     {
-                        tetraWeapon.Ammo += 2;
-                        tetraWeapon.MaxAmmo += 2;
-                        AddSharedTetracatapultAmmo(game, p, tetraWeapon.ConfiguredShotType, 2);
-                        var projectile = tetraWeapon.ConfiguredShotType == ShotType.Buckshot
-                            ? "заряда Дроби"
-                            : "Белых камня";
-                        game.AddBoardDetailLog(p.DiscordId,
-                            $"Доп. снаряды: +2 {projectile} для {ship.Name}!");
+                        whiteStoneWeapon = new Weapon
+                        {
+                            Type = WeaponType.Tetracatapult,
+                            Ammo = 0,
+                            MaxAmmo = 0,
+                            AimSpeed = tetraWeapon.AimSpeed,
+                            ShipId = ship.Id,
+                            DeckIndex = tetraWeapon.DeckIndex,
+                            PreservedModuleDestroyed = tetraWeapon.PreservedModuleDestroyed,
+                            ConfiguredShotType = ShotType.WhiteStone,
+                        };
+                        ship.Weapons.Add(whiteStoneWeapon);
                     }
+
+                    whiteStoneWeapon.Ammo += bonus;
+                    whiteStoneWeapon.MaxAmmo += bonus;
+                    AddSharedTetracatapultAmmo(game, p, ShotType.WhiteStone, bonus);
+                    if (hasSecondAmmo)
+                        game.AddBoardDetailLog(p.DiscordId,
+                            $"Доп. снаряды: +2 Белых камня для {ship.Name}!");
                 }
             }
         }
@@ -2010,20 +2043,9 @@ public static class BattleshipGameEngine
             var cell = player.Board.GetCell(row, col);
             if (cell?.ShipRef != ship) continue;
             cell.ShipRef = null;
-            cell.IsRevealed = true;
-            cell.IsHit = false;
-            cell.IsMiss = true;
-            cell.WasShipHit = false;
-            cell.WasScratched = false;
-            cell.WasRevealedShip = false;
-            cell.BurnResistMarked = false;
-            cell.WasDodge = false;
-            cell.SunkShipName = null;
-            cell.KnownShipId = null;
-            cell.KnownDeckIndex = -1;
+            cell.WasBoardingSourceCell = true;
         }
 
-        ClearLatestManeuverDodge(player.Board, ship);
         player.Board.PlacedShips.Remove(ship);
         ship.IsPlaced = false;
         ship.Row = -1;
@@ -2372,6 +2394,19 @@ public static class BattleshipGameEngine
             AccumulateDeferredReveal(game, summon, boardOwner, row, col);
         }
 
+        // Grab destroys a whole converted Boarding hull when any living deck enters the
+        // trap. Drakkar is the sole exception and crosses the cell normally. This is a death,
+        // not an ordinary summon capture: no cloned Ram/reward is created for the trap owner.
+        if (HasBoardingHull(summon) &&
+            !IsBoardingDrakkar(owner, summon) &&
+            occupied.Any(position =>
+                BattleshipCapturingMechanics.FindLiveGrabShip(
+                    boardOwner, position.row, position.col) != null))
+        {
+            DestroySummonAtCurrentPosition(game, owner, boardOwner, summon);
+            return SummonEntryOutcome.Dead;
+        }
+
         foreach (var (row, col) in occupied)
         {
             if (!BattleshipCapturingMechanics.TryGrabSummon(
@@ -2474,6 +2509,10 @@ public static class BattleshipGameEngine
             ? SummonEntryOutcome.Stop
             : SummonEntryOutcome.Continue;
     }
+
+    private static bool IsBoardingDrakkar(BattleshipPlayer owner, Summon summon) =>
+        owner?.Fleet.Any(ship =>
+            ship.Id == summon?.SourceShipId && ship.DefinitionId == "drakkar") == true;
 
     /// <summary>
     /// A mandatory Matryoshka replacement can appear while summon movement is paused. Re-run
@@ -2883,17 +2922,22 @@ public static class BattleshipGameEngine
                 // Boarding Close ships: devastate 1-2 deckers (continue), ram 3-4 deckers (die)
                 if (summon.IsBoardingShip)
                 {
-                    if (targetShip.Decks.Count <= 2)
+                    if (targetShip.Decks.Count <= 2 ||
+                        BoardingHasAbility(summon, "spawn_cursed_boat"))
                     {
+                        var destroyedLivingDeck = targetShip.Decks.Any(deck => !deck.IsDestroyed);
                         if (!targetShip.Statuses.Contains(ShipStatusType.Devastated))
                             targetShip.Statuses.Add(ShipStatusType.Devastated);
                         foreach (var d in targetShip.Decks) d.CurrentHp = 0;
+                        AddRamManeuverWarning(game, attacker, targetShip, destroyedLivingDeck);
                         RevealShip(targetOwner.Board, targetShip, attacker);
                         HandleShipDeath(game, targetOwner, targetShip, ShipDestructionCause.Devastated);
                         game.AddBoardDetailLog(targetOwner.DiscordId,
                             $"Абордажный корабль опустошил {targetShip.Name}! {coord}");
-                        summon.IsAlive = true; // continue moving (don't die)
-                        if (BoardingHasAbility(summon, "spawn_cursed_boat"))
+                        // Ordinary devastation leaves the Boarding hull alive. A more-specific
+                        // target death passive (notably Incendiary Barge explosion) may kill it;
+                        // never resurrect that already-resolved hull or queue an empty choice.
+                        if (summon.IsAlive && BoardingHasAbility(summon, "spawn_cursed_boat"))
                             summon.WaitingForDirectionChoice = true;
                     }
                     else
@@ -2902,8 +2946,11 @@ public static class BattleshipGameEngine
                         var collisionDeck = collisionDeckIndex >= 0 ? targetShip.Decks[collisionDeckIndex] : null;
                         if (collisionDeck is { IsDestroyed: false })
                         {
+                            var wasAlive = !collisionDeck.IsDestroyed;
                             collisionDeck.CurrentHp -= summon.CollisionDamage;
                             if (collisionDeck.CurrentHp < 0) collisionDeck.CurrentHp = 0;
+                            AddRamManeuverWarning(
+                                game, attacker, targetShip, wasAlive && collisionDeck.IsDestroyed);
                             game.AddBoardDetailLog(targetOwner.DiscordId,
                                 $"Абордажный корабль протаранил {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                             // Mark cell on target owner's board (#8)
@@ -2924,8 +2971,11 @@ public static class BattleshipGameEngine
                 var ramDeck = ramDeckIndex >= 0 ? targetShip.Decks[ramDeckIndex] : null;
                 if (ramDeck is { IsDestroyed: false })
                 {
+                    var wasAlive = !ramDeck.IsDestroyed;
                     ramDeck.CurrentHp -= summon.CollisionDamage;
                     if (ramDeck.CurrentHp < 0) ramDeck.CurrentHp = 0;
+                    AddRamManeuverWarning(
+                        game, attacker, targetShip, wasAlive && ramDeck.IsDestroyed);
                     game.AddBoardDetailLog(targetOwner.DiscordId,
                         $"Таран врезался в {targetShip.Name}! (-{summon.CollisionDamage} HP) {coord}");
                     // Mark cell on target owner's board (#8)
@@ -3004,6 +3054,20 @@ public static class BattleshipGameEngine
                     $"Брандер разбился о {targetShip.Name}! {coord}");
                 break;
         }
+    }
+
+    private static void AddRamManeuverWarning(
+        BattleshipGame game,
+        BattleshipPlayer attacker,
+        Ship targetShip,
+        bool destroyedLivingDeck)
+    {
+        if (!destroyedLivingDeck || attacker == null ||
+            !targetShip.Abilities.Contains("manual_move_after_hit") ||
+            !HasLivingMast(attacker))
+            return;
+
+        game.AddLogFor(attacker.DiscordId, "[Мачта] Даёт по вёслам!");
     }
 
     public static bool RestoreDevastatedShip(
@@ -3737,26 +3801,38 @@ public static class BattleshipGameEngine
             return false;
 
         var canRamAllies = ship.Abilities.Contains("ramming_maneuver");
+        var canMergeOnCollision = ship.Abilities.Contains("merge_maneuver") ||
+                                  ship.Abilities.Contains("merge_maneuver_after_hit");
         var overlaps = newCells
             .Select(position =>
                 (position.row, position.col,
                     ship: player.Board.GetCell(position.row, position.col)?.ShipRef))
             .Where(value => value.ship != null && value.ship.Id != ship.Id)
             .ToList();
-        if (canRamAllies) return true;
 
         Ship mergeTarget = null;
         if (overlaps.Count > 0)
         {
-            if (!ship.Abilities.Contains("merge_maneuver") || overlaps.Count != 1)
+            if (canRamAllies && !canMergeOnCollision)
+                return true;
+            if (!canMergeOnCollision || overlaps.Select(value => value.ship.Id).Distinct().Count() != 1)
                 return false;
             mergeTarget = overlaps[0].ship;
-            if (GetDeckIndexAtCell(mergeTarget, overlaps[0].row, overlaps[0].col) < 0 ||
+            var overlappedDecks = overlaps
+                .Select(value => GetDeckIndexAtCell(mergeTarget, value.row, value.col))
+                .Where(deckIndex => deckIndex >= 0)
+                .Distinct()
+                .ToList();
+            if (overlappedDecks.Count != 1 ||
                 mergeTarget.IsDestroyed ||
                 mergeTarget.Statuses.Any(status => status is
                     ShipStatusType.Capture or ShipStatusType.Devastated or ShipStatusType.Freeze))
                 return false;
         }
+
+        // Ramming movement may enter allied Space. The Ver.2 combination still validates an
+        // actual collision as exactly one mergeable deck before taking this fast path.
+        if (canRamAllies) return true;
 
         foreach (var ally in player.Board.PlacedShips)
         {
@@ -3811,8 +3887,9 @@ public static class BattleshipGameEngine
             }
         }
 
-        if (!ship.Abilities.Contains("ramming_maneuver") &&
-            ship.Abilities.Contains("merge_maneuver") && collisions.Count > 0)
+        if ((ship.Abilities.Contains("merge_maneuver") ||
+             ship.Abilities.Contains("merge_maneuver_after_hit")) &&
+            collisions.Count > 0)
         {
             return BattleshipCompositeShipFactory.TryMerge(
                 player, ship, newRow, newCol, out _, out _);

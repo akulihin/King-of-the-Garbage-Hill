@@ -10,8 +10,9 @@ namespace King_of_the_Garbage_Hill.Game.GameLogic;
 
 /// <summary>
 /// The information boundary for strategic AI. It records only the projection an ordinary player could
-/// retain after a resolved round. Level 2/3 decision code must not reconstruct observations from raw
-/// opponent GameCharacter, Passives, Status action flags, or unfiltered cumulative logs.
+/// retain after a resolved round. The shared round-10 Monster hunt at every strict-bot level, all Level 2/3
+/// decisions and Legacy+'s fair channels must not reconstruct observations from raw opponent GameCharacter,
+/// Passives, Status action flags, or unfiltered cumulative logs.
 /// </summary>
 public static class BotInformation
 {
@@ -184,6 +185,20 @@ public static class BotInformation
         if (old != null && old.Confidence > confidence && !exactReveal)
             return;
 
+        ReplacePrediction(viewer, targetId, characterName, confidence, evidence, round, exactReveal);
+    }
+
+    /// <summary>
+    /// Replaces both the bot's submitted row and the evidence consumed by later AI decisions. Use this
+    /// only for authoritative character/script cleanup that intentionally wins over ordinary confidence.
+    /// </summary>
+    public static void ReplacePrediction(GamePlayerBridgeClass viewer, Guid targetId, string characterName,
+        int confidence, string evidence, int round, bool exactReveal = false)
+    {
+        var displacedKiraTargets = Kira.SetPrediction(viewer, targetId, characterName);
+        foreach (var displacedTargetId in displacedKiraTargets)
+            viewer.AiKnowledge.PredictionEvidence.Remove(displacedTargetId);
+
         viewer.AiKnowledge.PredictionEvidence[targetId] = new BotPredictionEvidence
         {
             CharacterName = characterName,
@@ -192,11 +207,18 @@ public static class BotInformation
             RoundUpdated = round,
             IsExactReveal = exactReveal,
         };
+    }
 
-        var existing = viewer.Predict.Find(prediction => prediction.PlayerId == targetId);
-        if (existing != null)
-            viewer.Predict.Remove(existing);
-        viewer.Predict.Add(new PredictClass(characterName, targetId));
+    public static void EnforceSingleKiraPrediction(GamePlayerBridgeClass viewer)
+    {
+        foreach (var removedTargetId in Kira.EnforceSingleKiraPrediction(viewer))
+            viewer.AiKnowledge.PredictionEvidence.Remove(removedTargetId);
+    }
+
+    public static void RemovePrediction(GamePlayerBridgeClass viewer, Guid targetId)
+    {
+        viewer.AiKnowledge.PredictionEvidence.Remove(targetId);
+        viewer.Predict.RemoveAll(prediction => prediction.PlayerId == targetId);
     }
 
     public static decimal RecentAverage(Dictionary<int, int> values, int currentRound, int horizon)

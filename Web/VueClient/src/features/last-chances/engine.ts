@@ -231,6 +231,8 @@ interface RuntimeMotherRetreat {
   stage: 'approaching' | 'hidden'
   entranceHoleId: string
   exitHoleId: string
+  /** Geometry-selected safe corner; deliberately independent of the seeded hole link. */
+  safeHoleId: string
   detonateAtMs: number
 }
 
@@ -4552,7 +4554,8 @@ export class LastChancesEngine {
     if (!retreat || !mother || !node) return false
     const entrance = node.bossHoles.find(hole => hole.id === retreat.entranceHoleId)
     const exit = node.bossHoles.find(hole => hole.id === retreat.exitHoleId)
-    if (!entrance || !exit) {
+    const safeHole = node.bossHoles.find(hole => hole.id === retreat.safeHoleId)
+    if (!entrance || !exit || !safeHole) {
       enemy.motherRetreat = null
       return false
     }
@@ -4570,15 +4573,11 @@ export class LastChancesEngine {
       enemy.position = { ...entrance.position }
       retreat.stage = 'hidden'
       retreat.detonateAtMs = this.elapsedMs + mother.hideMs
-      const safeCorner = [...node.bossHoles].sort((left, right) => (
-        distanceSquared(exit.position, right.position)
-          - distanceSquared(exit.position, left.position)
-      ))[0] ?? entrance
       this.holeStrikes.push({
         holeId: exit.id,
         center: { ...exit.position },
         radius: mother.blastRadius,
-        safeCenter: { ...safeCorner.position },
+        safeCenter: { ...safeHole.position },
         safeRadius: mother.safeCornerRadius,
         damageMaxHpRatio: mother.blastDamageMaxHpRatio,
         spawnedAtMs: this.elapsedMs,
@@ -4613,14 +4612,25 @@ export class LastChancesEngine {
     ))[0]
     const linked = holes.find(hole => hole.id === entrance.linkedHoleId)
     if (!linked) return
+    const oppositeEntrancePosition = {
+      x: node.arena.width - entrance.position.x,
+      y: node.arena.height - entrance.position.y,
+    }
+    const safeHole = [...holes].sort((left, right) => (
+      distanceSquared(oppositeEntrancePosition, left.position)
+        - distanceSquared(oppositeEntrancePosition, right.position)
+    ))[0]
+    if (!safeHole) return
     // The entry hole is only transit. Her untelegraphed strike always comes from its memorized
-    // linked partner, so watching the shape/color pairing is the player's reliable counterplay.
+    // linked partner. The safe corner is a separate geometric role opposite the entrance;
+    // changing the seeded link must never move it.
     const exit = linked
     enemy.motherRetreatsTriggered += 1
     enemy.motherRetreat = {
       stage: 'approaching',
       entranceHoleId: entrance.id,
       exitHoleId: exit.id,
+      safeHoleId: safeHole.id,
       detonateAtMs: 0,
     }
     enemy.state = 'chasing'

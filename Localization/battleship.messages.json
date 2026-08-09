@@ -131,6 +131,16 @@
       "ru": "Может маневрировать в любое время и сливаться с союзным кораблём",
       "en": "Can maneuver at any time and merge with an allied ship"
     },
+    "battleship.ability.mergeAfterHit.label": {
+      "visibility": "public",
+      "ru": "Манёвр слияния после попадания",
+      "en": "Post-hit merge maneuver"
+    },
+    "battleship.ability.mergeAfterHit.description": {
+      "visibility": "public",
+      "ru": "После потери палубы обязан маневрировать; при столкновении с союзным кораблём сливается с ним",
+      "en": "Must maneuver after losing a deck and merges with an allied ship on collision"
+    },
     "battleship.ability.doubleShot.label": {
       "visibility": "public",
       "ru": "Двойной выстрел",
@@ -150,6 +160,31 @@
       "visibility": "public",
       "ru": "Взрывается после 20 выстрелов владельца",
       "en": "Explodes after its owner fires 20 shots"
+    },
+    "battleship.ability.warmingChain.label": {
+      "visibility": "public",
+      "ru": "Цепочка до двух промахов",
+      "en": "Two-miss shot chain"
+    },
+    "battleship.ability.warmingChain.description": {
+      "visibility": "public",
+      "ru": "Продолжает серию выстрелов до взрыва корабля или двух промахов подряд; попадание сбрасывает серию промахов",
+      "en": "Continues firing until the ship explodes or two consecutive misses; a hit resets the miss streak"
+    },
+    "battleship.overheat.counterLabel": {
+      "visibility": "public",
+      "ru": "Перегрев",
+      "en": "Overheat"
+    },
+    "battleship.mast.boardingShipIncoming": {
+      "visibility": "owner",
+      "ru": "[Мачта] Корабль идёт НА АБОРДАЖ! ({coordinate})",
+      "en": "[Mast] A ship is BOARDING! ({coordinate})"
+    },
+    "battleship.upgrade.tripleAmmo.description": {
+      "visibility": "public",
+      "ru": "При начале абордажа Тетракамнемёт получает 2 Белых камня независимо от выбранного снаряда. Цена: {cost} монет.",
+      "en": "When Boarding starts, the Tetracatapult gains 2 White Stones regardless of its selected projectile. Cost: {cost} coins."
     },
     "battleship.ability.capturingShape.label": {
       "visibility": "public",

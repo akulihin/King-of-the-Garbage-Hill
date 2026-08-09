@@ -859,10 +859,12 @@ public static class BattleshipBotAI
 
         // Check reveal threshold
         var threshold = 5 * (bot.SummonSlotsUsed + 1);
-        if (bot.RevealedCellCount < threshold && game.Phase != BsGamePhase.Boarding) return null;
+        var hasFinalRush = game.Phase == BsGamePhase.Boarding &&
+                           game.BoardingPlayerId == bot.DiscordId;
+        if (bot.RevealedCellCount < threshold && !hasFinalRush) return null;
 
         // Check cooldown
-        if (game.ShotCount - bot.LastSummonDeployShotCount < 2 && game.Phase != BsGamePhase.Boarding) return null;
+        if (game.ShotCount - bot.LastSummonDeployShotCount < 2 && !hasFinalRush) return null;
 
         // Don't deploy too many summons at once
         var aliveSummons = bot.Summons.Count(s => s.IsAlive);

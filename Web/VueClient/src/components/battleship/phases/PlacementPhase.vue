@@ -181,6 +181,7 @@ const zoneBuilders: Record<string, (ship: PlacementPose) => { type: ZoneType; ce
   freeze_nearby: ship => ({ type: 'freeze', cells: squareZone(ship, ship.space ?? 1) }),
   poison_cone: ship => ({ type: 'poison', cells: poisonCone(ship) }),
   explode_on_hit: ship => ({ type: 'explosion', cells: squareZone(ship, ship.explosionRadius || ship.space || 1) }),
+  overheat_after_20_shots: ship => ({ type: 'explosion', cells: squareZone(ship, ship.explosionRadius || ship.space || 1) }),
   grab_summon: ship => ({ type: 'grab', cells: grabZone(ship) }),
 }
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-vue-next'
 import { useGameStore } from 'src/store/game'
 import { currentLocale } from 'src/i18n'
+import { message } from 'src/platform/localization/messages'
 import type { AdminLobbyGuild, AdminLobbyUser } from 'src/services/signalr'
 
 const store = useGameStore()
@@ -228,9 +229,10 @@ function toggleGuild(guildId: string) {
 
 function aiLabel(difficulty: number): string {
   if (difficulty === 1) return 'Legacy'
+  if (difficulty === 4) return 'Legacy+'
   if (difficulty === 2) return 'V2'
   if (difficulty === 3) return 'V3'
-  return t('Default V3', 'V3 по умолчанию')
+  return message('kotgh.adminLobby.defaultLegacyPlus')
 }
 </script>
 
@@ -288,6 +290,7 @@ function aiLabel(difficulty: number): string {
             </div>
             <div v-if="botChoiceSlot === slotIndex" class="difficulty-picker">
               <button :disabled="Boolean(busyAction)" @click="addBot(slotIndex, 1)">Legacy</button>
+              <button :disabled="Boolean(busyAction)" @click="addBot(slotIndex, 4)">Legacy+</button>
               <button :disabled="Boolean(busyAction)" @click="addBot(slotIndex, 2)">V2</button>
               <button :disabled="Boolean(busyAction)" @click="addBot(slotIndex, 3)">V3</button>
             </div>
@@ -336,10 +339,7 @@ function aiLabel(difficulty: number): string {
 
       <footer class="admin-footer">
         <p>
-          {{ t(
-            'Empty seats become default V3 bots with random characters.',
-            'Свободные места станут обычными ботами V3 со случайными персонажами.',
-          ) }}
+          {{ message('kotgh.adminLobby.emptySeatsLegacyPlus') }}
         </p>
         <div>
           <button class="cancel-button" :disabled="Boolean(busyAction)" @click="cancelLobby">
@@ -627,7 +627,7 @@ function aiLabel(difficulty: number): string {
 
 .difficulty-picker {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 6px;
   margin-top: 8px;
 }

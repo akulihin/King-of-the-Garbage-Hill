@@ -61,7 +61,9 @@ public static class ClashCatalog
             Attack = 1,
             MaxHp = 1,
             Speed = 3,
+            AttackPattern = ClashAttackPattern.RangedColumn,
             IsRanged = true,
+            CanDefaultAdvance = false,
             Tags = new() { "archer", "bow", "short-weapon" },
             Passives = new()
             {
@@ -76,7 +78,9 @@ public static class ClashCatalog
             Attack = 2,
             MaxHp = 4,
             Speed = 2,
+            AttackPattern = ClashAttackPattern.RangedColumn,
             IsRanged = true,
+            CanDefaultAdvance = false,
             ShieldCharges = 1,
             Tags = new() { "archer", "bow", "shield" },
             Passives = new()
@@ -127,7 +131,9 @@ public static class ClashCatalog
             Attack = 2,
             MaxHp = 3,
             Speed = 2,
+            AttackPattern = ClashAttackPattern.RangedColumn,
             IsRanged = true,
+            CanDefaultAdvance = false,
             ReloadClashes = 2,
             Tags = new() { "archer", "crossbow" },
             Passives = new()
@@ -143,7 +149,9 @@ public static class ClashCatalog
             Attack = 2,
             MaxHp = 2,
             Speed = 5,
+            AttackPattern = ClashAttackPattern.RangedColumn,
             IsRanged = true,
+            CanDefaultAdvance = false,
             Tags = new() { "archer", "crossbow", "automatic" },
             Passives = new()
             {

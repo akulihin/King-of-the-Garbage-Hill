@@ -117,6 +117,11 @@ public static class GameLocalization
             new LocalizedMessage(key, arguments),
             GetUserLanguage(userId));
 
+    public static LocalizedText MessageText(
+        string key,
+        IReadOnlyDictionary<string, string> arguments = null) =>
+        StructuredMessages.Value.ResolveBoth(new LocalizedMessage(key, arguments));
+
     /// <summary>
     /// Localizes ordinary text for the web client while preserving replay-safe bilingual phrase
     /// records for Vue to resolve whenever the viewer changes language.

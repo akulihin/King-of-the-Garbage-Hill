@@ -17,6 +17,7 @@ const theBoys = computed(() => props.player.passiveAbilityStates?.theBoys ?? nul
 const jonSnow = computed(() => props.player.passiveAbilityStates?.jonSnow ?? null)
 const isTerminalMode = computed(() => props.player.isTerminalMode ?? false)
 const SERVER_KING_NAME = 'Король Сервера'
+const canonicalEnglishPassiveNames = new Set(['Mute', "Let's Roll!", 'Rumbling'])
 
 function toggleSkill(idx: number) {
   if (isTerminalMode.value || !props.player.character.passives[idx]?.visible) return
@@ -39,6 +40,10 @@ function passiveIndexByName(name: string): number {
 
 function passiveDisplayName(passive: Passive): string {
   return passive.displayName ? localizedText(passive.displayName) : passive.name
+}
+
+function preservesEnglishPassiveName(passive: Passive): boolean {
+  return canonicalEnglishPassiveNames.has(passive.name)
 }
 
 function passiveDisplayDescription(passive: Passive): string {
@@ -220,7 +225,12 @@ watch(
           <span v-if="!isTerminalMode && passive.visible" class="skill-dot dot-active" />
           <span v-else-if="!isTerminalMode" class="skill-lock" aria-label="Закрытая способность">🔒</span>
           <span v-else class="terminal-line-no">{{ String((idx * 4) + 1).padStart(2, '0') }}</span>
-          <span v-if="isTerminalMode || passive.visible" class="skill-name">
+          <span
+            v-if="isTerminalMode || passive.visible"
+            class="skill-name"
+            :lang="preservesEnglishPassiveName(passive) ? 'en' : undefined"
+            :translate="preservesEnglishPassiveName(passive) ? 'no' : undefined"
+          >
             {{ isTerminalMode ? `// ${passive.name}` : passiveDisplayName(passive) }}
           </span>
         </div>

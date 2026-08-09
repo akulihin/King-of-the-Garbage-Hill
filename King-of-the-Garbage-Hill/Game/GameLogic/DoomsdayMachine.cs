@@ -1103,7 +1103,7 @@ public class DoomsdayMachine : IServiceSingleton
                 //round 3 (Random)
                 var usedRandomRoll = false;
                 var bfgTriggeredThisFight = false;
-                var step3RandomNumber = 0;
+                var step3RandomNumber = 0m;
                 var step3MaxRandom = 0m;
                 decimal justiceRandomChange = 0;
                 decimal nemesisRandomChange = 0;
@@ -1142,12 +1142,20 @@ public class DoomsdayMachine : IServiceSingleton
                     else
                     {
                         var (step3Points, rndNum, rndMax, justiceRandomChangeL, nemesisRandomChangeL) = _calculateRounds.CalculateStep3(player, playerIamAttacking, randomForPoint, nemesisMultiplier, true);
-                        pointsWined += step3Points;
                         usedRandomRoll = true;
                         step3RandomNumber = rndNum;
                         step3MaxRandom = rndMax;
                         justiceRandomChange = justiceRandomChangeL;
                         nemesisRandomChange = nemesisRandomChangeL;
+                        DoomGuy.TryRigGameDesignerShieldRandom(
+                            player,
+                            playerIamAttacking,
+                            step2Points,
+                            step3MaxRandom,
+                            ref step3Points,
+                            ref randomForPoint,
+                            ref step3RandomNumber);
+                        pointsWined += step3Points;
                     }
                 }
                 //end round 3

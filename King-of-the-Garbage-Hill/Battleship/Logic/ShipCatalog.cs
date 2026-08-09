@@ -51,7 +51,7 @@ public static class ShipCatalog
             AvailableUpgrades = new()
             {
                 new UpgradeDefinition { Id = "triple_crew", Name = "Crew", NameRu = "Экипаж", Cost = 2, Description = "Если Трёшка дожила до абордажа, выпускает одну Пиратскую лодку.", Effect = "crew_boarding_pirate" },
-                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 6, Description = "При начале абордажа Тетракамнемёт получает 2 дополнительных выбранных снаряда.", Effect = "extra_ammo" },
+                new UpgradeDefinition { Id = "triple_ammo", Name = "Extra Ammo", NameRu = "Второй боезапас", Cost = 6, DescriptionKey = "battleship.upgrade.tripleAmmo.description", Effect = "extra_ammo" },
                 new UpgradeDefinition { Id = "triple_armor_1", Name = "Armor Deck 1", NameRu = "Броня палубы 1", Cost = 4, Description = "Увеличивает прочность первой палубы на 4, но не выше 9.", Effect = "armor_deck_0" },
                 new UpgradeDefinition { Id = "triple_armor_2", Name = "Armor Deck 2", NameRu = "Броня палубы 2", Cost = 4, Description = "Увеличивает прочность второй палубы на 4, но не выше 9.", Effect = "armor_deck_1", IsPreinstalled = true },
                 new UpgradeDefinition { Id = "triple_armor_3", Name = "Armor Deck 3", NameRu = "Броня палубы 3", Cost = 4, Description = "Увеличивает прочность третьей палубы на 4, но не выше 9.", Effect = "armor_deck_2" },
@@ -80,11 +80,15 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
-            Id = "alliance_flagship", Name = "Alliance Flagship", NameRu = "Флагман Альянса",
+            Id = "alliance_flagship", Name = "Обычный Четырехпалубник", NameRu = "Обычный Четырехпалубник",
             DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DefaultArmor = 2, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
             Factions = new() { Faction.Alliance },
-            Description = ""
+            Description = "",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+            }
         },
         new ShipDefinition
         {
@@ -128,11 +132,24 @@ public static class ShipCatalog
         new ShipDefinition
         {
             Id = "fast_warming_ship", Name = "Быстроразогревающийся корабль", NameRu = "Быстроразогревающийся корабль",
-            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsHome = true,
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 25, IsHome = true,
             DeckHpOverrides = new() { 1, 1, 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2,
-            Regions = new() { Region.Tetracor }, Factions = new() { Faction.Alliance },
+            Regions = new() { Region.East }, Factions = new() { Faction.Alliance },
             Abilities = new() { "double_shot_while_alive", "overheat_after_20_shots" },
             Description = "Даёт второй выстрел за ход, а после 20 выстрелов владельца взрывается в радиусе 2.",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+            }
+        },
+        new ShipDefinition
+        {
+            Id = "fast_warming_ship_v2", Name = "Разогревающийся корабль Ver.2", NameRu = "Разогревающийся корабль Ver.2",
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 25, IsHome = true,
+            DeckHpOverrides = new() { 1, 1, 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2,
+            Regions = new() { Region.East }, Factions = new() { Faction.Alliance },
+            Abilities = new() { "warming_chain_until_two_misses", "overheat_after_20_shots" },
+            Description = "",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
@@ -270,6 +287,16 @@ public static class ShipCatalog
             Factions = new() { Faction.Alliance },
             Abilities = new() { "merge_maneuver" },
             Description = "Может в любое время маневрировать и объединяться с союзным кораблём в Уютный Совместный корабль.",
+            DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
+        },
+        new ShipDefinition
+        {
+            Id = "merging_ship_v2", Name = "Сливающийся корабль Ver.2", NameRu = "Сливающийся корабль Ver.2",
+            DeckCount = 2, Range = RangeClass.Mid, Cost = 25,
+            DeckHpOverrides = new() { 1, 1 }, Speed = 2, Space = 1, Regions = new() { Region.West },
+            Factions = new() { Faction.Alliance },
+            Abilities = new() { "manual_move_after_hit", "ramming_maneuver", "merge_maneuver_after_hit" },
+            Description = "",
             DefaultWeapons = new() { new WeaponTemplate { Type = WeaponType.Ballista } }
         },
         new ShipDefinition
@@ -518,7 +545,7 @@ public static class ShipCatalog
         switch (upgradeDef.Effect)
         {
             case "extra_ammo":
-                // Don't add ammo now — +2 placement-selected projectiles are added on Boarding.
+                // Don't add ammo now — +2 White Stones are added when Boarding starts.
                 ship.Abilities.Add("extra_ammo_boarding");
                 break;
 

@@ -58,6 +58,8 @@ Vite's `messageCatalogPlugin` performs matching build/dev validation and exposes
 | `terms` | Presentation-only names and safe terminology. Replacements use word boundaries for single tokens; action values are never passed through this layer. |
 | `russianExact` | English-first legacy UI copy → Russian. This completes Russian presentation on surfaces originally authored in English. |
 | `phraseFallbacks` | Passive-aware English adaptations for canonical `|>Phrase<|` flavor-log records. Shared by the backend and Vue replay renderer; every Cyrillic `PhraseClass` identifier is covered. |
+
+Canonical English gameplay identifiers remain English in the Russian presentation. In particular, HardKitty's **Mute**, DooM Guy's **Let's Roll!** and Эрен Йегер's **Rumbling** are protected with `translate="no"` at their gameplay surfaces and have no `russianExact` replacement. The unrelated audio-control tooltip uses structured `kotgh.audio.mute` / `kotgh.audio.unmute` messages, so ordinary UI localization does not overload the passive name.
 | `characters` | English biographies keyed by canonical character name. Complete key coverage is enforced; an empty canonical biography remains empty in English rather than gaining invented text. |
 | `passives` | English mechanics text keyed by canonical passive name. Complete key coverage is enforced for every canonical passive. |
 | `browserPrivate` | Section/key metadata for backend translations that must not enter the public legacy Vue catalog. Vite rejects unknown sections, duplicate/stale keys and removes every listed record before serialization. |
@@ -93,7 +95,7 @@ Achievements and Daily Quests use separate typed bilingual catalogs. Achievement
 
 ## 4. Backend boundaries
 
-- Reusable new server-authored copy is represented as `LocalizedMessage`, then resolved by `MessageCatalog` at a presentation boundary after viewer/visibility selection. Generated prose that cannot use a key crosses as paired `LocalizedText`. Do not render a structured owner/server definition into a public DTO.
+- Reusable new server-authored copy is represented as `LocalizedMessage`, then resolved by `MessageCatalog` at a presentation boundary after viewer/visibility selection. `GameLocalization.MessageText` resolves a catalog key into the replay-safe RU/EN pair used by an already audience-scoped log/DTO; a nameless `PhraseTextV2` record renders that pair as a whole line without injecting a source prefix. Generated prose that cannot use a key crosses as paired `LocalizedText`. Do not render a structured owner/server definition into a public DTO.
 - All ordinary Discord command text and embeds pass through `ModuleBaseCustom` before sending (`ModuleBaseCustom.cs:14-18`, `ModuleBaseCustom.cs:61-65`).
 - In-game embeds, transient messages and Discord component labels/options are localized immediately before build/send; component identifiers and select-option values remain canonical (`HelperFunctions.cs:237-244`, `GameLocalization.cs:198-222`).
 - Personalized legacy web logs, score sources, direct messages, media messages and the finished chronicle are projected in `GameStateMapper`; arbitrary historic text is localized there, while bilingual phrase records and paired media fields remain language-neutral for live switching and replay capture (`GameStateMapper.cs:1095-1113`). Opponent/spectator visibility gates are unchanged.

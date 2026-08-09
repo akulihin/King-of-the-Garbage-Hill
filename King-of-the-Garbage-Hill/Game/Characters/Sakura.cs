@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -33,6 +34,12 @@ public static class Sakura
     public static void RemoveForbiddenPredictions(GameClass game, GamePlayerBridgeClass player)
     {
         var sakuraIds = game.PlayersList.Where(Is).Select(candidate => candidate.GetPlayerId()).ToHashSet();
+        var forbiddenEvidenceIds = player.AiKnowledge.PredictionEvidence
+            .Where(entry => sakuraIds.Contains(entry.Key) || Is(entry.Value.CharacterName))
+            .Select(entry => entry.Key)
+            .ToList();
+        foreach (var targetId in forbiddenEvidenceIds)
+            BotInformation.RemovePrediction(player, targetId);
         player.Predict.RemoveAll(prediction =>
             Is(prediction.CharacterName) || sakuraIds.Contains(prediction.PlayerId));
     }

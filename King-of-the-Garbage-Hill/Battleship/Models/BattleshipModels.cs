@@ -181,6 +181,11 @@ public class BattleshipPlayer
     public int TotalShotsFired { get; set; }
     /// <summary>Valid shot actions fired since this player's current turn began.</summary>
     public int ShotsFiredThisTurn { get; set; }
+    /// <summary>
+    /// Consecutive misses in the current turn for the alternating Fast Warming Ver.2 chain.
+    /// Any hit resets the streak; the second miss ends the chain.
+    /// </summary>
+    public int ConsecutiveWarmingMisses { get; set; }
     public int StunShotExpiry { get; set; } = -1; // Shot# when stun expires (-1=none)
     public bool HasPenalty { get; set; } // Skip next turn
     public int LastSummonDeployShotCount { get; set; } = -10; // For 2-shot cooldown
@@ -228,6 +233,11 @@ public class Cell
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
     public bool WasScratched { get; set; } // Snapshot: hit damaged but didn't destroy a deck (persists after ship moves)
     public bool WasRevealedShip { get; set; } // Anonymous intact occupancy preserved while the moved ship remains alive
+    /// <summary>
+    /// The physical ship left this cell during Boarding conversion. Owner projection keeps any
+    /// pre-existing miss/damage/status paint here without inventing a new observation.
+    /// </summary>
+    public bool WasBoardingSourceCell { get; set; }
     /// <summary>Every distinct summon that has visited this physical cell, including the spawn cell.</summary>
     public List<SummonMarker> SummonTrails { get; set; } = new();
     /// <summary>Persistent identity-preserving markers for summons destroyed on this physical cell.</summary>
@@ -301,6 +311,12 @@ public class Ship
     public List<Region> Regions { get; set; } = new();
     public List<string> Abilities { get; set; } = new();
     public bool IsHome { get; set; } // "Домашний" unit — used for first-turn tiebreaker
+    /// <summary>
+    /// A Cozy Joint can inherit Grab from an arbitrarily shaped target. These absolute
+    /// coordinates preserve the target's trap instead of recomputing it from the new hull anchor.
+    /// </summary>
+    public int? PreservedGrabRow { get; set; }
+    public int? PreservedGrabCol { get; set; }
     /// <summary>Idempotency guard for the one replacement spawned by a destroyed Matryoshka stage.</summary>
     public bool MatryoshkaReplacementQueued { get; set; }
     /// <summary>
@@ -609,6 +625,11 @@ public class ShotResult
     public int Row { get; set; }
     public int Col { get; set; }
     public bool TurnContinues { get; set; }
+    /// <summary>
+    /// This action must end the turn even when another passive could normally grant a bonus shot.
+    /// Used whenever the shooter targets their own Boarding hull on the enemy board.
+    /// </summary>
+    public bool ForcesTurnEnd { get; set; }
     /// <summary>Server-selected pause before the same player may fire again; 0 when the turn ends.</summary>
     public int ShotDelayMs { get; set; }
     public string Message { get; set; }
@@ -671,6 +692,7 @@ public class UpgradeDefinition
     public string NameRu { get; set; }
     public int Cost { get; set; }
     public string Description { get; set; }
+    public string DescriptionKey { get; set; }
     public string Effect { get; set; }
     public bool IsPreinstalled { get; set; }
 }

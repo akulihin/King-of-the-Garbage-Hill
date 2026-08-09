@@ -1916,8 +1916,8 @@ function backfillSpearV2RebalanceFields(migrated: UnknownRecord): void {
 
 /**
  * Schema v15 makes the Mother's linked-hole strike arena-wide except for a real safe zone at
- * the diagonally opposite hole. Only exact shipped damage/range values are raised; every old
- * definition gains the new required safe-corner radius.
+ * the hole geometrically opposite her retreat entrance. Only exact shipped damage/range values
+ * are raised; every old definition gains the new required safe-corner radius.
  */
 function backfillCockroachMotherHoleStrikeFields(migrated: UnknownRecord): void {
   if (!Array.isArray(migrated.enemies)) return

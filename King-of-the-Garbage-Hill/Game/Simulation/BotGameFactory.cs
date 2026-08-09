@@ -46,7 +46,7 @@ public class BotGameFactory : IServiceSingleton
     /// may include TeamModeOnly characters).
     /// </summary>
     public async Task<GameClass> CreateBotGameAsync(ulong creatorId, string mode = "Bot",
-        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 3,
+        uint testFightNumber = 0, List<string> forcedCharacters = null, int aiDifficulty = 4,
         int aiProbe = -1, string aiProbeChar = null)
     {
         var players = new List<IUser>
@@ -93,7 +93,7 @@ public class BotGameFactory : IServiceSingleton
             foreach (var player in playersList)
                 player.Status.IsDraftPickConfirmed = true;
         }
-        game.AiDifficulty = Math.Clamp(aiDifficulty, 0, 3);
+        game.AiDifficulty = Math.Clamp(aiDifficulty, 0, 4);
 
         // --ai-probe: run one bot at a different level than the field (A/B measurement). By character name
         // if given (so it aggregates across coverage games), else the first slot. -1 leaves the whole field
@@ -103,7 +103,7 @@ public class BotGameFactory : IServiceSingleton
             var probe = aiProbeChar != null
                 ? playersList.Find(p => p.GameCharacter.Name == aiProbeChar)
                 : playersList.ElementAtOrDefault(0);
-            if (probe != null) probe.AiDifficulty = Math.Clamp(aiProbe, 0, 3);
+            if (probe != null) probe.AiDifficulty = Math.Clamp(aiProbe, 0, 4);
         }
 
         //отправить меню игры
@@ -121,29 +121,6 @@ public class BotGameFactory : IServiceSingleton
             _global.GamesList.Add(game);
         }
 
-
-        // Preserve the historical all-knowing simulation setup only for the frozen L1
-        // baseline. L2/L3 must build predictions through the same information a player sees.
-        if (mode == "Bot")
-        {
-            foreach (var player in game.PlayersList)
-            {
-                var effectiveDifficulty = player.AiDifficulty >= 0
-                    ? player.AiDifficulty
-                    : game.AiDifficulty;
-                if (player.PlayerType != 404 || effectiveDifficulty != 1)
-                    continue;
-                // Булькает never predicts, so the frozen L1 baseline must not hand it a free sheet.
-                if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
-                    continue;
-
-                foreach (var enemy in game.PlayersList.Where(x =>
-                             x.GetPlayerId() != player.GetPlayerId() && !Sakura.Is(x)))
-                {
-                    player.Predict.Add(new PredictClass(enemy.GameCharacter.Name, enemy.GetPlayerId()));
-                }
-            }
-        }
 
         //handle round #0
         if (!deferredPreGameStage)

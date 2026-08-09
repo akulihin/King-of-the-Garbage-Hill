@@ -78,13 +78,13 @@ public class SimulationRunner : IServiceSingleton
         var coverage = GetIntArg(args, "--coverage", 0);
         var timeoutMin = GetIntArg(args, "--timeout-min", 10);
         var charactersArg = GetStringArg(args, "--characters");
-        var aiDifficulty = GetIntArg(args, "--ai-difficulty", 3);
+        var aiDifficulty = GetIntArg(args, "--ai-difficulty", 4);
         var aiProbe = GetIntArg(args, "--ai-probe", -1);                 // -1 = no probe (whole field on --ai-difficulty)
         var aiProbeChar = GetStringArg(args, "--ai-probe-char");         // probe by character name (else slot 0)
         var seed = GetIntArg(args, "--seed", int.MinValue);              // omitted = unseeded (crypto RNG)
         var seeded = seed != int.MinValue;
         var abChar = GetStringArg(args, "--ab-char");                    // in-process paired A/B on this character
-        var abTest = GetIntArg(args, "--ab-test", 3);                    // probe level for the test arm
+        var abTest = GetIntArg(args, "--ab-test", 4);                    // probe level for the test arm
         var abControl = GetIntArg(args, "--ab-control", 1);              // probe level for the control arm
         if (abChar != null && !seeded) { seed = 1; seeded = true; }      // A/B is meaningless unpaired — default seed 1
         var reportPath = GetStringArg(args, "--report")
@@ -96,21 +96,21 @@ public class SimulationRunner : IServiceSingleton
             return 2;
         }
 
-        if (aiDifficulty is < 0 or > 3)
+        if (aiDifficulty is < 0 or > 4)
         {
-            Console.WriteLine("[SIM] Invalid arguments: --ai-difficulty must be 0, 1, 2 or 3.");
+            Console.WriteLine("[SIM] Invalid arguments: --ai-difficulty must be 0, 1, 2, 3 or 4.");
             return 2;
         }
 
-        if (aiProbe is < -1 or > 3)
+        if (aiProbe is < -1 or > 4)
         {
-            Console.WriteLine("[SIM] Invalid arguments: --ai-probe must be 0, 1, 2 or 3 (or omitted).");
+            Console.WriteLine("[SIM] Invalid arguments: --ai-probe must be 0, 1, 2, 3 or 4 (or omitted).");
             return 2;
         }
 
-        if (abChar != null && (abTest is < 0 or > 3 || abControl is < 0 or > 3))
+        if (abChar != null && (abTest is < 0 or > 4 || abControl is < 0 or > 4))
         {
-            Console.WriteLine("[SIM] Invalid arguments: --ab-test / --ab-control must be 0, 1, 2 or 3.");
+            Console.WriteLine("[SIM] Invalid arguments: --ab-test / --ab-control must be 0, 1, 2, 3 or 4.");
             return 2;
         }
 

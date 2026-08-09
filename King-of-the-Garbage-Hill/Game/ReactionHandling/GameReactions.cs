@@ -378,8 +378,10 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "confirm-prefict":
+                        if (game == null || game.RoundNo != 8 || player.Passives.IsDead)
+                            break;
                         player.Status.ConfirmedPredict = true;
-                        game = _global.GamesList.Find(x => x.GameId == player.GameId);
+                        Kira.RecordPredictionConfirmation(game, player);
                         embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
@@ -733,6 +735,9 @@ public sealed class GameReaction : IServiceSingleton
         var account = _accounts.GetAccount(player.DiscordId);
         if (account == null) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
+        if (game == null || player.Passives.IsDead
+                         || game.RoundNo >= 8 && player.Status.ConfirmedPredict)
+            return;
 
 
         var predictMenu = new SelectMenuBuilder()
@@ -765,6 +770,7 @@ public sealed class GameReaction : IServiceSingleton
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает")) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return;
+        if (player.Passives.IsDead || game.RoundNo >= 8 && player.Status.ConfirmedPredict) return;
 
         var embed  = _upd.FightPage(player);
         var builder = await _upd.GetGameButtons(player, game);
@@ -789,12 +795,7 @@ public sealed class GameReaction : IServiceSingleton
         if (Sakura.Is(predictedPlayer)) return;
         var predictedPlayerId = predictedPlayer.GetPlayerId();
 
-        var predicted = player.Predict.Find(x => x.PlayerId == predictedPlayerId);
-
-        if (predicted == null)
-            player.Predict.Add(new PredictClass(predictedCharacterName, predictedPlayerId));
-        else
-            predicted.CharacterName = predictedCharacterName;
+        Kira.SetPrediction(player, predictedPlayerId, predictedCharacterName);
 
 
         embed = _upd.FightPage(player);
@@ -1203,7 +1204,10 @@ public sealed class GameReaction : IServiceSingleton
         if (player.GameCharacter.Name == DoomGuy.CharacterName)
         {
             var stage = DoomGuy.StageForRound(game?.RoundNo ?? 0);
-            var options = DoomGuy.GetOptions(player.Passives.DoomGuy, stage);
+            var options = DoomGuy.GetOptions(
+                player.Passives.DoomGuy,
+                stage,
+                player.PlayerType == 404);
             // Auto-move humans get stat picks (1-4) from the bot path — reroll them into the
             // module range like bot picks, or the point is never spent (M50 freeze loop).
             if ((player.IsBot() || player.Status.IsAutoMove) && options.Count > 0 &&

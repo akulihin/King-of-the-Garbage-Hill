@@ -1890,7 +1890,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
 
           <div v-if="me?.passiveAbilityStates?.doomGuy?.rollAvailable" class="act-group">
             <button class="act-btn doom-roll" :disabled="transitionPaused" title="Отключить Мораль и Предположения; получать случайные модули и +2 очка" @click="store.doomRoll()">
-              Let's Roll!
+              <span lang="en" translate="no">Let's Roll!</span>
             </button>
           </div>
 
@@ -1928,7 +1928,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
           <div class="header-right">
             <!-- Volume control -->
             <div class="vol-control" data-sfx-skip-default="true">
-              <button class="vol-mute-btn" data-sfx-skip-default="true" :title="isMuted ? 'Unmute' : 'Mute'" @click="toggleMute">
+              <button class="vol-mute-btn" data-sfx-skip-default="true" :title="message(isMuted ? 'kotgh.audio.unmute' : 'kotgh.audio.mute')" @click="toggleMute">
                 <span v-if="isMuted" class="vol-icon vol-icon-off">&#x1F507;</span>
                 <span v-else-if="volume < 0.4" class="vol-icon">&#x1F508;</span>
                 <span v-else-if="volume < 0.75" class="vol-icon">&#x1F509;</span>

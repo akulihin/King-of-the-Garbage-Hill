@@ -49,15 +49,24 @@ public class BotsBehavior : IServiceSingleton
     // The acting bot's effective AI level: a per-player --ai-probe override (≥0) wins over the game default.
     private static int EffectiveDifficulty(GamePlayerBridgeClass p, GameClass game)
         => p.AiDifficulty >= 0 ? p.AiDifficulty : game.AiDifficulty;
-    private static bool Dumb(GamePlayerBridgeClass p, GameClass game)  => EffectiveDifficulty(p, game) <= 0;   // L0: pure random
-    private static bool Smart(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) >= 2;   // L2+
-    private static bool Advanced(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) >= 3;
+    private static bool Dumb(GamePlayerBridgeClass p, GameClass game) => EffectiveDifficulty(p, game) <= 0; // L0
+    private static bool Smart(GamePlayerBridgeClass p, GameClass game)
+        => EffectiveDifficulty(p, game) is 2 or 3; // strict fair V2/V3 policy
+    private static bool Advanced(GamePlayerBridgeClass p, GameClass game)
+        => EffectiveDifficulty(p, game) == 3;
+    private static bool LegacyPlus(GamePlayerBridgeClass p, GameClass game)
+        => EffectiveDifficulty(p, game) == 4;
+    private static bool UsesFairEvidence(GamePlayerBridgeClass p, GameClass game)
+        => EffectiveDifficulty(p, game) is 2 or 3 or 4;
+    private static bool UsesAdvancedInference(GamePlayerBridgeClass p, GameClass game)
+        => EffectiveDifficulty(p, game) is 3 or 4;
     // Legacy branches below are unreachable for L2/L3 after the fair-policy dispatch. Keep this alias
     // solely so the frozen L1 body remains easy to compare with old replays while it is being retired.
     private static bool Omni(GamePlayerBridgeClass p, GameClass game) => Advanced(p, game);
     private const int SmartTargetTaretNumberEarly = 3;
     private const int SmartKnownClassNemesisNumber = 2;
     private const int SmartPredictAvoidNumber = 2;
+    private const int SmartMoralWaitPlace2 = 8;   // only the actual place-1 leader falls back to 5
     private const int SmartMoralWaitPlace3 = 8;   // L1: 5
     private const int SmartMoralWaitPlace4 = 13;  // L1: 8
     private const int OmniPredictConfidence = 2;
@@ -67,7 +76,6 @@ public class BotsBehavior : IServiceSingleton
     private const int SmartTargetTaretNumberLate = 2;   // L2: value the Мишень capture late-game too (early stays 3)
     private const int SmartNemesisBonus = 2;            // L2: nemesis is a big real edge (+2 weigh, ×1.5 skill, justice ×mult)
     private const int OmniDominateNumber = 3;           // L3: dominating all 3 offensive stats reaches TooGOOD → near-certain crush
-    private const int SmartMoralWaitLeader = 8;         // L2: leaders convert moral→points at the 8-tier, not the wasteful 5-tier (L1: 5)
     private const int SmartPsycheFloor = 4;             // L2: generic level-up keeps ≥4 Psyche (pool guard vs moral-break / tilt) before over-stacking
     private const int SmartCommitMultiplier = 2;        // L2: commit harder to a clearly-best target (weighted-random otherwise dilutes good heuristics)
     private const int SmartKnownDefensePenalty = 10;    // L2: don't donate an attack into a visible block/skip
@@ -85,9 +93,9 @@ public class BotsBehavior : IServiceSingleton
             return;
 
         // Freeze the same resolved-round projection a normal player could have retained before making
-        // this turn's choices. L2/L3 strategy below consumes this viewer-scoped memory; it never polls
-        // opponents' live action flags or private character/status objects for an answer.
-        if (Smart(player, game))
+        // this turn's choices. Every strict-bot level needs this boundary for the shared round-10
+        // Monster hunt; V2/V3 and Legacy+'s fair channels also consume it during ordinary play.
+        if (player.PlayerType == 404)
             BotInformation.CaptureVisibleRound(player, game);
 
         // Spend every pending point before committing any kind of turn action. This must precede
@@ -145,7 +153,23 @@ public class BotsBehavior : IServiceSingleton
 
     private void EnsureBotPlaystyle(GamePlayerBridgeClass player, GameClass game)
     {
-        if (!Smart(player, game) || player.PlayerType != 404 || player.AiPlaystyle.Length > 0)
+        if (player.PlayerType == 404
+            && EffectiveDifficulty(player, game) is 1 or 2 or 4
+            && player.GameCharacter.Name == "Darksci"
+            && !player.Passives.DarksciTypeList.Triggered)
+        {
+            // Reuse the human unstable-choice outcome. These entertainment-oriented modes never choose
+            // the lower-variance "Мне никогда не везёт..." route.
+            player.Passives.DarksciTypeList.Triggered = true;
+            player.Passives.DarksciTypeList.IsStableType = false;
+            player.Status.AddInGamePersonalLogs("Я чувствую удачу!\n");
+        }
+
+        var needsLegacyPlusFairPilot = LegacyPlus(player, game)
+                                       && player.GameCharacter.Name == "Кратос";
+        if ((!Smart(player, game) && !needsLegacyPlusFairPilot)
+            || player.PlayerType != 404
+            || player.AiPlaystyle.Length > 0)
             return;
 
         string Pick(params string[] options) => options[_rand.Random(0, options.Length - 1)];
@@ -159,7 +183,9 @@ public class BotsBehavior : IServiceSingleton
                 player.AiPlaystyle = $"Dopa:{tactic}";
                 break;
             case "Darksci":
-                var darksciPlan = Pick("Stable", "Unstable");
+                // Stable and Young are intentionally player-facing consistency choices. V2 is an
+                // entertainment bot and always takes the volatile/classic route; only V3 may opt in.
+                var darksciPlan = Advanced(player, game) ? Pick("Stable", "Unstable") : "Unstable";
                 player.AiPlaystyle = $"Darksci:{darksciPlan}";
                 var darksciType = player.Passives.DarksciTypeList;
                 darksciType.Triggered = true;
@@ -171,7 +197,7 @@ public class BotsBehavior : IServiceSingleton
                 }
                 break;
             case "Глеб" when player.GameCharacter.Passive.Any(x => x.PassiveName == "Yong Gleb"):
-                var glebPlan = Pick("Classic", "Young");
+                var glebPlan = Advanced(player, game) ? Pick("Classic", "Young") : "Classic";
                 player.AiPlaystyle = $"Глеб:{glebPlan}";
                 if (glebPlan == "Young")
                     ApplyYoungGleb(player, game);
@@ -524,11 +550,10 @@ public class BotsBehavior : IServiceSingleton
             //если бот на 3м месте то ждет 5 (L2-7: smart bots wait 8)
             if (bot.Status.GetPlaceAtLeaderBoard() == 3 && bot.GameCharacter.GetMoral() < (Smart(bot, game) ? SmartMoralWaitPlace3 : 5) && !overwrite)
                 return;
-            // L2-10: leaders (place ≤ 2) waste the 5-tier (5 moral → +1). moral→score is UNMULTIPLIED
-            // (AddBonusPoints) and round 10 force-dumps leftovers, so waiting for the 8-tier (→ +2) pays 2× —
-            // L1 leaders still dump at 5, which the while-loop below does.
-            if (Smart(bot, game) && bot.Status.GetPlaceAtLeaderBoard() <= 2
-                && bot.GameCharacter.GetMoral() < SmartMoralWaitLeader && !overwrite)
+            // Place 2 can still earn Moral by attacking the leader and keeps the efficient eight tier.
+            // The actual place-1 leader has nobody above it, so it falls through to the reachable five tier.
+            if (Smart(bot, game) && bot.Status.GetPlaceAtLeaderBoard() == 2
+                && bot.GameCharacter.GetMoral() < SmartMoralWaitPlace2 && !overwrite)
                 return;
         }
         //end логика до 10го раунда
@@ -724,7 +749,7 @@ public class BotsBehavior : IServiceSingleton
 
     private void HandleBotKira(GamePlayerBridgeClass bot, GameClass game)
     {
-        if (Smart(bot, game))
+        if (UsesFairEvidence(bot, game))
         {
             HandleFairBotKira(bot, game);
             return;
@@ -830,7 +855,9 @@ public class BotsBehavior : IServiceSingleton
         var deathNote = bot.Passives.KiraDeathNote;
         var eyes = bot.Passives.KiraShinigamiEyes;
         var publicTargets = game.PlayersList.Where(target =>
-                target.GetPlayerId() != bot.GetPlayerId() && !target.Passives.IsDead)
+                target.GetPlayerId() != bot.GetPlayerId()
+                && !target.Passives.IsDead
+                && !Sakura.Is(target))
             .OrderBy(target => target.Status.GetPlaceAtLeaderBoard())
             .ToList();
 
@@ -899,7 +926,7 @@ public class BotsBehavior : IServiceSingleton
 
         CharacterClass guess;
         int confidence;
-        if (Advanced(bot, game))
+        if (UsesAdvancedInference(bot, game))
         {
             var ranked = catalog.Select(character => (Character: character,
                     Score: FairKiraGuessScore(bot, target, character, game)))
@@ -927,7 +954,9 @@ public class BotsBehavior : IServiceSingleton
 
         deathNote.CurrentRoundName = guess.Name;
         BotInformation.RecordPrediction(bot, target.GetPlayerId(), guess.Name, confidence,
-            Advanced(bot, game) ? "Kira public-evidence inference" : "Kira visible-catalogue prior",
+            UsesAdvancedInference(bot, game)
+                ? "Kira public-evidence inference"
+                : "Kira visible-catalogue prior",
             game.RoundNo);
     }
 
@@ -982,7 +1011,7 @@ public class BotsBehavior : IServiceSingleton
 
             if (game.RoundNo == 10)
             {
-                foreach (var target in allTargets.ToList().Where(target => Smart(bot, game)
+                foreach (var target in allTargets.ToList().Where(target => UsesFairEvidence(bot, game)
                              ? _gameUpdateMess.CustomLeaderBoardBeforeNumber(
                                  bot, target.Player, game, target.PlaceAtLeaderBoard()).Contains("🚫", StringComparison.Ordinal)
                              : Tigr.IsRoundTenBanned(target.Player, game.RoundNo)))
@@ -993,7 +1022,7 @@ public class BotsBehavior : IServiceSingleton
 
             if (game.RoundNo is 9 or 10)
             {
-                if (Smart(bot, game))
+                if (UsesFairEvidence(bot, game))
                 {
                     var visibleLogs = BotInformation.VisibleCurrentGlobalLogs(bot, game);
                     allTargets.RemoveAll(target => visibleLogs.Contains(
@@ -1008,9 +1037,9 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            // Round-10 event targets are explicit designer-scripted exceptions at every AI level.
-            // A selectable Eren above this bot is absolute priority; Monster is the fallback.
-            if (await TryForceRoundTenBossAttack(bot, game, allTargets)) return;
+            // On round 10 every AI level must attack its own best Monster hypothesis. The ranking is
+            // viewer-scoped and never receives the real Monster/Eren seat from the server.
+            if (await TryForceRoundTenSuspectedMonsterAttack(bot, game, allTargets)) return;
             if (await TryForceNechtoAttack(bot, game)) return;
 
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
@@ -1055,6 +1084,24 @@ public class BotsBehavior : IServiceSingleton
             var awdkaFirst = 0;
             decimal spartanTarget = 0;
             //end character variables
+
+            // Legacy+ keeps the complete Legacy actor-specific pipeline below. Its global target score is
+            // factorized separately, while this fair projection supplies only player-visible inputs and the
+            // V2 half of the Block calculation. It is never exposed to L1.
+            var isLegacyPlus = LegacyPlus(bot, game);
+            List<FairTarget> legacyPlusFairTargets = null;
+            if (isLegacyPlus)
+            {
+                var catalog = GetFairCatalog();
+                legacyPlusFairTargets = allTargets
+                    .Select(target => BuildFairTarget(bot, game, target, catalog))
+                    .ToList();
+                foreach (var fairTarget in legacyPlusFairTargets)
+                {
+                    ApplyFairUniversalPreference(bot, game, fairTarget);
+                    fairTarget.Score = Math.Max(0, fairTarget.Score);
+                }
+            }
 
             //local varaibles
             var isTargetTooGoodNumber = 7;
@@ -1309,6 +1356,13 @@ public class BotsBehavior : IServiceSingleton
                         target.AttackPreference -= 10;
                     else if (fightEdge <= -5)
                         target.AttackPreference -= 4;
+                }
+
+                if (isLegacyPlus)
+                {
+                    var fairTarget = legacyPlusFairTargets!.First(candidate => candidate.Id == target.GetPlayerId());
+                    target.AttackPreference = CalculateLegacyPlusGlobalPreference(
+                        bot, game, allTargets, target, fairTarget);
                 }
 
                 //custom bot behavior
@@ -2533,8 +2587,16 @@ public class BotsBehavior : IServiceSingleton
                 }
                 //end custom bot behavior
 
+                if (isLegacyPlus)
+                {
+                    var fairTarget = legacyPlusFairTargets!.First(candidate => candidate.Id == target.GetPlayerId());
+                    ApplyLegacyPlusFairCharacterFallback(
+                        bot, game, target, fairTarget, legacyPlusFairTargets!);
+                }
+
 
                 //custom enemy
+                var legacyPlusEnemyInformationBase = target.AttackPreference;
                 switch (target.Player.GameCharacter.Name)
                 {
                     case "Darksci":
@@ -2612,6 +2674,17 @@ public class BotsBehavior : IServiceSingleton
                         break;
                 }
                 //end custom enemy
+
+                if (isLegacyPlus)
+                {
+                    var privilegedDelta = target.AttackPreference - legacyPlusEnemyInformationBase;
+                    var fairTarget = legacyPlusFairTargets!.First(candidate => candidate.Id == target.GetPlayerId());
+                    var fairDelta = CalculateLegacyPlusFairEnemyInformationDelta(
+                        bot, game, target, fairTarget, legacyPlusEnemyInformationBase, botJustice);
+                    target.AttackPreference = legacyPlusEnemyInformationBase
+                                              + privilegedDelta * 0.50m
+                                              + fairDelta * 0.50m;
+                }
 
                 //для всех ботов: если бот предположил братишку, то -1 преференс для врагов, которые рядом с братишкой по таблице. например братишка на 3м месте, значит нам нужно 3 - 1 и 3 +1 = 2 и 4. им преференс -1
                 if (bot.Predict.Any(x => x.CharacterName == "Братишка"))
@@ -3413,22 +3486,18 @@ public class BotsBehavior : IServiceSingleton
                     break;
             }
 
-            // Монстр без имени: bots in 1st place force block on round 10
-            if (game.RoundNo == 10 && bot.Status.GetPlaceAtLeaderBoard() == 1
-                && game.PlayersList.Any(p => p.GameCharacter.Name == "Монстр без имени")
-                && isBlock != noBlock)
+            var legacyPlusFallbackBlockPlan = FairBlockPlan.Neutral;
+            var legacyPlusUsesFairBlockFallback = isLegacyPlus && NeedsLegacyPlusFairBlockFallback(bot);
+            if (legacyPlusUsesFairBlockFallback)
             {
-                isBlock = yesBlock;
+                legacyPlusFallbackBlockPlan = GetFairBlockPlan(bot, game, legacyPlusFairTargets!);
+                if (legacyPlusFallbackBlockPlan == FairBlockPlan.ForceAttack)
+                    isBlock = noBlock;
+                else if (legacyPlusFallbackBlockPlan == FairBlockPlan.ForceBlock)
+                    isBlock = yesBlock;
             }
-
-            // L2-6: round-10 block economics — leader defends the crown, everyone else attacks (×4 round,
-            // justice is worthless now). Untouched-generic guard preserves every bespoke round-10 block rule.
-            if (Smart(bot, game) && game.RoundNo == 10 && isBlock != noBlock && isBlock != yesBlock
-                && minimumRandomNumberForBlock == 1 && maximumRandomNumberForBlock == 4)
-            {
-                if (bot.Status.GetPlaceAtLeaderBoard() == 1) isBlock = yesBlock;   // defend the crown
-                else isBlock = noBlock;                                            // ×4 round: justice is worthless now, attack
-            }
+            var legacyPlusHasPersonalBlockRule = HasLegacyPersonalBlockRule(bot)
+                                                       || legacyPlusUsesFairBlockFallback;
 
             // L2-8: at 0 justice you lose every tiebreak and get milked by Умный attackers; if no target
             // scored ≥6 the heuristics found no good fight — raise the block-roll floor 1→2 (rounds 2-9).
@@ -3488,14 +3557,58 @@ public class BotsBehavior : IServiceSingleton
             if (minimumRandomNumberForBlock > maximumRandomNumberForBlock)
                 maximumRandomNumberForBlock = minimumRandomNumberForBlock;
 
-            var isBlockCheck = _rand.Random(minimumRandomNumberForBlock, maximumRandomNumberForBlock);
-            if (isBlockCheck > isBlock && !isAttacked && mandatoryAttack == -1
+            var legacyPlusBlockDecisionResolved = false;
+            var legacyPlusAttackChosen = false;
+            if (isLegacyPlus && !isAttacked && mandatoryAttack == -1
                 && CanVoluntarilyBlock(bot, game, allTargets.Count > 0))
             {
-                //block
-                await SubmitBotBlock(bot);
-                ResetTens(allTargets);
-                return;
+                bool shouldBlock;
+                if (isBlock == yesBlock)
+                {
+                    // Hard character instructions remain exact; blending a forced personal action would
+                    // contradict the Legacy-pilot contract.
+                    shouldBlock = true;
+                }
+                else if (isBlock == noBlock)
+                {
+                    shouldBlock = false;
+                }
+                else
+                {
+                    var legacyProbability = LegacyBlockProbabilityBasisPoints(
+                        isBlock, minimumRandomNumberForBlock, maximumRandomNumberForBlock);
+                    var fairProbability = LegacyPlusFairBlockProbabilityBasisPoints(
+                        bot, game, legacyPlusFairTargets!, legacyPlusFallbackBlockPlan);
+                    var blendedProbability = (legacyProbability + fairProbability) / 2;
+                    if (!legacyPlusHasPersonalBlockRule)
+                        blendedProbability = blendedProbability * 80 / 100;
+                    shouldBlock = blendedProbability > 0 && _rand.Random(1, 10_000) <= blendedProbability;
+                }
+
+                legacyPlusBlockDecisionResolved = true;
+                if (shouldBlock)
+                {
+                    await SubmitBotBlock(bot);
+                    ResetTens(allTargets);
+                    return;
+                }
+
+                // The blended draw chose Attack. Preserve that result through zero-weight and rejected-tail
+                // cases instead of silently falling back to Block later in the Legacy weighted loop.
+                legacyPlusAttackChosen = true;
+            }
+
+            if (!legacyPlusBlockDecisionResolved)
+            {
+                var isBlockCheck = _rand.Random(minimumRandomNumberForBlock, maximumRandomNumberForBlock);
+                if (isBlockCheck > isBlock && !isAttacked && mandatoryAttack == -1
+                    && CanVoluntarilyBlock(bot, game, allTargets.Count > 0))
+                {
+                    //block
+                    await SubmitBotBlock(bot);
+                    ResetTens(allTargets);
+                    return;
+                }
             }
 
             //"random" attack
@@ -3513,7 +3626,7 @@ public class BotsBehavior : IServiceSingleton
             }
 
 
-            if (!isAttacked && isBlock == noBlock)
+            if (!isAttacked && (isBlock == noBlock || legacyPlusAttackChosen))
             {
                 var players = allTargets.ToList();
                 if (players.Count == 0)
@@ -3535,7 +3648,7 @@ public class BotsBehavior : IServiceSingleton
                     players.Remove(pick);
                     whoToAttack = pick.Player.Status.GetPlaceAtLeaderBoard();
 
-                    if (maxRandomNumber > 0)
+                    if (maxRandomNumber > 0 && isBlock == noBlock)
                         await _global.TrySendServiceMessage(
                             $"**{UnknownBug.PublicName(bot)}** Поставил блок, а ему нельзя. {randomNumber}/{maxRandomNumber} <= {totalPreference}\n" +
                             $"Round: {game.RoundNo}\n" +
@@ -3611,6 +3724,277 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
+    private static decimal CalculateLegacyPlusGlobalPreference(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        IReadOnlyList<Nanobot> allTargets,
+        Nanobot target,
+        FairTarget fairTarget)
+    {
+        const decimal basePreference = 10m;
+        decimal legacyUtility = 0;
+        decimal fairUtility = 0;
+        decimal legacyInformation = 0;
+        decimal fairInformation = 0;
+        decimal legacyFight = 0;
+        decimal fairFight = 0;
+        decimal legacyMemory = 0;
+        decimal scriptedCoordination = 0;
+
+        var botJustice = bot.GameCharacter.Justice.GetRealJusticeNow();
+        var targetJustice = target.Player.GameCharacter.Justice.GetSeenJusticeNow();
+        var legacyCursor = basePreference;
+
+        void AddLegacyFight(decimal value)
+        {
+            legacyFight += value;
+            legacyCursor += value;
+        }
+
+        void AddLegacyUtility(decimal value)
+        {
+            legacyUtility += value;
+            legacyCursor += value;
+        }
+
+        void AddLegacyMemory(decimal value)
+        {
+            legacyMemory += value;
+            legacyCursor += value;
+        }
+
+        if (botJustice == targetJustice) AddLegacyFight(-5);
+        else if (botJustice < targetJustice) AddLegacyFight(-7);
+
+        if (target.PlaceAtLeaderBoard() == 1) AddLegacyUtility(-1);
+        if (bot.Status.GetPlaceAtLeaderBoard() == 1 && target.PlaceAtLeaderBoard() == 2)
+            AddLegacyUtility(-1);
+
+        var lostTooGood = bot.Status.WhoToLostEveryRound.Any(loss =>
+                              loss.RoundNo == game.RoundNo - 1
+                              && loss.EnemyId == target.GetPlayerId()
+                              && loss.IsTooGoodEnemy)
+                          || target.Player.Status.WhoToLostEveryRound.Any(loss =>
+                              loss.RoundNo == game.RoundNo - 1
+                              && loss.EnemyId == bot.GetPlayerId()
+                              && loss.IsTooGoodMe);
+        if (lostTooGood)
+        {
+            AddLegacyMemory(-7);
+        }
+        else if (bot.Status.WhoToLostEveryRound.Any(loss =>
+                     loss.EnemyId == target.GetPlayerId()
+                     && loss.IsStatsBetterEnemy
+                     && (loss.RoundNo == game.RoundNo - 1 || loss.RoundNo == game.RoundNo - 2)))
+        {
+            AddLegacyMemory(-5);
+        }
+
+        if (target.Player.Status.WhoToLostEveryRound.Any(loss =>
+                loss.RoundNo == game.RoundNo - 1
+                && loss.EnemyId == bot.GetPlayerId()
+                && loss.IsTooGoodEnemy))
+            AddLegacyMemory(4);
+
+        var liveCrowd = allTargets.Count(candidate =>
+            candidate.Player.Status.WhoToAttackThisTurn.Contains(target.GetPlayerId()));
+        legacyInformation -= liveCrowd;
+        legacyCursor -= liveCrowd;
+
+        if (OtherNarutoTargets(bot, game, target.GetPlayerId()))
+        {
+            scriptedCoordination += NarutoSharedTargetInterest;
+            legacyCursor += NarutoSharedTargetInterest;
+        }
+
+        if (legacyCursor >= 5 && bot.GameCharacter.HasSkillTargetOn(target.Player.GameCharacter))
+            AddLegacyFight(1);
+        if (legacyCursor >= 5 && bot.GameCharacter.HasNemesisOver(target.Player.GameCharacter))
+            AddLegacyFight(3);
+        if (allTargets.All(candidate =>
+                candidate.Player.GameCharacter.Justice.GetSeenJusticeNow() < botJustice))
+            AddLegacyFight(botJustice - targetJustice);
+
+        if (fairTarget.Place == 1) fairUtility -= 1;
+        if (fairTarget.Place < bot.Status.GetPlaceAtLeaderBoard()) fairUtility += 1;
+
+        // The fair counterpart to Legacy's live action reads is V2's resolved public action model.
+        // This is confined to the requested information channel: general V2 win/loss memory is not added.
+        var fairCrowd = BotInformation.RecentAverage(
+            fairTarget.Knowledge.TimesTargetedByRound, game.RoundNo, 3);
+        fairInformation -= Math.Min(2, fairCrowd / 2);
+        var fairDefenseRate = BotInformation.DefenseRate(fairTarget.Knowledge, game.RoundNo, 3);
+        if (fairDefenseRate >= 0.60m)
+            fairInformation -= ProgressesThroughExpectedDefense(bot, fairTarget) ? 1 : 2;
+
+        var myClass = bot.GameCharacter.GetSkillClassType();
+        if (fairTarget.KnownClass != SkillClassType.None)
+        {
+            if (bot.GameCharacter.GetSkillClassTargetType() == fairTarget.KnownClass)
+                fairFight += game.RoundNo <= 4 ? SmartTargetTaretNumberEarly : SmartTargetTaretNumberLate;
+            if (CharacterClass.NemesisOf(myClass) == fairTarget.KnownClass)
+                fairFight += 5;
+            if (CharacterClass.NemesisOf(fairTarget.KnownClass) == myClass)
+                fairFight -= 2;
+        }
+
+        if (fairTarget.EstimatedJustice.HasValue)
+        {
+            var difference = botJustice - fairTarget.EstimatedJustice.Value;
+            fairFight += difference > 0 ? Math.Min(5, difference)
+                : difference == 0 ? -3
+                : -Math.Min(5, -difference);
+        }
+
+        // Point 3 deliberately remains Legacy: no weighted opponent-history windows enter this score.
+        // Point 4 admits only the latest fight personally observed by this bot.
+        if (fairTarget.Knowledge.LastObservedFightRound >= game.RoundNo - 2)
+        {
+            if (fairTarget.Knowledge.LastObservedFightEdge >= 5) fairFight += 2;
+            else if (fairTarget.Knowledge.LastObservedFightEdge <= -5) fairFight -= 3;
+        }
+
+        return basePreference
+               + legacyUtility * 0.80m + fairUtility * 0.20m
+               + legacyInformation * 0.50m + fairInformation * 0.50m
+               + legacyFight * 0.50m + fairFight * 0.50m
+               + legacyMemory
+               + scriptedCoordination;
+    }
+
+    private static void ApplyLegacyPlusFairCharacterFallback(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        Nanobot target,
+        FairTarget fairTarget,
+        IReadOnlyList<FairTarget> fairTargets)
+    {
+        // Fallback is dimension-based, not chronological. Saitama and the other established pilots already
+        // have Legacy branches. Only actors with no Legacy target pilot receive their V2 rule here.
+        switch (bot.GameCharacter.Name)
+        {
+            case ScamRat.CharacterName:
+                if (bot.Passives.ScamRat.EverGpuOwnerIds.Contains(target.GetPlayerId()))
+                    target.AttackPreference -= 7;
+                else
+                    target.AttackPreference += fairTarget.FightEdge >= 0 ? 8 : 2;
+                break;
+            case JonSnow.CharacterName:
+                if (target.PlaceAtLeaderBoard() <= 4) target.AttackPreference += 3;
+                if (bot.Passives.JonSnow.WeakestPlayerIds.Contains(target.GetPlayerId()))
+                    target.AttackPreference -= 4;
+                break;
+            case ErenYeager.CharacterName:
+                target.AttackPreference += MarkerNumber(fairTarget.Markers, "🔥") * 3;
+                break;
+            case "Кратос":
+                if (fairTarget.KnownClass != SkillClassType.None
+                    && bot.GameCharacter.GetSkillClassTargetType() == fairTarget.KnownClass)
+                    target.AttackPreference += 10;
+                target.AttackPreference += fairTargets.Count(other =>
+                    Math.Abs(other.Place - fairTarget.Place) == 1) * 3;
+                if (game.RoundNo == 10 && HasPlaystyle(bot, "Ragnarok"))
+                    target.AttackPreference -= Math.Clamp(fairTarget.FightEdge, -10m, 10m);
+                break;
+            // Naruto's only fair target pilot is the same explicit +3 sibling coordination already applied
+            // by the Legacy global stream, so it is intentionally not duplicated here.
+        }
+    }
+
+    private static decimal CalculateLegacyPlusFairEnemyInformationDelta(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        Nanobot target,
+        FairTarget fairTarget,
+        decimal startingPreference,
+        int botJustice)
+    {
+        if (fairTarget.Prediction is not { Confidence: >= 35 } prediction)
+            return 0;
+
+        var preference = startingPreference;
+        void ApplyDarksciInterest()
+        {
+            if (preference > 5) preference += 5;
+            if (preference > 7) preference += 5;
+        }
+
+        switch (prediction.CharacterName)
+        {
+            case "Darksci":
+                if (game.RoundNo == 9) ApplyDarksciInterest();
+                var visibleLogs = BotInformation.VisibleGlobalHistory(bot) + "\n"
+                                  + BotInformation.VisibleCurrentGlobalLogs(bot, game);
+                if (visibleLogs.Contains(
+                        $"Толя запизделся и спалил, что {target.Player.DiscordUsername} - Darksci",
+                        StringComparison.Ordinal))
+                    ApplyDarksciInterest();
+                if (bot.GameCharacter.Name is "DeepList" or "AWDKA" && preference >= 7)
+                    preference += 4;
+                break;
+            case "HardKitty" when game.RoundNo <= 4:
+                preference /= 5;
+                break;
+            case "Sirinoks":
+                if (game.RoundNo <= 4) preference -= 4;
+                if (game.RoundNo == 10) preference -= 1;
+                break;
+            case "Вампур" when fairTarget.EstimatedJustice.HasValue
+                                && botJustice <= fairTarget.EstimatedJustice.Value:
+                preference += 3;
+                break;
+        }
+
+        return (preference - startingPreference) * prediction.Confidence / 100m;
+    }
+
+    private static bool NeedsLegacyPlusFairBlockFallback(GamePlayerBridgeClass bot)
+        => bot.GameCharacter.Name is ScamRat.CharacterName or "Кратос" or "Sakura";
+
+    private static bool HasLegacyPersonalBlockRule(GamePlayerBridgeClass bot)
+        => bot.GameCharacter.Name is "Тигр" or "AWDKA" or "Сайтама" or "Darksci" or "Братишка"
+            or "Осьминожка" or "HardKitty" or "Глеб" or "Краборак" or "Злой Школьник"
+            or "mylorik" or "Итачи" or "Toxic Mate" or "Dopa" or "DeepList" or "Sirinoks"
+            or "Загадочный Спартанец в маске" or "Рик Санчез" or "Толя" or "LeCrisp"
+            or "Napoleon Wonnafcuk" or "Таинственный Суппорт" or "Продавец Сомнительных Тактик"
+            or "Стая Гоблинов" or "Котики" or "Монстр без имени" or "TheBoys"
+            or GordonFreeman.CharacterName or JonSnow.CharacterName or "Salldorum" or "Геральт";
+
+    private static int LegacyBlockProbabilityBasisPoints(int threshold, int minimum, int maximum)
+    {
+        if (maximum < minimum) maximum = minimum;
+        var outcomes = maximum - minimum + 1;
+        var firstBlockingRoll = Math.Max(minimum, threshold + 1);
+        var blockingOutcomes = firstBlockingRoll > maximum ? 0 : maximum - firstBlockingRoll + 1;
+        return blockingOutcomes * 10_000 / outcomes;
+    }
+
+    private static int LegacyPlusFairBlockProbabilityBasisPoints(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        IReadOnlyList<FairTarget> targets,
+        FairBlockPlan plan)
+    {
+        if (plan == FairBlockPlan.ForceAttack) return 0;
+        if (plan == FairBlockPlan.ForceBlock) return 10_000;
+
+        var available = targets.Where(target => target.Score > 0).ToList();
+        if (game.RoundNo == 10)
+            return plan == FairBlockPlan.PreferBlock
+                ? available.Count == 0 ? 10_000 : 5_000
+                : 0;
+        if (available.Count == 0) return 10_000;
+        if (plan == FairBlockPlan.PreferBlock) return 5_000;
+        if (plan == FairBlockPlan.PreferAttack) return 2_000;
+
+        var best = available.Max(target => target.Score);
+        if (bot.GameCharacter.Justice.GetRealJusticeNow() == 0 && best < 7) return 5_000;
+        var incoming = HistoricalIncoming(bot, game, targets);
+        if (bot.Status.GetPlaceAtLeaderBoard() <= 2 && incoming >= 1.5m && best < 10)
+            return 6_666;
+        return 2_500;
+    }
+
     /// <summary>
     /// L2/L3 policy over an ordinary player's projection. The only opponent inputs admitted here are
     /// public place/team/menu eligibility, owner-visible leaderboard annotations, this bot's prediction,
@@ -3657,7 +4041,7 @@ public class BotsBehavior : IServiceSingleton
         }
 
         var pool = targets.Where(target => target.Score > 0 && target != mandatory).ToList();
-        if (pool.Count == 0 && mustEndBlockStreak)
+        if (pool.Count == 0 && (mustEndBlockStreak || game.RoundNo == 10))
             pool = targets.Where(target => !target.IsTeammate && target != mandatory).ToList();
         while (!attacked && pool.Count > 0)
         {
@@ -4525,10 +4909,18 @@ public class BotsBehavior : IServiceSingleton
         var available = targets.Where(target => target.Score > 0).ToList();
         if (!CanVoluntarilyBlock(bot, game, targets.Any(target => !target.IsTeammate))) return false;
         if (plan == FairBlockPlan.ForceBlock) return true;
+        // Round 10 is the ×4 scoring turn. The global policy attacks at every place, even when all
+        // target scores were clamped to zero. Only an explicit character plan may still defend.
+        if (game.RoundNo == 10)
+        {
+            if (plan != FairBlockPlan.PreferBlock) return false;
+            if (available.Count == 0) return true;
+            var roundTenBest = available.Max(target => target.Score);
+            return Advanced(bot, game) ? roundTenBest < 15 : _rand.Luck(1, 2);
+        }
+
         if (available.Count == 0) return true;
         var best = available.Max(target => target.Score);
-        if (game.RoundNo == 10)
-            return bot.Status.GetPlaceAtLeaderBoard() == 1 && plan != FairBlockPlan.PreferAttack;
 
         var incoming = HistoricalIncoming(bot, game, targets);
         if (Advanced(bot, game))
@@ -4766,7 +5158,8 @@ public class BotsBehavior : IServiceSingleton
                     : new[] { 1, 2, 3, 4 }[Math.Min(3, boysUpgradeIndex)];
             }
 
-            if (Smart(player, game) && player.GameCharacter.Name == "Кратос")
+            if ((Smart(player, game) || LegacyPlus(player, game))
+                && player.GameCharacter.Name == "Кратос")
             {
                 if (HasPlaystyle(player, "GodHunter"))
                     skillNumber = strength < 10 ? 2 : speed < 10 ? 3 : 1;
@@ -5036,34 +5429,47 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
-    private async Task<bool> TryForceRoundTenBossAttack(
+    private async Task<bool> TryForceRoundTenSuspectedMonsterAttack(
         GamePlayerBridgeClass bot,
         GameClass game,
         List<Nanobot> allTargets)
     {
         // Forced skips and other unable-to-act states return before HandleBotAttack reaches this rule.
-        if (game.RoundNo != 10)
+        if (bot.PlayerType != 404 || game.RoundNo != 10 || allTargets.Count == 0)
             return false;
 
-        var mandatoryTarget = allTargets.Find(target =>
-            target.Player.GameCharacter.Name == ErenYeager.CharacterName
-            && bot.Status.GetPlaceAtLeaderBoard() > target.PlaceAtLeaderBoard());
-        mandatoryTarget ??= allTargets.Find(target =>
-            target.Player.GameCharacter.Name == "Монстр без имени");
-        if (mandatoryTarget == null)
-            return false;
+        var rankedTargetIds = _characterPassives.RankRoundTenMonsterSuspects(
+            bot,
+            game,
+            allTargets.Select(target => target.GetPlayerId()).ToList());
+        var attacked = false;
+        foreach (var targetId in rankedTargetIds)
+        {
+            var target = allTargets.Find(candidate => candidate.GetPlayerId() == targetId);
+            if (target == null)
+                continue;
+            attacked = await AttackPlayer(bot, target.PlaceAtLeaderBoard());
+            if (attacked)
+                break;
+        }
 
-        if (!await AttackPlayer(bot, mandatoryTarget.PlaceAtLeaderBoard()))
+        if (!attacked)
             return false;
 
         // Dopa's Macro keeps the turn open until a second distinct target is submitted.
         if (!bot.Status.IsReady
             && bot.GameCharacter.Passive.Any(x => x.PassiveName == "Макро"))
         {
-            var secondTarget = allTargets.FirstOrDefault(x =>
-                !bot.Status.WhoToAttackThisTurn.Contains(x.GetPlayerId()));
-            if (secondTarget != null)
+            foreach (var targetId in rankedTargetIds.Where(id =>
+                         !bot.Status.WhoToAttackThisTurn.Contains(id)))
+            {
+                var secondTarget = allTargets.Find(candidate => candidate.GetPlayerId() == targetId);
+                if (secondTarget == null)
+                    continue;
                 await AttackPlayer(bot, secondTarget.PlaceAtLeaderBoard());
+                if (bot.Status.IsReady)
+                    break;
+            }
         }
 
         return true;

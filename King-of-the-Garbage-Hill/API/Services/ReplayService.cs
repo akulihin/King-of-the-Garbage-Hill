@@ -351,6 +351,7 @@ public class ReplayService : IServiceSingleton
     private static ReplayDataDto SanitizeLoadedReplay(ReplayDataDto replay)
     {
         if (replay == null || ContainsPrivateRoster(replay)) return null;
+        SanitizeGordonReplayProjection(replay);
         if (HasAudienceAwarePrivateStreams(replay.GameVersion)) return replay;
 
         foreach (var round in replay.Rounds ?? new List<ReplayRoundDto>())
@@ -360,6 +361,34 @@ public class ReplayService : IServiceSingleton
         }
 
         return replay;
+    }
+
+    private static void SanitizeGordonReplayProjection(ReplayDataDto replay)
+    {
+        replay.FullChronicle = GameStateMapper.SanitizeGordonGlobalLogs(replay.FullChronicle);
+        foreach (var round in replay.Rounds ?? new List<ReplayRoundDto>())
+        {
+            round.GlobalLogs = GameStateMapper.SanitizeGordonGlobalLogs(round.GlobalLogs);
+            round.AllGlobalLogs = GameStateMapper.SanitizeGordonGlobalLogs(round.AllGlobalLogs);
+            round.FinalSettlementGlobalLogs =
+                GameStateMapper.SanitizeGordonGlobalLogs(round.FinalSettlementGlobalLogs);
+            round.FinalSettlementAllGlobalLogs =
+                GameStateMapper.SanitizeGordonGlobalLogs(round.FinalSettlementAllGlobalLogs);
+            SanitizeReplayPlayers(round.PreFightPlayers);
+            SanitizeReplayPlayers(round.Players);
+        }
+    }
+
+    private static void SanitizeReplayPlayers(IEnumerable<ReplayRoundPlayerDto> snapshots)
+    {
+        if (snapshots == null) return;
+        foreach (var snapshot in snapshots)
+        {
+            SanitizeReplayPlayer(snapshot?.PlayerState);
+            if (snapshot != null)
+                snapshot.FinalSettlementLogs = GameStateMapper.RedactGordonFailureForNonOwner(
+                    snapshot.FinalSettlementLogs);
+        }
     }
 
     private static bool HasAudienceAwarePrivateStreams(string gameVersion)
@@ -399,6 +428,8 @@ public class ReplayService : IServiceSingleton
             WebGameService.PopulateCustomLeaderboard(playerDto, game, player, gameUpdateMess);
             var myPlayerDto = playerDto.Players.FirstOrDefault(p => p.PlayerId == player.GetPlayerId());
             if (myPlayerDto == null) continue;
+
+            SanitizeReplayPlayer(myPlayerDto);
 
             if (forceProVisibility)
             {
@@ -589,6 +620,7 @@ public class ReplayService : IServiceSingleton
 
     private static string SanitizeReplayGlobalLogs(string logs, GameClass game)
     {
+        logs = GameStateMapper.SanitizeGordonGlobalLogs(logs);
         logs = StripDopaShadowLogs(logs, game);
         if (!string.IsNullOrEmpty(logs) && game?.AllHiddenGlobalLogSnippets != null)
             foreach (var snippet in game.AllHiddenGlobalLogSnippets)
@@ -610,5 +642,26 @@ public class ReplayService : IServiceSingleton
             .Replace("(Скип)", "(?)", StringComparison.Ordinal)
             .Replace("(Block)", "(?)", StringComparison.Ordinal)
             .Replace("(Skip)", "(?)", StringComparison.Ordinal);
+    }
+
+    private static void SanitizeReplayPlayer(PlayerDto player)
+    {
+        if (player == null) return;
+        if (player.Status != null)
+        {
+            player.Status.PersonalLogs =
+                GameStateMapper.RedactGordonFailureForNonOwner(player.Status.PersonalLogs);
+            player.Status.PreviousRoundLogs =
+                GameStateMapper.RedactGordonFailureForNonOwner(player.Status.PreviousRoundLogs);
+            player.Status.AllPersonalLogs =
+                GameStateMapper.RedactGordonFailureForNonOwner(player.Status.AllPersonalLogs);
+        }
+
+        // Anonymous replay viewers can switch to Gordon's saved perspective, but they are not
+        // Gordon. Do not persist the owner-only failure receipt in a pending transition snapshot.
+        var replayHalfLife = player.PassiveAbilityStates?.Gordon?.HalfLife;
+        if (replayHalfLife == null) return;
+        replayHalfLife.DecisionMessage = "";
+        replayHalfLife.DecisionMessageText = null;
     }
 }

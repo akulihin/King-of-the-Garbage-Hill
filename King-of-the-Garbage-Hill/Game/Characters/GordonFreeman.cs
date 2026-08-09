@@ -14,9 +14,10 @@ public static class GordonFreeman
     public const string SilentHero = "Молчаливый Герой";
     public const string WakeUp = "Просыпайтесь, мистер Фримен";
     public const string HalfLife3 = "Halflife 3";
+    public const string HalfLifeFailureMessageKey = "kotgh.gameplay.gordon.halfLifeFailure";
+    public const string HalfLifePostponedMessageKey = "kotgh.gameplay.gordon.halfLifePostponed";
 
     public const string HalfLifeAnnouncement = "ВНИМАНИЕ! HilfLife3 был анонсирован!!!";
-    public const string HalfLifeFailure = "Недостаточно профита, нельзя  выпускать игру.";
     public const string HalfLifeReleaseDecision =
         "Игра готова к релизу. Гейб предлагает зафиксировать текущий профит или перенести релиз ещё раз.";
     public const string ReleaseNowLabel = "Выпустить игру!";
@@ -348,17 +349,24 @@ public static class GordonFreeman
             return false;
         }
 
-        var failureCalculation = halfLife.SuperMultiplierDisabled
-            ? "Подсчет отключил расчет степени: профит релиза = 0; обычные очки начисляются отдельно с ×1."
-            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints} — потенциальный итог при релизе.";
-        var failureCalculationEnglish = halfLife.SuperMultiplierDisabled
-            ? "Counting disabled the power calculation: release profit is 0; regular points settle separately at ×1."
-            : $"{halfLife.RawPoints}^{halfLife.Exponent} = {halfLife.FinalPoints}, the potential release total.";
-        game.AddGlobalLogs(PhrasePayload.Encode(
+        var failureMessage = GameLocalization.MessageText(HalfLifeFailureMessageKey);
+        var failureRussian = failureMessage.Ru;
+        var failureEnglish = failureMessage.En;
+        if (halfLife.SuperMultiplierDisabled)
+        {
+            failureRussian +=
+                "\nПодсчет отключил расчет степени: профит релиза = 0; обычные очки начисляются отдельно с ×1.";
+            failureEnglish +=
+                "\nCounting disabled the power calculation: release profit is 0; regular points settle separately at ×1.";
+        }
+        gordon.Status.AddInGamePersonalLogs(PhrasePayload.EncodeOwnerOnly(
             HalfLife3,
-            $"{HalfLifeFailure}\n{failureCalculation}",
+            failureRussian,
             "Half-Life 3",
-            $"Not enough profit to release the game.\n{failureCalculationEnglish}"));
+            failureEnglish,
+            "",
+            "",
+            gordon.GetPlayerId()) + "\n");
 
         if (halfLife.Postponements >= 3)
         {
@@ -479,8 +487,6 @@ public static class GordonFreeman
                 {
                     halfLife.Finished = true;
                     halfLife.Released = false;
-                    game.AddGlobalLogs(
-                        $"Halflife 3 был отменен: для переноса нужно {cost} очк., доступно {halfLife.FinalPoints}.");
                 }
                 else
                 {
@@ -488,12 +494,9 @@ public static class GordonFreeman
                     halfLife.Postponements++;
                     halfLife.ReleaseRound = game.RoundNo + 1;
                     halfLife.AttemptItachiThiefIds.Clear();
-                    game.AddGlobalLogs(halfLife.Postponements switch
-                    {
-                        1 => "Внимание! Halflife 3 был перенесен.",
-                        2 => "Внимание! Halflife 3 был перенесен повторно.",
-                        _ => "Внимание! Halflife 3 был перенесен в третий раз!!!",
-                    });
+                    var postponedMessage = GameLocalization.MessageText(HalfLifePostponedMessageKey);
+                    game.AddGlobalLogs(PhrasePayload.EncodeText(
+                        "", postponedMessage.Ru, "", postponedMessage.En));
                 }
             }
             else if (freezeChoice && !halfLife.PendingReleaseConfirmation)
@@ -576,7 +579,9 @@ public static class GordonFreeman
             : PostponeLabels[Math.Min(state.HalfLife.Postponements, PostponeLabels.Length - 1)];
 
     public static string GetDecisionMessage(State state) =>
-        state.HalfLife.PendingReleaseConfirmation ? HalfLifeReleaseDecision : HalfLifeFailure;
+        state.HalfLife.PendingReleaseConfirmation
+            ? HalfLifeReleaseDecision
+            : GameLocalization.MessageText(HalfLifeFailureMessageKey).Ru;
 
     public static void HandleRoundPhrase(GamePlayerBridgeClass player, int roundNo)
     {

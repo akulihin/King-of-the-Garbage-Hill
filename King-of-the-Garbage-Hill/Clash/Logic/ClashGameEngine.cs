@@ -20,17 +20,13 @@ public static class ClashGameEngine
 
     private sealed class AdvanceClaim
     {
-        public ClashUnit Attacker { get; init; }
-        public ClashUnit Target { get; init; }
-        public int ImpactOffsetMs { get; init; }
-    }
-
-    private sealed class UnopposedAdvanceClaim
-    {
         public ClashUnit Actor { get; init; }
+        public ClashUnit FallenUnit { get; init; }
         public int FromBoardRow { get; init; }
         public int ToBoardRow { get; init; }
+        public int Column { get; init; }
         public int ImpactOffsetMs { get; init; }
+        public string Message { get; init; }
     }
 
     private sealed class HitOutcome
@@ -72,6 +68,11 @@ public static class ClashGameEngine
         return side == ClashSide.Host
             ? game.Length - 1 - boardRow
             : boardRow - game.Length;
+    }
+
+    public static int ForwardDelta(ClashSide side)
+    {
+        return side == ClashSide.Host ? 1 : -1;
     }
 
     public static ClashSide TerritoryFor(ClashGame game, int boardRow)
@@ -445,6 +446,10 @@ public static class ClashGameEngine
 
         // The strict live catalog intentionally contains no actives yet. This generic
         // branch keeps the morale contract authoritative when a reviewed active is added.
+        var livingAtActiveStart = game.Units
+            .Where(unit => unit.Alive && unit.Deployed &&
+                           unit.BoardRow != null && unit.Column != null)
+            .ToList();
         var applications = ActiveEffectsDoubled(player.Morale) ? 2 : 1;
         var offensiveAoe = ability.IsAoe ||
                            ability.Target is "all-enemies" or "row" or "column" or "aoe";
@@ -474,6 +479,19 @@ public static class ClashGameEngine
                 }
             }
         }
+
+        // Active effects are one atomic selection. Fill newly fallen cells only
+        // after every morale-5 duplicate application has resolved; ordinary
+        // all-melee marching remains exclusive to the post-clash movement pass.
+        var silentMovementTrace = new ClashResolutionDto();
+        var silentSequence = 0;
+        ApplyDeathCellAdvances(
+            game,
+            silentMovementTrace,
+            ref silentSequence,
+            livingAtActiveStart.Where(unit => !unit.Alive),
+            new HashSet<string>(StringComparer.Ordinal),
+            0);
 
         player.ActiveSelectionsUsed++;
         game.ActivePassStreak = 0;
@@ -583,8 +601,19 @@ public static class ClashGameEngine
         AddEvent(resolution, ref sequence, ClashResolutionEventType.ClashStart,
             message: $"Клэш {game.ClashNumber} начинается.");
 
-        var opposingFrontPairs = BuildAdvancePairs(game);
+        var livingBeforeBleeding = game.Units
+            .Where(unit => unit.Alive && unit.Deployed &&
+                           unit.BoardRow != null && unit.Column != null)
+            .ToList();
+        var movedUnitIds = new HashSet<string>(StringComparer.Ordinal);
         ApplyBleeding(game, resolution, ref sequence);
+        ApplyDeathCellAdvances(
+            game,
+            resolution,
+            ref sequence,
+            livingBeforeBleeding.Where(unit => !unit.Alive),
+            movedUnitIds,
+            2);
         EvaluateTerminal(game);
 
         if (!game.IsFinished)
@@ -658,6 +687,13 @@ public static class ClashGameEngine
                         message: $"{Name(dead)} погибает.");
                 }
 
+                ApplyDeathCellAdvances(
+                    game,
+                    resolution,
+                    ref sequence,
+                    deadThisTier,
+                    movedUnitIds,
+                    impactOffset + 2);
                 EvaluateTerminal(game);
                 if (game.IsFinished) break;
             }
@@ -666,24 +702,12 @@ public static class ClashGameEngine
             {
                 var advanceOffset = Math.Max(
                     0, resolution.Events.Max(item => item.ImpactOffsetMs)) + 500;
-                var advanceClaims = opposingFrontPairs
-                    .Where(pair => pair.Attacker.Alive && !pair.Target.Alive)
-                    .Select(pair => new AdvanceClaim
-                    {
-                        Attacker = pair.Attacker,
-                        Target = pair.Target,
-                        ImpactOffsetMs = advanceOffset,
-                    })
-                    .ToList();
-                var killAdvancerIds = advanceClaims
-                    .Select(claim => claim.Attacker.InstanceId)
-                    .ToHashSet(StringComparer.Ordinal);
-                var unopposedClaims = BuildUnopposedAdvanceClaims(
-                    game, killAdvancerIds, advanceOffset);
-
-                ApplyAdvances(game, resolution, ref sequence, advanceClaims);
-                ApplyUnopposedAdvances(
-                    game, resolution, ref sequence, unopposedClaims);
+                ApplyDefaultMeleeAdvances(
+                    game,
+                    resolution,
+                    ref sequence,
+                    movedUnitIds,
+                    advanceOffset);
                 EvaluateTerminal(game);
             }
         }
@@ -740,19 +764,28 @@ public static class ClashGameEngine
             var definition = ClashCatalog.Get(unit.DefinitionId);
             var speed = EffectiveSpeed(game, unit);
             var opponentSide = unit.OwnerSide == ClashSide.Host ? ClashSide.Guest : ClashSide.Host;
-            fronts.TryGetValue((opponentSide, unit.Column.Value), out var target);
-            var isFront = fronts.TryGetValue((unit.OwnerSide, unit.Column.Value), out var ownFront) &&
-                          ownFront?.InstanceId == unit.InstanceId;
+            ClashUnit target = null;
+            switch (definition.AttackPattern)
+            {
+                case ClashAttackPattern.RangedColumn:
+                    fronts.TryGetValue((opponentSide, unit.Column.Value), out target);
+                    break;
+                case ClashAttackPattern.ForwardReach:
+                    target = FindForwardReachTarget(game, unit, definition.AttackRange);
+                    break;
+                default:
+                    target = FindLivingUnitAt(
+                        game,
+                        unit.BoardRow.Value + ForwardDelta(unit.OwnerSide),
+                        unit.Column.Value,
+                        opponentSide);
+                    break;
+            }
             var reloading = definition.IsRanged && unit.RangedReadyClash > game.ClashNumber;
             intents.Add(new BattleIntent
             {
                 Actor = unit,
-                // Front-line melee units engage the opposing front in their column
-                // even across a cleared gap. This preserves total progress after a
-                // previous front dies and its next rank is more than one cell away.
-                Target = reloading || (!definition.IsRanged && (!isFront || target == null))
-                    ? null
-                    : target,
+                Target = reloading ? null : target,
                 Speed = speed,
                 IsRanged = definition.IsRanged,
                 IsReloading = reloading,
@@ -761,35 +794,24 @@ public static class ClashGameEngine
         return intents;
     }
 
-    private static List<AdvanceClaim> BuildAdvancePairs(ClashGame game)
+    private static ClashUnit FindForwardReachTarget(
+        ClashGame game,
+        ClashUnit actor,
+        int attackRange)
     {
-        var pairs = new List<AdvanceClaim>();
-        for (var column = 0; column < game.Width; column++)
+        var opponentSide = actor.OwnerSide == ClashSide.Host
+            ? ClashSide.Guest
+            : ClashSide.Host;
+        for (var distance = 1; distance <= Math.Max(1, attackRange); distance++)
         {
-            var hostFront = game.Units
-                .Where(unit => unit.Alive && unit.Deployed &&
-                               unit.OwnerSide == ClashSide.Host &&
-                               unit.Column == column && unit.BoardRow != null)
-                .OrderByDescending(unit => unit.BoardRow)
-                .FirstOrDefault();
-            var guestFront = game.Units
-                .Where(unit => unit.Alive && unit.Deployed &&
-                               unit.OwnerSide == ClashSide.Guest &&
-                               unit.Column == column && unit.BoardRow != null)
-                .OrderBy(unit => unit.BoardRow)
-                .FirstOrDefault();
-            if (hostFront?.BoardRow == null || guestFront?.BoardRow == null)
-                continue;
-
-            // These are opposing fronts even when earlier casualties left empty
-            // cells between them. A surviving melee front occupies the fallen
-            // opposing front's actual cell after resolution.
-            if (!ClashCatalog.Get(hostFront.DefinitionId).IsRanged)
-                pairs.Add(new AdvanceClaim { Attacker = hostFront, Target = guestFront });
-            if (!ClashCatalog.Get(guestFront.DefinitionId).IsRanged)
-                pairs.Add(new AdvanceClaim { Attacker = guestFront, Target = hostFront });
+            var target = FindLivingUnitAt(
+                game,
+                actor.BoardRow.Value + ForwardDelta(actor.OwnerSide) * distance,
+                actor.Column.Value,
+                opponentSide);
+            if (target != null) return target;
         }
-        return pairs;
+        return null;
     }
 
     private static void EmitLegionFeedback(
@@ -977,112 +999,156 @@ public static class ClashGameEngine
         }
     }
 
-    private static void ApplyAdvances(
+    private static void ApplyDeathCellAdvances(
         ClashGame game,
         ClashResolutionDto resolution,
         ref int sequence,
-        IEnumerable<AdvanceClaim> claims)
-    {
-        foreach (var claim in claims
-                     .OrderBy(claim => claim.ImpactOffsetMs)
-                     .ThenBy(claim => claim.Attacker.InstanceId, StringComparer.Ordinal))
-        {
-            var attacker = claim.Attacker;
-            var target = claim.Target;
-            if (!attacker.Alive || target.Alive || target.BoardRow == null || target.Column == null)
-                continue;
-            if (Occupied(game, target.BoardRow.Value, target.Column.Value))
-                continue;
-
-            var from = attacker.BoardRow;
-            attacker.BoardRow = target.BoardRow;
-            attacker.Column = target.Column;
-            AddEvent(resolution, ref sequence, ClashResolutionEventType.Advance,
-                attacker, target, EffectiveSpeed(game, attacker),
-                claim.ImpactOffsetMs, claim.ImpactOffsetMs,
-                fromBoardRow: from, toBoardRow: attacker.BoardRow,
-                column: attacker.Column,
-                message: $"{Name(attacker)} занимает клетку павшего врага.");
-        }
-    }
-
-    private static List<UnopposedAdvanceClaim> BuildUnopposedAdvanceClaims(
-        ClashGame game,
-        IReadOnlySet<string> killAdvancerIds,
+        IEnumerable<ClashUnit> fallenUnits,
+        ISet<string> movedUnitIds,
         int impactOffsetMs)
     {
-        var claims = new List<UnopposedAdvanceClaim>();
-        foreach (var side in new[] { ClashSide.Host, ClashSide.Guest })
-        for (var column = 0; column < game.Width; column++)
+        var occupancy = LivingOccupancy(game);
+        foreach (var fallen in fallenUnits
+                     .Where(unit => unit.BoardRow != null && unit.Column != null)
+                     .OrderBy(unit => unit.BoardRow)
+                     .ThenBy(unit => unit.Column)
+                     .ThenBy(unit => unit.InstanceId, StringComparer.Ordinal))
         {
-            var ownUnits = game.Units
-                .Where(unit => unit.Alive && unit.Deployed &&
-                               unit.OwnerSide == side &&
-                               unit.Column == column &&
-                               unit.BoardRow != null)
-                .ToList();
-            if (ownUnits.Count == 0) continue;
+            var fallenRow = fallen.BoardRow.Value;
+            var column = fallen.Column.Value;
+            var enemySide = fallen.OwnerSide == ClashSide.Host
+                ? ClashSide.Guest
+                : ClashSide.Host;
+            var enemyRow = fallenRow - ForwardDelta(enemySide);
+            occupancy.TryGetValue((enemyRow, column), out var adjacentEnemy);
+            var adjacentEnemyDefinition = adjacentEnemy == null
+                ? null
+                : ClashCatalog.Get(adjacentEnemy.DefinitionId);
+            if (adjacentEnemy?.OwnerSide != enemySide ||
+                adjacentEnemyDefinition?.IsRanged != false ||
+                adjacentEnemyDefinition.CanDefaultAdvance != true ||
+                adjacentEnemyDefinition.Speed <= 0 ||
+                movedUnitIds.Contains(adjacentEnemy.InstanceId))
+                adjacentEnemy = null;
 
-            var front = side == ClashSide.Host
-                ? ownUnits.OrderByDescending(unit => unit.BoardRow).First()
-                : ownUnits.OrderBy(unit => unit.BoardRow).First();
-            if (killAdvancerIds.Contains(front.InstanceId))
+            var allyRow = fallenRow - ForwardDelta(fallen.OwnerSide);
+            occupancy.TryGetValue((allyRow, column), out var allyBehind);
+            if (allyBehind?.OwnerSide != fallen.OwnerSide ||
+                movedUnitIds.Contains(allyBehind.InstanceId))
+                allyBehind = null;
+
+            var actor = adjacentEnemy ?? allyBehind;
+            if (actor?.BoardRow == null || actor.Column == null ||
+                Occupied(game, fallenRow, column))
                 continue;
 
-            var hasEnemyAhead = game.Units.Any(enemy =>
-                enemy.Alive && enemy.Deployed &&
-                enemy.OwnerSide != side &&
-                enemy.Column == column &&
-                enemy.BoardRow != null &&
-                (side == ClashSide.Host
-                    ? enemy.BoardRow.Value > front.BoardRow.Value
-                    : enemy.BoardRow.Value < front.BoardRow.Value));
-            if (hasEnemyAhead) continue;
+            var fromBoardRow = actor.BoardRow.Value;
+            actor.BoardRow = fallenRow;
+            actor.Column = column;
+            movedUnitIds.Add(actor.InstanceId);
+            occupancy.Remove((fromBoardRow, column));
+            occupancy[(fallenRow, column)] = actor;
 
-            var destination = front.BoardRow.Value +
-                              (side == ClashSide.Host ? 1 : -1);
-            if (destination < 0 || destination >= game.Length * 2 ||
-                Occupied(game, destination, column))
-                continue;
-
-            claims.Add(new UnopposedAdvanceClaim
-            {
-                Actor = front,
-                FromBoardRow = front.BoardRow.Value,
-                ToBoardRow = destination,
-                ImpactOffsetMs = impactOffsetMs,
-            });
+            AddEvent(resolution, ref sequence, ClashResolutionEventType.Advance,
+                actor, fallen, EffectiveSpeed(game, actor),
+                impactOffsetMs, impactOffsetMs,
+                fromBoardRow: fromBoardRow, toBoardRow: fallenRow,
+                column: column,
+                message: adjacentEnemy != null
+                    ? $"{Name(actor)} занимает клетку павшего врага."
+                    : $"{Name(actor)} продвигается по свободной линии.");
         }
-        return claims;
     }
 
-    private static void ApplyUnopposedAdvances(
+    private static void ApplyDefaultMeleeAdvances(
         ClashGame game,
         ClashResolutionDto resolution,
         ref int sequence,
-        IEnumerable<UnopposedAdvanceClaim> claims)
+        ISet<string> movedUnitIds,
+        int impactOffsetMs)
     {
-        // A completely cleared enemy column otherwise creates a permanent
-        // cross-column deadlock. Its surviving front unit, ranged or melee,
-        // marches exactly one adjacent empty cell and never after a kill advance.
-        foreach (var claim in claims
-                     .OrderBy(claim => claim.Actor.InstanceId, StringComparer.Ordinal))
+        // Eligibility is snapshotted before this movement pass. A unit moves at
+        // most one adjacent cell, and a rear unit cannot chain into a cell that
+        // its front unit vacates during the same pass.
+        var occupancy = LivingOccupancy(game);
+        var claims = game.Units
+            .Where(unit => unit.Alive && unit.Deployed &&
+                           unit.BoardRow != null && unit.Column != null &&
+                           !movedUnitIds.Contains(unit.InstanceId))
+            .Where(unit =>
+            {
+                var definition = ClashCatalog.Get(unit.DefinitionId);
+                return definition != null && definition.CanDefaultAdvance && definition.Speed > 0;
+            })
+            .Select(unit => new AdvanceClaim
+            {
+                Actor = unit,
+                FromBoardRow = unit.BoardRow.Value,
+                ToBoardRow = unit.BoardRow.Value + ForwardDelta(unit.OwnerSide),
+                Column = unit.Column.Value,
+                ImpactOffsetMs = impactOffsetMs,
+                Message = $"{Name(unit)} продвигается по свободной линии.",
+            })
+            .Where(claim =>
+                claim.ToBoardRow >= 0 && claim.ToBoardRow < game.Length * 2 &&
+                !occupancy.ContainsKey((claim.ToBoardRow, claim.Column)))
+            .ToList();
+
+        // Two opposing units may see the same empty destination in the snapshot.
+        // The source gives neither side priority, and equal-speed combat must not
+        // depend on random instance IDs, so contested destinations do not receive
+        // an arbitrary movement claim.
+        var uncontestedClaims = claims
+            .GroupBy(claim => (claim.ToBoardRow, claim.Column))
+            .Where(group => group.Count() == 1)
+            .SelectMany(group => group)
+            .OrderBy(claim => claim.ToBoardRow)
+            .ThenBy(claim => claim.Column)
+            .ThenBy(claim => claim.Actor.OwnerSide)
+            .ToList();
+
+        foreach (var claim in uncontestedClaims)
         {
             var actor = claim.Actor;
             if (!actor.Alive || actor.BoardRow != claim.FromBoardRow ||
-                Occupied(game, claim.ToBoardRow, actor.Column.Value))
+                actor.Column != claim.Column ||
+                Occupied(game, claim.ToBoardRow, claim.Column))
                 continue;
 
             actor.BoardRow = claim.ToBoardRow;
+            movedUnitIds.Add(actor.InstanceId);
             AddEvent(resolution, ref sequence, ClashResolutionEventType.Advance,
                 actor, speed: EffectiveSpeed(game, actor),
                 startOffsetMs: claim.ImpactOffsetMs,
                 impactOffsetMs: claim.ImpactOffsetMs,
                 fromBoardRow: claim.FromBoardRow,
                 toBoardRow: claim.ToBoardRow,
-                column: actor.Column,
-                message: $"{Name(actor)} продвигается по свободной линии.");
+                column: claim.Column,
+                message: claim.Message);
         }
+    }
+
+    private static Dictionary<(int BoardRow, int Column), ClashUnit> LivingOccupancy(
+        ClashGame game)
+    {
+        return game.Units
+            .Where(unit => unit.Alive && unit.Deployed &&
+                           unit.BoardRow != null && unit.Column != null)
+            .ToDictionary(
+                unit => (unit.BoardRow.Value, unit.Column.Value),
+                unit => unit);
+    }
+
+    private static ClashUnit FindLivingUnitAt(
+        ClashGame game,
+        int boardRow,
+        int column,
+        ClashSide side)
+    {
+        return game.Units.FirstOrDefault(unit =>
+            unit.Alive && unit.Deployed &&
+            unit.OwnerSide == side &&
+            unit.BoardRow == boardRow && unit.Column == column);
     }
 
     public static void EvaluateTerminal(ClashGame game)

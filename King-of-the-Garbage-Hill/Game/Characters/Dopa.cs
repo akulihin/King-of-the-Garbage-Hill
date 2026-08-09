@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Game.GameLogic;
 using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
@@ -53,17 +54,31 @@ public static class Dopa
         var prediction = target.GameCharacter.Name;
         if (isSecretTarget)
         {
-            var wrongCandidates = visibleCharacters
+            var wrongCandidateCharacters = visibleCharacters
                 .Where(character =>
                     character.Name != target.GameCharacter.Name
                     && character.Name != "Sakura"
                     && (!character.TeamModeOnly || game.Teams.Count > 0))
-                .Select(character => character.Name)
-                .Distinct(StringComparer.Ordinal)
+                .GroupBy(character => character.Name)
+                .Select(group => group.First())
                 .ToList();
-            prediction = wrongCandidates.Count > 0
-                ? wrongCandidates[SecureRandom.Next(0, wrongCandidates.Count - 1)]
-                : CharacterName;
+            var wrongCandidates = wrongCandidateCharacters
+                .Select(character => character.Name)
+                .ToList();
+            var existingBotHypothesis = player.PlayerType == 404
+                ? BotInformation.PredictionFor(player, target.GetPlayerId())?.CharacterName
+                : null;
+            prediction = !string.IsNullOrWhiteSpace(existingBotHypothesis)
+                         && wrongCandidates.Contains(existingBotHypothesis, StringComparer.Ordinal)
+                ? existingBotHypothesis
+                : player.PlayerType == 404 && wrongCandidateCharacters.Count > 0
+                    ? wrongCandidateCharacters
+                        .Where(character => character.Tier == wrongCandidateCharacters.Max(candidate => candidate.Tier))
+                        .OrderBy(character => character.Name, StringComparer.Ordinal)
+                        .First().Name
+                : wrongCandidates.Count > 0
+                    ? wrongCandidates[SecureRandom.Next(0, wrongCandidates.Count - 1)]
+                    : CharacterName;
         }
 
         var state = player.Passives.DopaMacro;
@@ -113,10 +128,12 @@ public static class Dopa
             || string.IsNullOrWhiteSpace(state.DeducedCharacterName))
             return;
 
-        player.Predict.RemoveAll(prediction =>
-            prediction.PlayerId == state.DeducedTargetId);
-        player.Predict.Add(new PredictClass(
+        BotInformation.ReplacePrediction(
+            player,
+            state.DeducedTargetId,
             state.DeducedCharacterName,
-            state.DeducedTargetId));
+            100,
+            "Dopa Macro deduction",
+            state.DuplicateTargetSkipRound);
     }
 }

@@ -10,6 +10,9 @@ public static class BattleshipCapturingMechanics
 {
     public static (int row, int col) GetGrabCell(Ship ship)
     {
+        if (ship.PreservedGrabRow.HasValue && ship.PreservedGrabCol.HasValue)
+            return (ship.PreservedGrabRow.Value, ship.PreservedGrabCol.Value);
+
         var (rowOffset, colOffset) = ship.Orientation switch
         {
             Orientation.Vertical => (1, 0),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge four AI sweep arms and render baseline-relative, dependency-free reports."""
+"""Merge five AI sweep arms and render baseline-relative, dependency-free reports."""
 
 from __future__ import annotations
 
@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-LEVELS = (0, 1, 2, 3)
+LEVELS = (0, 1, 2, 3, 4)
 BASELINE = 1
+FOCUS = 4
 METRICS = {
     "winRate": {"title": "Win rate", "file": "winrate.svg", "unit": "%", "better": 1},
     "avgPlace": {"title": "Average place", "file": "avg-place.svg", "unit": "", "better": -1},
@@ -25,6 +26,7 @@ LEVEL_LABELS = {
     1: "legacy baseline",
     2: "fair strategy",
     3: "fair strategy + memory",
+    4: "Legacy+ hybrid",
 }
 
 
@@ -239,11 +241,12 @@ def svg_chart(rows: list[dict[str, Any]], metric: str) -> str:
     ranked = sorted(
         rows,
         key=lambda row: (
-            -((row["changesVsLevel1"][metric]["3"] or {}).get("improvementVsLevel1", -math.inf)),
+            -((row["changesVsLevel1"][metric][str(FOCUS)] or {}).get("improvementVsLevel1", -math.inf)),
             row["name"].casefold(),
         ),
     )
-    width, left, cell_width, row_height = 1260, 320, 220, 38
+    left, cell_width, row_height = 320, 220, 38
+    width = left + cell_width * len(LEVELS) + 20
     top, bottom = 150, 55
     height = top + row_height * len(ranked) + bottom
     parts = [
@@ -251,7 +254,7 @@ def svg_chart(rows: list[dict[str, Any]], metric: str) -> str:
         '<rect width="100%" height="100%" fill="#f8fafc"/>',
         '<style>text{font-family:Inter,Segoe UI,Arial,sans-serif;fill:#0f172a}.title{font-size:25px;font-weight:700}.sub{font-size:13px;fill:#475569}.head{font-size:14px;font-weight:700}.name{font-size:13px;font-weight:600}.value{font-size:13px;font-weight:700}.detail{font-size:11px;fill:#475569}</style>',
         f'<text x="24" y="36" class="title">AI progression · {html.escape(meta["title"])}</text>',
-        '<text x="24" y="61" class="sub">Sorted by AI 3 improvement versus AI 1. Positive Δ always means better (lower is better for place).</text>',
+        f'<text x="24" y="61" class="sub">Sorted by AI {FOCUS} improvement versus AI 1. Positive Δ always means better (lower is better for place).</text>',
         '<text x="24" y="82" class="sub">Blue = better than L1 · red = worse · stronger colour = larger difference relative to sampling noise · ★ = 95% significant.</text>',
     ]
     for level in LEVELS:
@@ -296,7 +299,7 @@ def svg_chart(rows: list[dict[str, Any]], metric: str) -> str:
     return "\n".join(parts) + "\n"
 
 
-def key_movers(rows: list[dict[str, Any]], metric: str, level: int = 3, count: int = 8) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def key_movers(rows: list[dict[str, Any]], metric: str, level: int = FOCUS, count: int = 8) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     eligible = [
         row for row in rows
         if row["changesVsLevel1"][metric].get(str(level)) is not None
@@ -306,11 +309,11 @@ def key_movers(rows: list[dict[str, Any]], metric: str, level: int = 3, count: i
 
 
 def mover_table(rows: list[dict[str, Any]], metric: str, heading: str) -> str:
-    pieces = [f"<h3>{html.escape(heading)}</h3><table><thead><tr><th>Character</th><th>L1</th><th>L3</th><th>Improvement</th><th>Signal</th></tr></thead><tbody>"]
+    pieces = [f"<h3>{html.escape(heading)}</h3><table><thead><tr><th>Character</th><th>L1</th><th>L{FOCUS}</th><th>Improvement</th><th>Signal</th></tr></thead><tbody>"]
     for item in rows:
         baseline = item["levels"]["1"]
-        current = item["levels"]["3"]
-        change = item["changesVsLevel1"][metric]["3"]
+        current = item["levels"][str(FOCUS)]
+        change = item["changesVsLevel1"][metric][str(FOCUS)]
         pieces.append(
             "<tr>"
             f"<td>{html.escape(item['name'])}</td>"
@@ -340,8 +343,8 @@ def render_html(root: Path, merged: dict[int, dict[str, Any]], rows: list[dict[s
             f'<section id="{metric}"><h2>{html.escape(meta["title"])}</h2>'
             f'<a href="{meta["file"]}"><img src="{meta["file"]}" alt="{html.escape(meta["title"])} chart"></a>'
             '<div class="tables">'
-            + mover_table(gains, metric, "Largest AI 3 gains vs L1")
-            + mover_table(losses, metric, "Largest AI 3 regressions vs L1")
+            + mover_table(gains, metric, f"Largest AI {FOCUS} gains vs L1")
+            + mover_table(losses, metric, f"Largest AI {FOCUS} regressions vs L1")
             + '</div></section>'
         )
     warning_html = "" if not warnings else (
@@ -352,7 +355,7 @@ def render_html(root: Path, merged: dict[int, dict[str, Any]], rows: list[dict[s
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KOTGH AI sweep comparison</title>
 <style>
-:root{{--ink:#0f172a;--muted:#64748b;--line:#cbd5e1;--panel:#fff;--good:#1d4ed8;--bad:#b91c1c}}*{{box-sizing:border-box}}body{{margin:0;background:#f8fafc;color:var(--ink);font:14px Inter,Segoe UI,Arial,sans-serif}}main{{max-width:1500px;margin:auto;padding:28px}}h1{{margin:0 0 8px;font-size:32px}}h2{{margin-top:42px}}p{{color:#475569;max-width:1000px;line-height:1.55}}nav a{{margin-right:18px}}.warning{{margin:18px 0;padding:13px 15px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#78350f;line-height:1.45}}.cards{{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin:22px 0}}.card{{display:flex;flex-direction:column;gap:5px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px}}.card span,.card small{{color:var(--muted)}}.card strong{{font-size:20px}}section>img,section>a>img{{display:block;width:100%;height:auto;background:white;border:1px solid var(--line);border-radius:10px}}.tables{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid #e2e8f0;text-align:right}}th:first-child,td:first-child{{text-align:left}}.good{{color:var(--good);font-weight:700}}.bad{{color:var(--bad);font-weight:700}}code{{background:#e2e8f0;padding:2px 5px;border-radius:4px}}@media(max-width:850px){{.cards,.tables{{grid-template-columns:1fr}}main{{padding:16px}}}}
+:root{{--ink:#0f172a;--muted:#64748b;--line:#cbd5e1;--panel:#fff;--good:#1d4ed8;--bad:#b91c1c}}*{{box-sizing:border-box}}body{{margin:0;background:#f8fafc;color:var(--ink);font:14px Inter,Segoe UI,Arial,sans-serif}}main{{max-width:1500px;margin:auto;padding:28px}}h1{{margin:0 0 8px;font-size:32px}}h2{{margin-top:42px}}p{{color:#475569;max-width:1000px;line-height:1.55}}nav a{{margin-right:18px}}.warning{{margin:18px 0;padding:13px 15px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;color:#78350f;line-height:1.45}}.cards{{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:12px;margin:22px 0}}.card{{display:flex;flex-direction:column;gap:5px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:10px}}.card span,.card small{{color:var(--muted)}}.card strong{{font-size:20px}}section>img,section>a>img{{display:block;width:100%;height:auto;background:white;border:1px solid var(--line);border-radius:10px}}.tables{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}table{{width:100%;border-collapse:collapse;background:white}}th,td{{padding:8px;border-bottom:1px solid #e2e8f0;text-align:right}}th:first-child,td:first-child{{text-align:left}}.good{{color:var(--good);font-weight:700}}.bad{{color:var(--bad);font-weight:700}}code{{background:#e2e8f0;padding:2px 5px;border-radius:4px}}@media(max-width:850px){{.cards,.tables{{grid-template-columns:1fr}}main{{padding:16px}}}}
 </style></head><body><main>
 <h1>Bot AI progression sweep</h1>
 <p>AI level 1 is the baseline. Every chart cell shows the absolute metric and its improvement versus L1; positive improvement always means better, including average place where a lower raw number is better. Colour strength is scaled by the combined standard error, and ★ marks a difference beyond the approximate 95% threshold. Each arm is a homogeneous field (all six players use the same level), so this measures which character policies gain or regress relative to their same-level opponents—not an overall head-to-head win rate between AI levels. Forced coverage keeps rare/low-tier characters visible; results are bot-policy signals, not human-meta balance truth.</p>
@@ -401,11 +404,11 @@ def render_markdown(root: Path, merged: dict[int, dict[str, Any]], rows: list[di
         lines.append(f"| {level} | {LEVEL_LABELS[level]} | {report['totalFinished']:,} / {report['totalRequested']:,} | {report['errorCount']} | {report['totalStuck']} |")
     for metric, meta in METRICS.items():
         gains, losses = key_movers(rows, metric, count=10)
-        lines.extend(["", f"## {meta['title']}: AI 3 vs AI 1", "", "| Character | L1 | L3 | Improvement | 95% signal |", "|---|---:|---:|---:|:---:|"])
+        lines.extend(["", f"## {meta['title']}: AI {FOCUS} vs AI 1", "", f"| Character | L1 | L{FOCUS} | Improvement | 95% signal |", "|---|---:|---:|---:|:---:|"])
         for item in gains + losses:
             baseline = item["levels"]["1"]
-            current = item["levels"]["3"]
-            change = item["changesVsLevel1"][metric]["3"]
+            current = item["levels"][str(FOCUS)]
+            change = item["changesVsLevel1"][metric][str(FOCUS)]
             lines.append(f"| {item['name']} | {fmt_value(metric, baseline[metric])} | {fmt_value(metric, current[metric])} | {fmt_delta(metric, change['improvementVsLevel1'])} | {'★' if change['significant95'] else ''} |")
     (root / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 

@@ -25,7 +25,11 @@ const confirmResetAll = ref(false)
 
 const state = computed(() => store.storeState)
 const characters = computed(() => state.value?.characters ?? [])
-const availableTiers = computed(() => [...new Set(characters.value.map(character => character.tier))].sort())
+const availableTiers = computed(() =>
+  [...new Set(characters.value.map(character => character.tier))]
+    .filter(tier => tier >= 0)
+    .sort((a, b) => a - b),
+)
 const filteredCharacters = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   return characters.value
@@ -234,14 +238,16 @@ function clearFilters(): void {
           v-for="character in filteredCharacters"
           :key="character.name"
           class="character-card"
-          :class="[`tier-${character.tier}`, { adjusted: character.changes > 0, busy: isCharacterBusy(character) }]"
+          :class="[character.tier >= 0 ? `tier-${character.tier}` : '', { adjusted: character.changes > 0, busy: isCharacterBusy(character) }]"
           role="listitem"
         >
           <div class="card-accent" aria-hidden="true" />
           <header class="character-header">
             <div class="avatar-wrap">
               <img :src="character.avatar" :alt="character.name">
-              <span class="tier-badge">{{ character.tier === 0 ? 'PRO' : `T${character.tier}` }}</span>
+              <span v-if="character.tier >= 0" class="tier-badge">
+                {{ character.tier === 0 ? 'PRO' : `T${character.tier}` }}
+              </span>
             </div>
             <div class="character-heading">
               <span>{{ t('Roll weight', 'Вес выпадения') }}</span>

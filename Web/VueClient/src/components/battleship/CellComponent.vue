@@ -25,6 +25,7 @@ const props = defineProps<{
   shotType?: string
   anim?: string
   shipName?: string
+  revealShipName?: boolean
   lastShot?: boolean
   marked?: boolean
   shipEdges?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
@@ -197,7 +198,9 @@ const cellTooltip = computed(() => {
   if (!props.cell) return ''
   const coord = ` (${colLabels[props.cell.col] ?? props.cell.col}${props.cell.row + 1})`
   const ship = props.shipName ? ` — ${props.shipName}` : ''
-  const sunkShip = props.cell.sunkShipName ?? props.shipName
+  const sunkShip = props.revealShipName === false
+    ? undefined
+    : props.cell.sunkShipName ?? props.shipName
   const sunkShipSuffix = sunkShip ? ` - ${sunkShip}` : ''
 
   let base = ''

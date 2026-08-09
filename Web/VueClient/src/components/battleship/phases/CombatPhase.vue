@@ -55,6 +55,9 @@ const waitingRamReturnActive = computed(() =>
 const summonPriorityLockActive = computed(() =>
   matryoshkaResolutionPending.value || boardingPlacementPending.value || waitingRamReturnActive.value)
 const myFleet = computed(() => store.myFleet)
+const hasOperationalMast = computed(() => myFleet.value.some(ship =>
+  !ship.isDestroyed
+  && ship.weapons.some(weapon => weapon.type === 'Mast' && weapon.isOperational)))
 const gameLog = computed(() => store.gameLog)
 const pendingManeuver = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingManeuver ?? null))
@@ -1049,6 +1052,7 @@ onUnmounted(() => {
             :last-shot-cell="enemyLastShot"
             :marked-cells="store.markedCells"
             :ship-name-map="enemyShipNameMap"
+            :reveal-ship-names="hasOperationalMast"
             :range-overlay-cells="enemyBoardRangeOverlays"
             :maneuver-active="!!pendingCursedBoatDirection"
             :maneuver-ship-cells="cursedBoatShipCells"

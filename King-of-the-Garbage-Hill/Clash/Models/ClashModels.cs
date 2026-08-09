@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace King_of_the_Garbage_Hill.Clash.Models;
 
@@ -108,6 +109,10 @@ public sealed class ClashUnitDefinition
     public int Attack { get; set; }
     public int MaxHp { get; set; }
     public int Speed { get; set; }
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public ClashAttackPattern AttackPattern { get; set; } = ClashAttackPattern.AdjacentForward;
+    public int AttackRange { get; set; } = 1;
+    public bool CanDefaultAdvance { get; set; } = true;
     public bool IsRanged { get; set; }
     public int ReloadClashes { get; set; }
     public int ShieldCharges { get; set; }
