@@ -78,6 +78,7 @@ public static class BattleshipGameEngine
             .Where(s => !s.IsDestroyed)
             .SelectMany(s => s.Weapons.Select(w => (ship: s, weapon: w)))
             .Where(x => (x.weapon.Type is WeaponType.Ballista or WeaponType.Tetracatapult or
+                            WeaponType.Neptune or
                             WeaponType.Incendiary or WeaponType.EvilIncendiary or
                             WeaponType.GreekFire or WeaponType.EvilGreekFire) &&
                         (!capturedEnemyIds.Contains(x.ship.Id) || x.weapon.Type == WeaponType.Ballista) &&
@@ -173,7 +174,7 @@ public static class BattleshipGameEngine
                 x.weapon.AimSpeed <= player.RevealedCellCount);
         if (HasUsableBallista(game, player)) return true;
         return GetUsableWeapons(game, player).Any(x =>
-            (x.weapon.Type is WeaponType.Tetracatapult or WeaponType.Incendiary or
+            (x.weapon.Type is WeaponType.Tetracatapult or WeaponType.Neptune or WeaponType.Incendiary or
                 WeaponType.EvilIncendiary or WeaponType.GreekFire or WeaponType.EvilGreekFire) &&
             x.weapon.AimSpeed <= player.RevealedCellCount);
     }
@@ -261,6 +262,9 @@ public static class BattleshipGameEngine
                     Message = "Дальнобойный корабль не может стрелять по задним рядам!" };
             }
         }
+
+        if (shooter.SelectedShotType == ShotType.Neptune)
+            return ProcessNeptuneShot(game, shooter, opponent, row, col);
 
         // Increment global shot counter
         game.ShotCount++;
@@ -399,7 +403,9 @@ public static class BattleshipGameEngine
         var deck = ship.Decks[deckIndex];
         var isGreekFire = shooter.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire;
         var isIncendiary = shooter.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary;
-        var canIgniteDeadDeck = isGreekFire || shooter.SelectedShotType == ShotType.EvilIncendiary;
+        var isNeptune = shooter.SelectedShotType == ShotType.Neptune;
+        var neptuneWeapon = isNeptune ? shooter.SelectedWeapon : null;
+        var canIgniteDeadDeck = isGreekFire || shooter.SelectedShotType == ShotType.EvilIncendiary || isNeptune;
         if (deck.IsDestroyed && !canIgniteDeadDeck)
         {
             cell.IsMiss = true;
@@ -416,6 +422,24 @@ public static class BattleshipGameEngine
         cell.WasDodge = false;
         cell.WasManeuverDodge = false;
 
+        ShotResult FinalizeNeptune(ShotResult result) => isNeptune
+            ? FinalizeNeptuneShot(game, shooter, shooter, neptuneWeapon, row, col, result)
+            : result;
+
+        // Neptune explicitly lands on a dead deck. It deals no further structural damage,
+        // but the landing still creates Electric Charge and counts toward this weapon's trio.
+        if (isNeptune && deck.IsDestroyed)
+        {
+            return FinalizeNeptune(new ShotResult
+            {
+                Hit = true,
+                Row = row,
+                Col = col,
+                TurnContinues = false,
+                AffectedShipName = ship.Name,
+            });
+        }
+
         // Capture disables ordinary death passives, but the Incendiary Barge is an explicit
         // exception: the original owner detonates it with the first valid hit.
         if (ship.Abilities.Contains("explode_on_hit") && !ship.HasExploded)
@@ -423,8 +447,8 @@ public static class BattleshipGameEngine
             ExplodeShip(game, shooter, ship, shooter);
             game.AddBoardDetailLog(shooter.DiscordId,
                 $"Захваченный {ship.Name} взорвался от первого попадания!");
-            return FinishCapturedShipDestruction(
-                game, shooter, ship, row, col, burned: true);
+            return FinalizeNeptune(FinishCapturedShipDestruction(
+                game, shooter, ship, row, col, burned: true));
         }
 
         if (isGreekFire)
@@ -437,7 +461,7 @@ public static class BattleshipGameEngine
                 MarkFireResistance(cell);
                 game.AddBoardDetailLog(shooter.DiscordId,
                     $"{ship.Name}: Корабль устоял против огня! Поцарапано.");
-                return new ShotResult
+                return FinalizeNeptune(new ShotResult
                 {
                     Hit = true,
                     Scratched = true,
@@ -446,15 +470,15 @@ public static class BattleshipGameEngine
                     TurnContinues = false,
                     Message = "Корабль устоял против огня. Поцарапано.",
                     AffectedShipName = ship.Name,
-                };
+                });
             }
 
             foreach (var capturedDeck in ship.Decks)
                 capturedDeck.CurrentHp = 0;
             if (!ship.Statuses.Contains(ShipStatusType.Burn))
                 ship.Statuses.Add(ShipStatusType.Burn);
-            return FinishCapturedShipDestruction(
-                game, shooter, ship, row, col, burned: true);
+            return FinalizeNeptune(FinishCapturedShipDestruction(
+                game, shooter, ship, row, col, burned: true));
         }
 
         if (shooter.SelectedShotType == ShotType.WhiteStone)
@@ -472,23 +496,23 @@ public static class BattleshipGameEngine
         if (deck.CurrentHp < 0) deck.CurrentHp = 0;
 
         if (ship.IsDestroyed)
-            return FinishCapturedShipDestruction(
-                game, shooter, ship, row, col, burned: false);
+            return FinalizeNeptune(FinishCapturedShipDestruction(
+                game, shooter, ship, row, col, burned: false));
 
         if (deck.IsDestroyed)
         {
             cell.WasScratched = false;
             game.AddBoardDetailLog(shooter.DiscordId,
                 $"{shooter.Username} повредил палубу захваченного {ship.Name}!");
-            return new ShotResult { Hit = true, Destroyed = true, Row = row, Col = col, TurnContinues = false,
-                Message = $"Палуба захваченного {ship.Name} уничтожена!", AffectedShipName = ship.Name };
+            return FinalizeNeptune(new ShotResult { Hit = true, Destroyed = true, Row = row, Col = col, TurnContinues = false,
+                Message = $"Палуба захваченного {ship.Name} уничтожена!", AffectedShipName = ship.Name });
         }
 
         cell.WasScratched = true;
         game.AddBoardDetailLog(shooter.DiscordId,
             $"{shooter.Username} поцарапал броню захваченного {ship.Name}.");
-        return new ShotResult { Hit = true, Scratched = true, Row = row, Col = col, TurnContinues = false,
-            Message = "Поцарапал броню захваченного корабля!", AffectedShipName = ship.Name };
+        return FinalizeNeptune(new ShotResult { Hit = true, Scratched = true, Row = row, Col = col, TurnContinues = false,
+            Message = "Поцарапал броню захваченного корабля!", AffectedShipName = ship.Name });
     }
 
     private static ShotResult FinishCapturedShipDestruction(
@@ -543,6 +567,365 @@ public static class BattleshipGameEngine
         ApplyWhiteStoneStun(game, shooter, stunRecipient);
         ConsumeSelectedWeaponAmmo(game, shooter);
         return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
+    }
+
+    /// <summary>
+    /// Neptune may target either physical board and ignores every generic projectile dodge.
+    /// A live summon/boarding deck or any ship deck (including a dead one) is a landing;
+    /// empty water and an explicit neptune_immune source are misses and create no charge.
+    /// </summary>
+    public static ShotResult ProcessNeptuneShot(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        BattleshipPlayer boardOwner,
+        int row,
+        int col)
+    {
+        var cell = boardOwner?.Board.GetCell(row, col);
+        var weapon = shooter?.SelectedWeapon;
+        if (game == null || shooter == null || boardOwner == null || cell == null ||
+            weapon?.Type != WeaponType.Neptune)
+        {
+            return new ShotResult
+            {
+                Miss = true,
+                Row = row,
+                Col = col,
+                TurnContinues = false,
+            };
+        }
+
+        game.ShotCount++;
+        ConsumeSelectedWeaponAmmo(game, shooter);
+        RevealCell(boardOwner.Board, cell,
+            boardOwner.DiscordId == shooter.DiscordId ? null : shooter);
+
+        if (cell.SummonRef is { IsAlive: true } summon)
+        {
+            if (summon.IsBoardingShip &&
+                summon.BoardingAbilities.Contains("neptune_immune"))
+            {
+                RecordNeptuneShot(game, shooter, boardOwner, weapon, row, col,
+                    createdElectricCharge: false);
+                return new ShotResult
+                {
+                    Miss = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = false,
+                    AffectedShipName = summon.SourceShipName,
+                };
+            }
+
+            ShotResult summonResult;
+            if (summon.Type == SummonType.Brander)
+            {
+                DetonateBrander(game, boardOwner, summon, row, col, shooter);
+                summonResult = new ShotResult
+                {
+                    Hit = true,
+                    Destroyed = true,
+                    Burned = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = false,
+                };
+            }
+            else
+            {
+                summonResult = ProcessSummonHit(
+                    game, shooter, boardOwner.Board, cell, row, col);
+            }
+
+            return FinalizeNeptuneShot(
+                game, shooter, boardOwner, weapon, row, col, summonResult);
+        }
+
+        // A destroyed deck of a converted Boarding hull is retained as an ordered
+        // death marker after the live SummonRef leaves that cell. Neptune still lands
+        // on that dead deck, just as it does on a destroyed ordinary ship deck.
+        var deadBoardingMarker = cell.SummonDeaths.LastOrDefault(marker => marker.IsBoardingShip);
+        if (deadBoardingMarker != null)
+        {
+            var boardingHull = game.GetPlayers()
+                .SelectMany(player => player.Summons)
+                .FirstOrDefault(candidate => candidate.Id == deadBoardingMarker.SummonId);
+            if (boardingHull?.BoardingAbilities.Contains("neptune_immune") == true)
+            {
+                RecordNeptuneShot(game, shooter, boardOwner, weapon, row, col,
+                    createdElectricCharge: false);
+                return new ShotResult
+                {
+                    Miss = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = false,
+                    AffectedShipName = deadBoardingMarker.SourceShipName,
+                };
+            }
+
+            return FinalizeNeptuneShot(
+                game, shooter, boardOwner, weapon, row, col,
+                new ShotResult
+                {
+                    Hit = true,
+                    Row = row,
+                    Col = col,
+                    TurnContinues = false,
+                    AffectedShipName = deadBoardingMarker.SourceShipName,
+                });
+        }
+
+        if (cell.ShipRef != null)
+        {
+            var ship = cell.ShipRef;
+            var deckIndex = GetDeckIndexAtCell(ship, row, col);
+            if (deckIndex >= 0 && deckIndex < ship.Decks.Count)
+            {
+                if (ship.Abilities.Contains("neptune_immune"))
+                {
+                    RecordNeptuneShot(game, shooter, boardOwner, weapon, row, col,
+                        createdElectricCharge: false);
+                    return new ShotResult
+                    {
+                        Miss = true,
+                        Row = row,
+                        Col = col,
+                        TurnContinues = false,
+                        AffectedShipName = ship.Name,
+                    };
+                }
+
+                var deck = ship.Decks[deckIndex];
+                var shipResult = deck.IsDestroyed
+                    ? new ShotResult
+                    {
+                        Hit = true,
+                        Row = row,
+                        Col = col,
+                        TurnContinues = false,
+                        AffectedShipName = ship.Name,
+                    }
+                    : ProcessShipHit(game, shooter, boardOwner, cell, row, col);
+                return FinalizeNeptuneShot(
+                    game, shooter, boardOwner, weapon, row, col, shipResult);
+            }
+        }
+
+        cell.IsMiss = true;
+        RecordNeptuneShot(game, shooter, boardOwner, weapon, row, col,
+            createdElectricCharge: false);
+        return new ShotResult
+        {
+            Miss = true,
+            Row = row,
+            Col = col,
+            TurnContinues = false,
+        };
+    }
+
+    private static ShotResult FinalizeNeptuneShot(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        BattleshipPlayer boardOwner,
+        Weapon weapon,
+        int row,
+        int col,
+        ShotResult result)
+    {
+        var cell = boardOwner.Board.GetCell(row, col);
+        var createdCharge = cell is { HasElectricCharge: false };
+        if (cell != null)
+        {
+            cell.HasElectricCharge = true;
+            cell.IsRevealed = true;
+        }
+
+        result ??= new ShotResult { Hit = true, Row = row, Col = col };
+        result.ElectricCharged = true;
+        result.Hit = true;
+        result.Miss = false;
+        var triangleBurned = RecordNeptuneShot(
+            game, shooter, boardOwner, weapon, row, col, createdCharge);
+        result.Burned |= triangleBurned;
+        return result;
+    }
+
+    private static bool RecordNeptuneShot(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        BattleshipPlayer boardOwner,
+        Weapon weapon,
+        int row,
+        int col,
+        bool createdElectricCharge)
+    {
+        if (weapon == null) return false;
+        weapon.NeptuneShotGroup ??= new List<NeptuneShotRecord>();
+        weapon.NeptuneShotGroup.Add(new NeptuneShotRecord
+        {
+            BoardOwnerId = boardOwner.DiscordId,
+            Row = row,
+            Col = col,
+            CreatedElectricCharge = createdElectricCharge,
+        });
+        if (weapon.NeptuneShotGroup.Count < 3) return false;
+
+        var trio = weapon.NeptuneShotGroup.Take(3).ToList();
+        weapon.NeptuneShotGroup.RemoveRange(0, 3);
+        if (trio.Any(shot => !shot.CreatedElectricCharge) ||
+            trio.Select(shot => shot.BoardOwnerId).Distinct(StringComparer.Ordinal).Count() != 1 ||
+            trio.Select(shot => (shot.Row, shot.Col)).Distinct().Count() != 3)
+            return false;
+
+        var targetOwner = game.GetPlayer(trio[0].BoardOwnerId);
+        if (targetOwner == null) return false;
+        var triangle = new ElectricTriangle
+        {
+            SourceWeaponId = weapon.Id,
+            Vertices = trio.Select(shot => new BoardCoordinate
+            {
+                Row = shot.Row,
+                Col = shot.Col,
+            }).ToList(),
+        };
+        targetOwner.Board.ElectricTriangles.Add(triangle);
+        return ApplyNeptuneTriangleBurn(game, shooter, targetOwner, triangle);
+    }
+
+    private static bool ApplyNeptuneTriangleBurn(
+        BattleshipGame game,
+        BattleshipPlayer shooter,
+        BattleshipPlayer boardOwner,
+        ElectricTriangle triangle)
+    {
+        if (triangle?.Vertices.Count != 3) return false;
+        var affectedCells = new List<Cell>();
+        for (var row = 0; row < 10; row++)
+        for (var col = 0; col < 10; col++)
+        {
+            if (!TriangleCoversAtLeastHalfCell(triangle.Vertices, row, col)) continue;
+            var cell = boardOwner.Board.GetCell(row, col);
+            if (cell == null) continue;
+            RevealCell(boardOwner.Board, cell,
+                boardOwner.DiscordId == shooter.DiscordId ? null : shooter);
+            cell.IsNeptuneBurned = true;
+            affectedCells.Add(cell);
+        }
+
+        var processedSummons = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var cell in affectedCells)
+        {
+            var summon = cell.SummonRef;
+            if (summon is not { IsAlive: true }) continue;
+            if (HasBoardingHull(summon) &&
+                BoardingHasStatus(summon, ShipStatusType.BurnResist))
+            {
+                MarkFireResistance(cell);
+                if (processedSummons.Add(summon.Id))
+                    game.AddBoardDetailLog(boardOwner.DiscordId,
+                        $"{summon.SourceShipName ?? "Абордажный корабль"}: Корабль устоял против огня! Поцарапано.");
+                continue;
+            }
+            if (!processedSummons.Add(summon.Id)) continue;
+            KillSummonByExplosion(game, boardOwner, cell, "Нептун", shooter);
+        }
+
+        var affectedShips = affectedCells
+            .Where(cell => cell.ShipRef is { IsDestroyed: false })
+            .Select(cell => cell.ShipRef)
+            .DistinctBy(ship => ship.Id)
+            .ToList();
+        foreach (var ship in affectedShips)
+        {
+            if (ship.Statuses.Contains(ShipStatusType.BurnResist))
+            {
+                foreach (var cell in affectedCells.Where(cell => cell.ShipRef == ship))
+                    MarkFireResistance(cell);
+                continue;
+            }
+
+            KillShipByFire(game, boardOwner, ship, shooter, applyBurnStatus: true);
+            HandleShipDeath(game, boardOwner, ship, ShipDestructionCause.Incendiary);
+        }
+
+        return affectedCells.Count > 0;
+    }
+
+    private static bool TriangleCoversAtLeastHalfCell(
+        IReadOnlyList<BoardCoordinate> vertices,
+        int row,
+        int col)
+    {
+        var polygon = vertices
+            .Select(vertex => (x: vertex.Col + 0.5, y: vertex.Row + 0.5))
+            .ToList();
+        polygon = ClipPolygon(polygon, point => point.x >= col,
+            (start, end) => IntersectVertical(start, end, col));
+        polygon = ClipPolygon(polygon, point => point.x <= col + 1,
+            (start, end) => IntersectVertical(start, end, col + 1));
+        polygon = ClipPolygon(polygon, point => point.y >= row,
+            (start, end) => IntersectHorizontal(start, end, row));
+        polygon = ClipPolygon(polygon, point => point.y <= row + 1,
+            (start, end) => IntersectHorizontal(start, end, row + 1));
+        if (polygon.Count < 3) return false;
+
+        var doubledArea = 0.0;
+        for (var index = 0; index < polygon.Count; index++)
+        {
+            var current = polygon[index];
+            var next = polygon[(index + 1) % polygon.Count];
+            doubledArea += current.x * next.y - next.x * current.y;
+        }
+        return Math.Abs(doubledArea) / 2 >= 0.5 - 1e-9;
+    }
+
+    private static List<(double x, double y)> ClipPolygon(
+        IReadOnlyList<(double x, double y)> input,
+        Func<(double x, double y), bool> inside,
+        Func<(double x, double y), (double x, double y), (double x, double y)> intersection)
+    {
+        var output = new List<(double x, double y)>();
+        if (input.Count == 0) return output;
+        var start = input[^1];
+        foreach (var end in input)
+        {
+            var startInside = inside(start);
+            var endInside = inside(end);
+            if (endInside)
+            {
+                if (!startInside) output.Add(intersection(start, end));
+                output.Add(end);
+            }
+            else if (startInside)
+            {
+                output.Add(intersection(start, end));
+            }
+            start = end;
+        }
+        return output;
+    }
+
+    private static (double x, double y) IntersectVertical(
+        (double x, double y) start,
+        (double x, double y) end,
+        double x)
+    {
+        var delta = end.x - start.x;
+        if (Math.Abs(delta) < 1e-12) return (x, start.y);
+        var ratio = (x - start.x) / delta;
+        return (x, start.y + (end.y - start.y) * ratio);
+    }
+
+    private static (double x, double y) IntersectHorizontal(
+        (double x, double y) start,
+        (double x, double y) end,
+        double y)
+    {
+        var delta = end.y - start.y;
+        if (Math.Abs(delta) < 1e-12) return (start.x, y);
+        var ratio = (y - start.y) / delta;
+        return (start.x + (end.x - start.x) * ratio, y);
     }
 
     /// <summary>
@@ -1118,6 +1501,7 @@ public static class BattleshipGameEngine
         {
             ShotType.WhiteStone => 8,     // 4x standard
             ShotType.Buckshot => 1,        // 0.5x standard
+            ShotType.Neptune => 1,
             ShotType.Incendiary or ShotType.EvilIncendiary => 0, // burn mechanic handles kill
             _ => 2                         // standard ballista
         };

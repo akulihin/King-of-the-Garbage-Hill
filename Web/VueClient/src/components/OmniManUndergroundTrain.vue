@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ phrase: string }>()
+defineProps<{ title: string; phrase: string }>()
 </script>
 
 <template>
@@ -63,7 +63,8 @@ defineProps<{ phrase: string }>()
     </div>
 
     <div class="comic-caption">
-      <p :data-text="phrase">{{ phrase }}</p>
+      <p class="comic-title" :data-text="title">{{ title }}</p>
+      <p v-if="phrase" class="comic-phrase">{{ phrase }}</p>
     </div>
     <div class="foreground-slash" aria-hidden="true" />
   </div>
@@ -217,7 +218,7 @@ defineProps<{ phrase: string }>()
   height: clamp(205px, 30vw, 390px);
   opacity: 0;
   transform-origin: center;
-  animation: train-cross 5.4s cubic-bezier(.12, .69, .16, 1) both;
+  animation: train-cross 3.6s 180ms cubic-bezier(.12, .69, .16, 1) both;
   will-change: transform, opacity;
   filter:
     drop-shadow(0 12px 0 rgba(3, 5, 10, 0.95))
@@ -546,7 +547,7 @@ defineProps<{ phrase: string }>()
   filter: drop-shadow(10px 12px 0 #bc2027) drop-shadow(-8px -7px 0 #174c98);
 }
 
-.comic-caption p {
+.comic-title {
   position: relative;
   margin: 0;
   color: #fff1ab;
@@ -566,7 +567,7 @@ defineProps<{ phrase: string }>()
     16px 20px 28px rgba(0, 0, 0, 0.82);
 }
 
-.comic-caption p::after {
+.comic-title::after {
   content: attr(data-text);
   position: absolute;
   inset: 0;
@@ -575,6 +576,25 @@ defineProps<{ phrase: string }>()
   clip-path: polygon(0 55%, 100% 43%, 100% 64%, 0 74%);
   transform: translate(4px, 4px);
   -webkit-text-stroke: clamp(2px, 0.25vw, 5px) #8d0911;
+}
+
+.comic-phrase {
+  width: fit-content;
+  max-width: min(84vw, 980px);
+  margin: clamp(24px, 4vh, 48px) auto 0;
+  padding: 0.35em 0.7em 0.42em;
+  border: clamp(2px, 0.2vw, 4px) solid #07101c;
+  color: #07101c;
+  background: rgba(255, 242, 164, 0.94);
+  box-shadow: 7px 8px 0 #d4212b, 12px 14px 0 #164a99;
+  font-family: Impact, Haettenschweiler, 'Arial Black', sans-serif;
+  font-size: clamp(17px, 2vw, 34px);
+  font-style: italic;
+  font-weight: 900;
+  line-height: 1.05;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(-1deg);
 }
 
 .foreground-slash {
@@ -685,8 +705,14 @@ defineProps<{ phrase: string }>()
     top: 8vh;
   }
 
-  .comic-caption p {
+  .comic-title {
     font-size: clamp(38px, 11vw, 62px);
+  }
+
+  .comic-phrase {
+    max-width: 82vw;
+    margin-top: 22px;
+    font-size: clamp(15px, 4vw, 22px);
   }
 
   .track-field {

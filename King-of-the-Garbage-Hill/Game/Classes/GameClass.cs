@@ -24,7 +24,7 @@ public class GameClass
         GlobalLogs = "";
         IsCheckIfReady = true;
         SkipPlayersThisRound = 0;
-        GameVersion = "Версия: 5.2.24";
+        GameVersion = "Версия: 5.2.30";
         GameMode = gameMode;
         CreatorId = creatorId;
         Teams = new List<TeamPlay>();
@@ -69,6 +69,7 @@ public class GameClass
 
     private string GlobalLogs { get; set; }
     public string GameMode { get; set; }
+    public bool IsAramMode => GameMode is "Aram" or "TeamAram";
     /// <summary>Solo Pro account versus five strict level-3 bots with ELO settlement.</summary>
     public bool IsRanked { get; set; }
     public ulong CreatorId { get; set; }

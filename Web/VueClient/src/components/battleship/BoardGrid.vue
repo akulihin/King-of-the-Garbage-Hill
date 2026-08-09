@@ -62,6 +62,12 @@ const cells = computed(() => {
   return props.board.cells
 })
 
+const electricTriangles = computed(() => props.board?.electricTriangles ?? [])
+
+function trianglePoints(vertices: { row: number; col: number }[]): string {
+  return vertices.map(vertex => `${vertex.col + 0.5},${vertex.row + 0.5}`).join(' ')
+}
+
 function getCell(row: number, col: number) {
   return cells.value.find(c => c.row === row && c.col === col)
 }
@@ -120,6 +126,7 @@ const deckVisualMap = computed(() => {
         const moduleKey: Record<string, string> = {
           ballista: 'ballista',
           tetracatapult: 'catapult',
+          neptune: 'electricCharge',
           mast: 'mast',
           boiler: 'boiler',
           incendiary: 'incendiary',
@@ -220,6 +227,21 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
         <div v-for="label in colLabels" :key="label" class="label-cell col-label">{{ label }}</div>
       </div>
 
+      <svg
+        v-if="electricTriangles.length"
+        class="electric-triangles"
+        viewBox="0 0 10 10"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <polygon
+          v-for="triangle in electricTriangles"
+          :key="triangle.id"
+          :points="trianglePoints(triangle.vertices)"
+          vector-effect="non-scaling-stroke"
+        />
+      </svg>
+
       <!-- Grid rows -->
       <div v-for="r in 10" :key="r" class="grid-row" :class="{ 'grid-row--far': r >= 9 }">
         <div class="label-cell row-label">{{ rowLabels[r - 1] }}</div>
@@ -271,6 +293,8 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
 }
 
 .board-grid {
+  --board-label-size: 24px;
+  position: relative;
   display: inline-flex;
   flex-direction: column;
   gap: 1px;
@@ -286,6 +310,24 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
     inset 0 0 10px rgba(0, 0, 0, 0.3),
     0 4px 14px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 var(--glass-highlight);
+}
+
+.electric-triangles {
+  position: absolute;
+  left: calc(3px + var(--board-label-size) + 1px);
+  top: calc(3px + var(--board-label-size) + 1px);
+  width: calc(var(--cell-size, 32px) * 10 + 9px);
+  height: calc(var(--cell-size, 32px) * 10 + 9px);
+  z-index: 10;
+  overflow: visible;
+  pointer-events: none;
+}
+.electric-triangles polygon {
+  fill: rgba(20, 184, 166, 0.1);
+  stroke: #2dd4bf;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(45, 212, 191, 0.95));
 }
 
 .grid-row {
@@ -338,6 +380,7 @@ function handlePointerUp(row: number, col: number, event: PointerEvent) {
 }
 
 @media (max-width: 480px) {
+  .board-grid { --board-label-size: 20px; }
   .col-label { width: var(--cell-size, 24px); height: 20px; font-size: 0.5rem; }
   .row-label { width: 20px; height: var(--cell-size, 24px); font-size: 0.5rem; }
   .corner-cell { width: 20px; height: 20px; }

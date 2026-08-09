@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using King_of_the_Garbage_Hill.Game.Classes;
+using King_of_the_Garbage_Hill.Helpers;
 
 namespace King_of_the_Garbage_Hill.Game.Characters;
 
@@ -12,6 +13,8 @@ public static class ErenYeager
     public const string Fighter = "Дрочун";
     public const string AttackTitan = "Атакующий Титан";
     public const string Rumbling = "Rumbling";
+    public const string AttackTitanRestRequiredMessageKey =
+        "kotgh.gameplay.eren.attackTitanRestRequired";
 
     public sealed class State
     {
@@ -19,6 +22,7 @@ public static class ErenYeager
         public int Losses { get; set; }
         public bool AttackTitanActiveThisRound { get; set; }
         public int AttackTitanCooldown { get; set; }
+        public bool BlockUnavailableThisTurn { get; set; }
         public int AttackTitanSoundSerial { get; set; }
         public int TatakeSoundSerial { get; set; }
         public List<Guid> MutualAttackRewardsThisRound { get; set; } = new();
@@ -27,6 +31,25 @@ public static class ErenYeager
         public int RumblingPlace { get; set; }
         public int RumblingKillCount { get; set; }
     }
+
+    public static bool TryRejectRestingBlock(GamePlayerBridgeClass player)
+    {
+        if (player?.GameCharacter?.Name != CharacterName
+            || player.GameCharacter.Passive.All(passive => passive.PassiveName != AttackTitan)
+            || player.Passives.Eren.AttackTitanCooldown <= 0)
+            return false;
+
+        player.Passives.Eren.BlockUnavailableThisTurn = true;
+        return true;
+    }
+
+    public static bool IsBlockUnavailableThisTurn(GamePlayerBridgeClass player) =>
+        player?.GameCharacter?.Name == CharacterName
+        && player.GameCharacter.Passive.Any(passive => passive.PassiveName == AttackTitan)
+        && player.Passives.Eren.BlockUnavailableThisTurn;
+
+    public static string AttackTitanRestRequiredText() =>
+        GameLocalization.MessageText(AttackTitanRestRequiredMessageKey).Ru;
 
     public static void MoveToLast(List<GamePlayerBridgeClass> players, GamePlayerBridgeClass eren)
     {

@@ -38,12 +38,14 @@ public class GameHub : Hub
     private readonly ClashService _clashService;
     private readonly CharactersPull _charactersPull;
     private readonly AdminLobbyService _adminLobbyService;
+    private readonly AlternativeModeLobbyService _alternativeLobbyService;
     private readonly IHubContext<GameHub> _hubContext;
 
     public GameHub(WebGameService gameService, GameNotificationService notificationService,
         Global global, UserAccounts userAccounts, BlackjackService blackjackService,
         GameStoryService storyService, BattleshipService battleshipService, ClashService clashService,
         CharactersPull charactersPull, AdminLobbyService adminLobbyService,
+        AlternativeModeLobbyService alternativeLobbyService,
         IHubContext<GameHub> hubContext)
     {
         _gameService = gameService;
@@ -56,6 +58,7 @@ public class GameHub : Hub
         _clashService = clashService;
         _charactersPull = charactersPull;
         _adminLobbyService = adminLobbyService;
+        _alternativeLobbyService = alternativeLobbyService;
         _hubContext = hubContext;
     }
 
@@ -397,6 +400,141 @@ public class GameHub : Hub
         await PushStateToPlayer(gameId, discordId);
     }
 
+    // ── Alternative-mode preparation lobbies ─────────────────────────
+
+    public async Task CreateAlternativeLobby(string mode)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var account = _userAccounts.GetAccount(discordId);
+        var (lobbyId, error) = await _alternativeLobbyService.CreateAsync(
+            discordId,
+            account?.DiscordUserName ?? "WebPlayer",
+            mode);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"alternative-{lobbyId}");
+        await Clients.Caller.SendAsync("AlternativeLobbyCreated", new { lobbyId });
+        await Clients.Caller.SendAsync(
+            "AlternativeLobbyState",
+            _alternativeLobbyService.GetState(lobbyId, discordId));
+    }
+
+    public async Task JoinAlternativeLobby(ulong lobbyId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var account = _userAccounts.GetAccount(discordId);
+        var error = await _alternativeLobbyService.JoinAsync(
+            lobbyId,
+            discordId,
+            account?.DiscordUserName ?? "WebPlayer");
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"alternative-{lobbyId}");
+        await Clients.Caller.SendAsync("AlternativeLobbyJoined", new { lobbyId });
+        await Clients.Caller.SendAsync(
+            "AlternativeLobbyState",
+            _alternativeLobbyService.GetState(lobbyId, discordId));
+    }
+
+    public async Task RequestAlternativeLobbyState(ulong lobbyId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var state = _alternativeLobbyService.GetState(lobbyId, discordId);
+        if (state == null)
+        {
+            await Clients.Caller.SendAsync("Error", "Preparation lobby not found");
+            return;
+        }
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"alternative-{lobbyId}");
+        await Clients.Caller.SendAsync("AlternativeLobbyState", state);
+    }
+
+    public async Task AlternativeLobbySetTeamSize(ulong lobbyId, int teamSize) =>
+        await ReplyAlternativeResult(
+            "alternativeSetTeamSize",
+            await _alternativeLobbyService.SetTeamSizeAsync(
+                lobbyId, GetDiscordId(), teamSize));
+
+    public async Task AlternativeLobbySetAiDifficulty(ulong lobbyId, int aiDifficulty) =>
+        await ReplyAlternativeResult(
+            "alternativeSetAiDifficulty",
+            await _alternativeLobbyService.SetAiDifficultyAsync(
+                lobbyId, GetDiscordId(), aiDifficulty));
+
+    public async Task AlternativeLobbyMove(ulong lobbyId, int targetSlotIndex) =>
+        await ReplyAlternativeResult(
+            "alternativeMove",
+            await _alternativeLobbyService.MoveAsync(
+                lobbyId, GetDiscordId(), targetSlotIndex));
+
+    public async Task AlternativeLobbySetTeamReady(ulong lobbyId, bool ready) =>
+        await ReplyAlternativeResult(
+            "alternativeTeamReady",
+            await _alternativeLobbyService.SetTeamReadyAsync(
+                lobbyId, GetDiscordId(), ready));
+
+    public async Task AlternativeLobbySelectCharacter(ulong lobbyId, string characterName) =>
+        await ReplyAlternativeResult(
+            "alternativeSelectCharacter",
+            await _alternativeLobbyService.SelectCharacterAsync(
+                lobbyId, GetDiscordId(), characterName));
+
+    public async Task AlternativeLobbyUnlockPassive(ulong lobbyId, int slotIndex) =>
+        await ReplyAlternativeResult(
+            "alternativeUnlockPassive",
+            await _alternativeLobbyService.UnlockPassiveAsync(
+                lobbyId, GetDiscordId(), slotIndex));
+
+    public async Task AlternativeLobbySelectPassive(
+        ulong lobbyId,
+        int slotIndex,
+        string passiveName) =>
+        await ReplyAlternativeResult(
+            "alternativeSelectPassive",
+            await _alternativeLobbyService.SelectPassiveAsync(
+                lobbyId, GetDiscordId(), slotIndex, passiveName));
+
+    public async Task AlternativeLobbySetAramReady(ulong lobbyId, bool ready) =>
+        await ReplyAlternativeResult(
+            "alternativeAramReady",
+            await _alternativeLobbyService.SetAramReadyAsync(
+                lobbyId, GetDiscordId(), ready));
+
+    public async Task LeaveAlternativeLobby(ulong lobbyId)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        var error = await _alternativeLobbyService.LeaveAsync(lobbyId, discordId);
+        await ReplyAlternativeResult("alternativeLeave", error);
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"alternative-{lobbyId}");
+    }
+
+    private async Task ReplyAlternativeResult(string action, string error)
+    {
+        if (GetDiscordId() == 0)
+        {
+            await SendNotAuthenticated();
+            return;
+        }
+        await Clients.Caller.SendAsync("ActionResult", new
+        {
+            action,
+            success = error == null,
+            error,
+        });
+    }
+
     // ── Game Actions ──────────────────────────────────────────────────
 
     public async Task Attack(ulong gameId, int targetPlace)
@@ -418,7 +556,9 @@ public class GameHub : Hub
         var (success, error) = await _gameService.Block(gameId, discordId);
         await Clients.Caller.SendAsync("ActionResult", new { action = "block", success, error });
 
-        if (success) await PushStateToPlayer(gameId, discordId);
+        // A rejected resting-Eren Block still mutates owner state by disabling that button for the
+        // remainder of the turn, so failures need the same refreshed projection as successes.
+        await PushStateToPlayer(gameId, discordId);
     }
 
     public async Task AnnounceHalfLife3(ulong gameId)
@@ -831,6 +971,25 @@ public class GameHub : Hub
         var (state, error) = _adminLobbyService.AddBot(
             discordId, slotIndex, aiDifficulty);
         if (error != null) { await Clients.Caller.SendAsync("Error", error); return; }
+        await Clients.Caller.SendAsync("AdminLobbyState", state);
+    }
+
+    public async Task AdminLobbySetMode(string mode, int teamSize)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+        if (!AdminLobbyService.IsGodAdmin(discordId))
+        {
+            await Clients.Caller.SendAsync("Error", "Admin access required.");
+            return;
+        }
+
+        var (state, error) = _adminLobbyService.SetMode(discordId, mode, teamSize);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
         await Clients.Caller.SendAsync("AdminLobbyState", state);
     }
 
@@ -1449,7 +1608,7 @@ public class GameHub : Hub
 
     public async Task RequestLobbyState()
     {
-        var state = _gameService.GetLobbyState();
+        var state = _gameService.GetLobbyState(GetDiscordId());
         await Clients.Caller.SendAsync("LobbyState", state);
     }
 
@@ -1612,6 +1771,26 @@ public class GameHub : Hub
         await Clients.Caller.SendAsync("BattleshipGameCreated", new { gameId });
 
         // Push state to creator
+        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+    }
+
+    public async Task CreateBattleshipGameWithOptions(bool vsBot, int botVersion)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var account = _userAccounts.GetAccount(discordId);
+        var username = account?.DiscordUserName ?? "Player";
+        var (gameId, error) = _battleshipService.CreateGameWithOptions(
+            discordId.ToString(), username, vsBot, botVersion);
+        if (error != null)
+        {
+            await Clients.Caller.SendAsync("Error", error);
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"bs-{gameId}");
+        await Clients.Caller.SendAsync("BattleshipGameCreated", new { gameId });
         await PushBattleshipStateToPlayer(gameId, discordId.ToString());
     }
 
@@ -2117,6 +2296,7 @@ public class GameHub : Hub
                 ShipSunk = showDetails && result.ShipSunk,
                 Burned = showDetails && result.Burned,
                 Dodged = showDetails && result.Dodged,
+                result.ElectricCharged,
                 result.PenaltyApplied,
                 result.Row,
                 result.Col,

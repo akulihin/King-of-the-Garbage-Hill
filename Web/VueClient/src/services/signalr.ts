@@ -111,6 +111,8 @@ export type Player = {
   deathSource: string
   /** Whether this player is Kira (uses Death Note instead of predictions). */
   isKira: boolean
+  /** Owner-only reveal signal sent to L after Kira's first real heart-attack death. */
+  lRevealSerial?: number
   /** Enables the owner-only terminal presentation and private fight projection. */
   isTerminalMode: boolean
   /** Death Note state (only populated for the Kira player). */
@@ -133,6 +135,8 @@ export type Player = {
   homelanderRagePercent?: number
   /** Homelander-owner-only marker for an opponent who revealed his identity. */
   homelanderIdentityRevealer?: boolean
+  /** Viewer-scoped marker on Homelander while Modesty suppresses Justice against this viewer. */
+  homelanderEasyTarget?: boolean
   /** Omni-man-owner-only marker for an opponent who failed Подумай, Марк!. */
   omniManIdiot?: boolean
   /** Omni-man-owner-only marker for the opponent currently sleeping from Стражи Земли. */
@@ -310,6 +314,7 @@ export type ErenState = {
   losses: number
   attackTitanActive: boolean
   attackTitanCooldown: number
+  blockUnavailableThisTurn: boolean
   attackTitanSoundSerial: number
   tatakeSoundSerial: number
   rumblingTriggered: boolean
@@ -661,6 +666,8 @@ export type AdminLobbyCharacter = {
 
 export type AdminLobbyState = {
   ownerId: string
+  gameMode: 'Normal' | 'Team' | 'Aram' | 'TeamAram'
+  teamSize: 2 | 3
   slots: AdminLobbySlot[]
   characters: AdminLobbyCharacter[]
 }
@@ -700,8 +707,68 @@ export type ActiveGame = {
   isFinished: boolean
   botCount: number
   canJoin: boolean
+  isPreparation: boolean
+  preparationStage: string
+  deadlineUtc: string
   /** Character avatars for preview (optional, may not be sent by older backends) */
   characterAvatars?: { name: string; avatar: string; tier: number }[]
+}
+
+export type AlternativeCharacter = {
+  name: string
+  avatar: string
+  tier: number
+  intelligence: number
+  strength: number
+  speed: number
+  psyche: number
+}
+
+export type AlternativeLobbySeat = {
+  slotIndex: number
+  kind: 'empty' | 'human' | 'bot'
+  discordId: string
+  username: string
+  teamId: number
+  ready: boolean
+  characterConfirmed: boolean
+  selectedCharacter: AlternativeCharacter | null
+}
+
+export type AlternativePassive = {
+  name: string
+  description: string
+}
+
+export type AlternativePassiveSlot = {
+  slotIndex: number
+  selectedIndex: number
+  candidates: AlternativePassive[]
+}
+
+export type AlternativeAramBuild = {
+  intelligence: number
+  strength: number
+  speed: number
+  psyche: number
+  locked: boolean
+  passiveSlots: AlternativePassiveSlot[]
+}
+
+export type AlternativeLobbyState = {
+  lobbyId: number
+  creatorId: string
+  mode: 'Team' | 'Aram' | 'TeamAram'
+  stage: 'Team' | 'Character' | 'Aram'
+  teamSize: 2 | 3
+  aiDifficulty: number
+  deadlineUtc: string
+  isOwner: boolean
+  isAdminGame: boolean
+  canJoin: boolean
+  seats: AlternativeLobbySeat[]
+  characterOptions: AlternativeCharacter[]
+  aramBuild: AlternativeAramBuild | null
 }
 
 export type CharacterInfo = {
@@ -1067,6 +1134,8 @@ export type BattleshipOrientation =
   | 'HorizontalReverse'
   | 'VerticalReverse'
 
+export type BattleshipBotVersion = 1 | 2 | 3
+
 export type BattleshipLobbyState = {
   games: BattleshipLobbyGame[]
 }
@@ -1078,6 +1147,9 @@ export type BattleshipLobbyGame = {
   player2Name: string
   player1IsBot: boolean
   player2IsBot: boolean
+  vsBot?: boolean
+  canJoin?: boolean
+  botVersion?: BattleshipBotVersion | null
   turnNumber: number
   createdAt: string
 }
@@ -1085,6 +1157,8 @@ export type BattleshipLobbyGame = {
 export type BattleshipGameState = {
   gameId: string
   phase: string
+  vsBot?: boolean
+  botVersion?: BattleshipBotVersion | null
   turnNumber: number
   shotCount: number
   isFinished: boolean
@@ -1125,6 +1199,7 @@ export type BattleshipPlayerState = {
   discordId: string
   username: string
   isBot: boolean
+  botVersion?: BattleshipBotVersion | null
   isMe: boolean
   faction: string
   coinsRemaining: number
@@ -1247,6 +1322,13 @@ export type BattleshipAssemblyOption = {
 
 export type BattleshipBoard = {
   cells: BattleshipCell[]
+  electricTriangles: BattleshipElectricTriangle[]
+}
+
+export type BattleshipElectricTriangle = {
+  id: string
+  sourceWeaponId: string
+  vertices: { row: number; col: number }[]
 }
 
 export type BattleshipSummonMarker = {
@@ -1263,6 +1345,7 @@ export type BattleshipCell = {
   isHit: boolean
   isMiss: boolean
   isBurning: boolean
+  hasElectricCharge: boolean
   hasShip: boolean
   shipId: string | null
   hasSummon: boolean
@@ -1377,6 +1460,7 @@ export type BattleshipShipCatalogEntry = {
   isFree: boolean
   abilities: string[]
   description: string
+  descriptionKey: string | null
   region: string | null
   regions: string[]
   availableUpgrades: BattleshipUpgrade[]
@@ -1403,6 +1487,7 @@ export type BattleshipShotResult = {
   shipSunk: boolean
   burned: boolean
   dodged: boolean
+  electricCharged: boolean
   penaltyApplied: boolean
   row: number
   col: number
@@ -1415,7 +1500,7 @@ export type BattleshipShotResult = {
   sourceRow: number
   sourceCol: number
   sourceBoardPlayerId: string | null
-  projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | null
+  projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | 'Electric' | null
   targetPlayerId: string | null
 }
 
@@ -1542,6 +1627,10 @@ class SignalRService {
   onAdminLobbyPresence: ((presence: AdminLobbyPresence) => void) | null = null
   onAdminLobbyReserved: ((data: { reserved: boolean }) => void) | null = null
   onAdminLobbyGameStarted: ((data: { gameId: number }) => void) | null = null
+  onAlternativeLobbyState: ((state: AlternativeLobbyState) => void) | null = null
+  onAlternativeLobbyCreated: ((data: { lobbyId: number }) => void) | null = null
+  onAlternativeLobbyJoined: ((data: { lobbyId: number }) => void) | null = null
+  onAlternativeLobbyGameStarted: ((data: { gameId: number }) => void) | null = null
   onActionResult: ((result: ActionResult) => void) | null = null
   onGameEvent: ((event: GameEvent) => void) | null = null
   onError: ((error: string) => void) | null = null
@@ -1645,6 +1734,22 @@ class SignalRService {
 
     this.connection.on('AdminLobbyGameStarted', (data: { gameId: number }) => {
       this.onAdminLobbyGameStarted?.(data)
+    })
+
+    this.connection.on('AlternativeLobbyState', (state: AlternativeLobbyState) => {
+      this.onAlternativeLobbyState?.(state)
+    })
+
+    this.connection.on('AlternativeLobbyCreated', (data: { lobbyId: number }) => {
+      this.onAlternativeLobbyCreated?.(data)
+    })
+
+    this.connection.on('AlternativeLobbyJoined', (data: { lobbyId: number }) => {
+      this.onAlternativeLobbyJoined?.(data)
+    })
+
+    this.connection.on('AlternativeLobbyGameStarted', (data: { gameId: number }) => {
+      this.onAlternativeLobbyGameStarted?.(data)
     })
 
     this.connection.on('ActionResult', (result: ActionResult) => {
@@ -1891,6 +1996,60 @@ class SignalRService {
     await this.connection?.invoke('CreateAdminLobby')
   }
 
+  async createAlternativeLobby(mode: 'Team' | 'Aram' | 'TeamAram'): Promise<void> {
+    await this.connection?.invoke('CreateAlternativeLobby', mode)
+  }
+
+  async joinAlternativeLobby(lobbyId: number): Promise<void> {
+    await this.connection?.invoke('JoinAlternativeLobby', lobbyId)
+  }
+
+  async requestAlternativeLobbyState(lobbyId: number): Promise<void> {
+    await this.connection?.invoke('RequestAlternativeLobbyState', lobbyId)
+  }
+
+  async alternativeLobbySetTeamSize(lobbyId: number, teamSize: 2 | 3): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbySetTeamSize', lobbyId, teamSize)
+  }
+
+  async alternativeLobbySetAiDifficulty(lobbyId: number, difficulty: number): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbySetAiDifficulty', lobbyId, difficulty)
+  }
+
+  async alternativeLobbyMove(lobbyId: number, targetSlotIndex: number): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbyMove', lobbyId, targetSlotIndex)
+  }
+
+  async alternativeLobbySetTeamReady(lobbyId: number, ready: boolean): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbySetTeamReady', lobbyId, ready)
+  }
+
+  async alternativeLobbySelectCharacter(lobbyId: number, characterName: string): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbySelectCharacter', lobbyId, characterName)
+  }
+
+  async alternativeLobbyUnlockPassive(lobbyId: number, slotIndex: number): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbyUnlockPassive', lobbyId, slotIndex)
+  }
+
+  async alternativeLobbySelectPassive(
+    lobbyId: number,
+    slotIndex: number,
+    passiveName: string,
+  ): Promise<void> {
+    await this.connection?.invoke(
+      'AlternativeLobbySelectPassive', lobbyId, slotIndex, passiveName,
+    )
+  }
+
+  async alternativeLobbySetAramReady(lobbyId: number, ready: boolean): Promise<void> {
+    await this.connection?.invoke('AlternativeLobbySetAramReady', lobbyId, ready)
+  }
+
+  async leaveAlternativeLobby(lobbyId: number): Promise<void> {
+    await this.connection?.invoke('LeaveAlternativeLobby', lobbyId)
+  }
+
   async requestAdminLobbyState(): Promise<void> {
     await this.connection?.invoke('RequestAdminLobbyState')
   }
@@ -1909,6 +2068,13 @@ class SignalRService {
 
   async adminLobbyAddBot(slotIndex: number, aiDifficulty: number): Promise<void> {
     await this.connection?.invoke('AdminLobbyAddBot', slotIndex, aiDifficulty)
+  }
+
+  async adminLobbySetMode(
+    mode: 'Normal' | 'Team' | 'Aram' | 'TeamAram',
+    teamSize: 2 | 3,
+  ): Promise<void> {
+    await this.connection?.invoke('AdminLobbySetMode', mode, teamSize)
   }
 
   async adminLobbySetCharacter(slotIndex: number, characterName: string): Promise<void> {
@@ -2169,6 +2335,13 @@ class SignalRService {
 
   async createBattleshipGame(): Promise<void> {
     await this.connection?.invoke('CreateBattleshipGame')
+  }
+
+  async createBattleshipGameWithOptions(
+    vsBot: boolean,
+    botVersion: BattleshipBotVersion,
+  ): Promise<void> {
+    await this.requireConnected().invoke('CreateBattleshipGameWithOptions', vsBot, botVersion)
   }
 
   async joinBattleshipWebGame(gameId: string): Promise<void> {

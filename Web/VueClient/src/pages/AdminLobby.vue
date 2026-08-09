@@ -14,7 +14,7 @@ import {
 import { useGameStore } from 'src/store/game'
 import { currentLocale } from 'src/i18n'
 import { message } from 'src/platform/localization/messages'
-import type { AdminLobbyGuild, AdminLobbyUser } from 'src/services/signalr'
+import { signalrService, type AdminLobbyGuild, type AdminLobbyUser } from 'src/services/signalr'
 
 const store = useGameStore()
 const router = useRouter()
@@ -91,6 +91,10 @@ async function initializeLobby() {
 }
 
 onMounted(() => {
+  signalrService.onAlternativeLobbyCreated = ({ lobbyId }) => {
+    store.godReservation = false
+    void router.push(`/alternative-lobby/${lobbyId}`)
+  }
   void initializeLobby()
 })
 
@@ -101,6 +105,7 @@ watch(
 
 onUnmounted(() => {
   stopPresencePoll()
+  signalrService.onAlternativeLobbyCreated = null
 })
 
 function startPresencePoll() {
@@ -187,6 +192,16 @@ async function setCharacter(slotIndex: number, event: Event) {
   }
 }
 
+async function setMode(
+  mode: 'Normal' | 'Team' | 'Aram' | 'TeamAram',
+  teamSize = store.adminLobbyState?.teamSize ?? 2,
+) {
+  if (busyAction.value) return
+  busyAction.value = 'mode'
+  try { await store.adminLobbySetMode(mode, teamSize as 2 | 3) }
+  finally { busyAction.value = '' }
+}
+
 async function removeSlot(slotIndex: number) {
   busyAction.value = `remove:${slotIndex}`
   try {
@@ -257,6 +272,25 @@ function aiLabel(difficulty: number): string {
     </div>
 
     <template v-else>
+      <section class="mode-card">
+        <div>
+          <span>{{ message('kotgh.alternative.menu') }}</span>
+          <div class="mode-buttons">
+            <button :class="{ active: store.adminLobbyState.gameMode === 'Normal' }" :disabled="Boolean(busyAction)" @click="setMode('Normal')">Normal</button>
+            <button :class="{ active: store.adminLobbyState.gameMode === 'Aram' }" :disabled="Boolean(busyAction)" @click="setMode('Aram')">{{ message('kotgh.alternative.aram') }}</button>
+            <button :class="{ active: store.adminLobbyState.gameMode === 'Team' }" :disabled="Boolean(busyAction)" @click="setMode('Team')">{{ message('kotgh.alternative.team') }}</button>
+            <button :class="{ active: store.adminLobbyState.gameMode === 'TeamAram' }" :disabled="Boolean(busyAction)" @click="setMode('TeamAram')">{{ message('kotgh.alternative.teamAram') }}</button>
+          </div>
+        </div>
+        <div v-if="store.adminLobbyState.gameMode === 'Team' || store.adminLobbyState.gameMode === 'TeamAram'">
+          <span>{{ message('kotgh.alternative.teamFormat') }}</span>
+          <div class="mode-buttons compact">
+            <button :class="{ active: store.adminLobbyState.teamSize === 2 }" :disabled="Boolean(busyAction)" @click="setMode(store.adminLobbyState.gameMode, 2)">2v2v2</button>
+            <button :class="{ active: store.adminLobbyState.teamSize === 3 }" :disabled="Boolean(busyAction)" @click="setMode(store.adminLobbyState.gameMode, 3)">3v3</button>
+          </div>
+        </div>
+      </section>
+
       <section class="slots-grid" aria-label="Admin lobby seats">
         <article
           v-for="(slot, slotIndex) in store.adminLobbyState.slots"
@@ -316,7 +350,7 @@ function aiLabel(difficulty: number): string {
               </div>
             </div>
 
-            <label class="character-field">
+            <label v-if="store.adminLobbyState.gameMode === 'Normal'" class="character-field">
               <span>{{ t('Character', 'Персонаж') }}</span>
               <select
                 :value="slot.characterName"
@@ -339,7 +373,9 @@ function aiLabel(difficulty: number): string {
 
       <footer class="admin-footer">
         <p>
-          {{ message('kotgh.adminLobby.emptySeatsLegacyPlus') }}
+          {{ message(store.adminLobbyState.gameMode === 'Normal'
+            ? 'kotgh.adminLobby.emptySeatsLegacyPlus'
+            : 'kotgh.adminLobby.alternativeStart') }}
         </p>
         <div>
           <button class="cancel-button" :disabled="Boolean(busyAction)" @click="cancelLobby">
@@ -519,6 +555,24 @@ function aiLabel(difficulty: number): string {
   background: rgba(242, 185, 69, 0.07);
   box-shadow: 0 0 44px rgba(242, 185, 69, 0.12);
 }
+
+.mode-card {
+  display: flex;
+  max-width: 1180px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 auto 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: var(--glass-bg-heavy);
+}
+.mode-card span { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: .68rem; font-weight: 800; text-transform: uppercase; }
+.mode-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.mode-buttons button { padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-secondary); background: var(--bg-inset); }
+.mode-buttons button.active { border-color: var(--accent-gold); color: var(--bg-primary); background: var(--accent-gold); }
+.mode-buttons.compact button { min-width: 70px; }
 
 .slots-grid {
   display: grid;
@@ -985,6 +1039,11 @@ button:disabled {
 
   .slots-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mode-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .admin-footer,

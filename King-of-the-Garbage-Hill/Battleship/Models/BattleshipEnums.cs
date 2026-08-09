@@ -11,6 +11,17 @@ public enum BsGamePhase
     GameOver
 }
 
+/// <summary>
+/// Publicly selectable Battleship bot generations. V1 preserves the original bot,
+/// V2 uses honest probability tactics, and V3 adds fleet inference and adaptive play.
+/// </summary>
+public enum BattleshipBotVersion
+{
+    V1 = 1,
+    V2 = 2,
+    V3 = 3,
+}
+
 public enum RangeClass
 {
     Close,
@@ -25,6 +36,7 @@ public enum ShotType
     Ballista,       // default: 2 damage
     WhiteStone,     // 4x damage (=8), destroys module, stuns
     Buckshot,       // 0.5x damage (=1), 4-cell AoE
+    Neptune,        // 1 damage, creates Electric Charge marks and a three-point Burn triangle
     Incendiary,     // burns entire ship
     GreekFire,      // Котельная upgrade: one-shot, kills summon without penalty, creates permanent burning cell
     EvilIncendiary, // Горючая баржа upgrade: also destroys the rest of a ship when aimed at its dead deck
@@ -35,6 +47,7 @@ public enum WeaponType
 {
     Ballista,
     Tetracatapult,
+    Neptune,
     Mast,
     Boiler,
     Incendiary,

@@ -594,6 +594,9 @@ public static class JonSnow
             || player.Passives.JonSnow.WatchEnded)
             return false;
 
+        // L's fallback uses the exact sheet present at death. Capture it before this passive makes
+        // Jon alive again and before any later fight/reveal can mutate his predictions.
+        Kira.CaptureLDeathPredictionState(game, player);
         var state = player.Passives.JonSnow;
         state.WatchEnded = true;
         state.WatchDeathSource = deathSource;

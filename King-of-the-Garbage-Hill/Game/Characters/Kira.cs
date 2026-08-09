@@ -10,8 +10,30 @@ public class Kira
     public const string CharacterName = "Кира";
     public const string DeathNoteInterruptedMessageKey = "kotgh.gameplay.kira.deathNoteInterrupted";
 
+    public enum PredictionConfirmationSource
+    {
+        HumanAction,
+        StrictBot,
+    }
+
     public static bool IsKiraGuess(string characterName) =>
         string.Equals(characterName, CharacterName, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether this seat owns an ordinary prediction sheet that it can actually use. L assignment uses
+    /// this capability check instead of guessing from the character's chronology or player type.
+    /// </summary>
+    public static bool CanMakeOrdinaryPredictions(
+        GamePlayerBridgeClass player,
+        bool ordinaryPredictionsEnabled = true) =>
+        player != null
+        && !player.Passives.IsDead
+        && ordinaryPredictionsEnabled
+        && !player.GameCharacter.DoomRollMode
+        && !UnknownBug.Is(player)
+        && !Madara.IsMadara(player)
+        && player.GameCharacter.Passive.All(passive =>
+            passive.PassiveName is not ("Тетрадь смерти" or "Булькает" or "AdminPlayerType"));
 
     /// <summary>
     /// Upserts one prediction while enforcing Kira's special one-candidate rule. Submitted rows and
@@ -70,31 +92,93 @@ public class Kira
             && IsKiraGuess(prediction.CharacterName));
 
     /// <summary>
+    /// Freezes the L identity chosen by round-scoped random-target redirection before any fight in the
+    /// simultaneous batch can kill that redirect holder.
+    /// </summary>
+    public static void CaptureActiveLForRound(GameClass game)
+    {
+        lock (game)
+        {
+            foreach (var kira in game.PlayersList.Where(candidate =>
+                         candidate.Passives.KiraL.LPlayerId != Guid.Empty))
+            {
+                var state = kira.Passives.KiraL;
+                state.ActiveLPlayerId = Salldorum.ResolveRandomTargetId(
+                    game, kira, state.LPlayerId);
+                state.ActiveLRound = game.RoundNo;
+            }
+        }
+    }
+
+    public static Guid ResolveActiveLPlayerId(GameClass game, GamePlayerBridgeClass kira)
+    {
+        lock (game)
+        {
+            var state = kira.Passives.KiraL;
+            if (state.ActiveLRound == game.RoundNo && state.ActiveLPlayerId != Guid.Empty)
+                return state.ActiveLPlayerId;
+
+            return state.LPlayerId == Guid.Empty
+                ? Guid.Empty
+                : Salldorum.ResolveRandomTargetId(game, kira, state.LPlayerId);
+        }
+    }
+
+    /// <summary>
     /// Records the round-eight prediction sheet that was actually confirmed. This is deliberately
     /// separate from Status.ConfirmedPredict, which is also set by timeouts and dead-player auto-ready.
     /// </summary>
-    public static void RecordPredictionConfirmation(
+    public static bool TryFinalizePredictionConfirmation(
         GameClass game,
-        GamePlayerBridgeClass predictor)
+        GamePlayerBridgeClass predictor,
+        PredictionConfirmationSource source)
     {
-        if (game == null || predictor == null || game.RoundNo != 8 || predictor.Passives.IsDead)
-            return;
-        if (predictor.GameCharacter.DoomRollMode
-            || Madara.IsMadara(predictor)
-            || predictor.GameCharacter.Passive.Any(passive =>
-                passive.PassiveName is "Тетрадь смерти" or "Булькает"))
-            return;
+        if (game == null || predictor == null)
+            return false;
 
-        EnforceSingleKiraPrediction(predictor);
-        var predictorId = predictor.GetPlayerId();
-        foreach (var kira in game.PlayersList.Where(candidate =>
-                     candidate.Passives.KiraL.LPlayerId != Guid.Empty))
+        lock (game)
         {
-            var state = kira.Passives.KiraL;
-            if (!state.ConfirmedPredictionPlayerIds.Add(predictorId))
-                continue;
-            if (HasCorrectKiraPrediction(predictor, kira))
-                state.ConfirmedCorrectKiraGuessPlayerIds.Add(predictorId);
+            // Ownership can change when a disconnected seat is reclaimed. Validate every mutable
+            // prerequisite under the same lock that snapshots the final sheet.
+            if (game.RoundNo != 8 || predictor.Passives.IsDead)
+                return false;
+            if (game.IsAramMode
+                || predictor.GameCharacter.DoomRollMode
+                || UnknownBug.Is(predictor)
+                || Madara.IsMadara(predictor)
+                || predictor.GameCharacter.Passive.Any(passive =>
+                    passive.PassiveName is "Тетрадь смерти" or "Булькает" or "AdminPlayerType"))
+                return false;
+            if ((source == PredictionConfirmationSource.HumanAction && predictor.PlayerType == 404)
+                || (source == PredictionConfirmationSource.StrictBot && predictor.PlayerType != 404))
+                return false;
+            if (source == PredictionConfirmationSource.HumanAction
+                && (!game.IsCheckIfReady || predictor.Status.ConfirmedPredict))
+                return false;
+
+            var states = game.PlayersList
+                .Where(candidate => candidate.Passives.KiraL.LPlayerId != Guid.Empty)
+                .Select(candidate => (Kira: candidate, State: candidate.Passives.KiraL))
+                .ToList();
+            var predictorId = predictor.GetPlayerId();
+            if (source == PredictionConfirmationSource.StrictBot
+                && states.Count > 0
+                && states.All(entry =>
+                    entry.State.ConfirmedPredictionPlayerIds.Contains(predictorId)))
+                return false;
+
+            EnforceSingleKiraPrediction(predictor);
+            Homelander.RecordConfirmedPrediction(game, predictor);
+            foreach (var entry in states)
+            {
+                if (!entry.State.ConfirmedPredictionPlayerIds.Add(predictorId))
+                    continue;
+                if (HasCorrectKiraPrediction(predictor, entry.Kira))
+                    entry.State.ConfirmedCorrectKiraGuessPlayerIds.Add(predictorId);
+            }
+
+            predictor.Status.ConfirmedPredict = true;
+            return true;
         }
     }
 
@@ -105,12 +189,15 @@ public class Kira
         if (game == null || predictor == null)
             return;
 
-        var predictorId = predictor.GetPlayerId();
-        foreach (var kira in game.PlayersList.Where(candidate =>
-                     candidate.Passives.KiraL.LPlayerId != Guid.Empty))
+        lock (game)
         {
-            kira.Passives.KiraL.ConfirmedPredictionPlayerIds.Remove(predictorId);
-            kira.Passives.KiraL.ConfirmedCorrectKiraGuessPlayerIds.Remove(predictorId);
+            var predictorId = predictor.GetPlayerId();
+            foreach (var kira in game.PlayersList.Where(candidate =>
+                         candidate.Passives.KiraL.LPlayerId != Guid.Empty))
+            {
+                kira.Passives.KiraL.ConfirmedPredictionPlayerIds.Remove(predictorId);
+                kira.Passives.KiraL.ConfirmedCorrectKiraGuessPlayerIds.Remove(predictorId);
+            }
         }
     }
 
@@ -120,26 +207,45 @@ public class Kira
     /// </summary>
     public static void CaptureLDeathPredictionStates(GameClass game)
     {
+        lock (game)
+        {
+            foreach (var lPlayer in game.PlayersList.Where(candidate =>
+                         candidate.Passives.IsDead
+                         || (candidate.Passives.JonSnow.WatchEnded
+                             && candidate.Passives.JonSnow.WatchDeathRound == game.RoundNo)))
+                CaptureLDeathPredictionStateUnsafe(game, lPlayer);
+        }
+    }
+
+    public static void CaptureLDeathPredictionState(
+        GameClass game,
+        GamePlayerBridgeClass lPlayer)
+    {
+        if (game == null || lPlayer == null)
+            return;
+
+        lock (game)
+            CaptureLDeathPredictionStateUnsafe(game, lPlayer);
+    }
+
+    private static void CaptureLDeathPredictionStateUnsafe(
+        GameClass game,
+        GamePlayerBridgeClass lPlayer)
+    {
+        var lPlayerId = lPlayer.GetPlayerId();
         foreach (var kira in game.PlayersList.Where(candidate =>
-                     candidate.Passives.KiraL.LPlayerId != Guid.Empty))
+                     candidate.Passives.KiraL.LPlayerId == lPlayerId))
         {
             var state = kira.Passives.KiraL;
-            if (state.LDeathObserved || state.LPlayerId == Guid.Empty)
-                continue;
-
-            var lPlayer = game.PlayersList.Find(candidate => candidate.GetPlayerId() == state.LPlayerId);
-            var jonDeathThisRound = lPlayer != null
-                                    && lPlayer.Passives.JonSnow.WatchEnded
-                                    && lPlayer.Passives.JonSnow.WatchDeathRound == game.RoundNo;
-            if (lPlayer == null || (!lPlayer.Passives.IsDead && !jonDeathThisRound))
+            if (state.LDeathObserved)
                 continue;
 
             state.LDeathObserved = true;
             state.LPredictedKiraAtDeath = HasCorrectKiraPrediction(lPlayer, kira);
             state.LConfirmedPredictionsAtDeath =
-                state.ConfirmedPredictionPlayerIds.Contains(lPlayer.GetPlayerId());
+                state.ConfirmedPredictionPlayerIds.Contains(lPlayerId);
             state.LConfirmedCorrectKiraAtDeath =
-                state.ConfirmedCorrectKiraGuessPlayerIds.Contains(lPlayer.GetPlayerId());
+                state.ConfirmedCorrectKiraGuessPlayerIds.Contains(lPlayerId);
         }
     }
 
@@ -149,46 +255,49 @@ public class Kira
     /// </summary>
     public static bool IsArrestQualified(GameClass game, GamePlayerBridgeClass kira)
     {
-        var state = kira.Passives.KiraL;
-        if (state.ArrestQualificationResolved)
-            return state.ArrestQualified;
-        if (game.RoundNo < 9)
-            return false;
-
-        state.ArrestQualificationResolved = true;
-        if (state.LPlayerId == Guid.Empty)
-            return false;
-
-        var lPlayer = game.PlayersList.Find(candidate => candidate.GetPlayerId() == state.LPlayerId);
-        if (lPlayer == null)
-            return false;
-
-        if (!state.LDeathObserved)
+        lock (game)
         {
-            state.ArrestQualified =
-                state.ConfirmedCorrectKiraGuessPlayerIds.Contains(lPlayer.GetPlayerId());
+            var state = kira.Passives.KiraL;
+            if (state.ArrestQualificationResolved)
+                return state.ArrestQualified;
+            if (game.RoundNo < 9)
+                return false;
+
+            state.ArrestQualificationResolved = true;
+            if (state.LPlayerId == Guid.Empty)
+                return false;
+
+            var lPlayer = game.PlayersList.Find(candidate => candidate.GetPlayerId() == state.LPlayerId);
+            if (lPlayer == null)
+                return false;
+
+            if (!state.LDeathObserved)
+            {
+                state.ArrestQualified =
+                    state.ConfirmedCorrectKiraGuessPlayerIds.Contains(lPlayer.GetPlayerId());
+                return state.ArrestQualified;
+            }
+
+            if (state.LConfirmedPredictionsAtDeath)
+            {
+                state.ArrestQualified = state.LConfirmedCorrectKiraAtDeath;
+                return state.ArrestQualified;
+            }
+
+            if (!state.LPredictedKiraAtDeath)
+                return false;
+
+            var survivingInvestigators = game.PlayersList.Where(candidate =>
+                    candidate.GetPlayerId() != kira.GetPlayerId()
+                    && candidate.GetPlayerId() != state.LPlayerId
+                    && !candidate.Passives.IsDead)
+                .ToList();
+            state.ArrestQualified = survivingInvestigators.Count > 0
+                                    && survivingInvestigators.All(candidate =>
+                                        state.ConfirmedCorrectKiraGuessPlayerIds.Contains(
+                                            candidate.GetPlayerId()));
             return state.ArrestQualified;
         }
-
-        if (state.LConfirmedPredictionsAtDeath)
-        {
-            state.ArrestQualified = state.LConfirmedCorrectKiraAtDeath;
-            return state.ArrestQualified;
-        }
-
-        if (!state.LPredictedKiraAtDeath)
-            return false;
-
-        var survivingInvestigators = game.PlayersList.Where(candidate =>
-                candidate.GetPlayerId() != kira.GetPlayerId()
-                && candidate.GetPlayerId() != state.LPlayerId
-                && !candidate.Passives.IsDead)
-            .ToList();
-        state.ArrestQualified = survivingInvestigators.Count > 0
-                                && survivingInvestigators.All(candidate =>
-                                    state.ConfirmedCorrectKiraGuessPlayerIds.Contains(
-                                        candidate.GetPlayerId()));
-        return state.ArrestQualified;
     }
 
     public static bool IsCurrentDeathNoteEntryInterrupted(
@@ -203,7 +312,7 @@ public class Kira
         if (lState.LPlayerId == Guid.Empty)
             return false;
 
-        var activeL = Salldorum.ResolveRandomTargetId(game, kira, lState.LPlayerId);
+        var activeL = ResolveActiveLPlayerId(game, kira);
         return kira.Status.WhoToLostEveryRound.Any(result =>
             result.RoundNo == game.RoundNo && result.EnemyId == activeL);
     }
@@ -236,9 +345,12 @@ public class Kira
     public class LClass
     {
         public Guid LPlayerId { get; set; } = Guid.Empty;
+        public int IdentityRevealSerial { get; set; }
         public bool IsArrested { get; set; } = false;
         public HashSet<Guid> ConfirmedPredictionPlayerIds { get; set; } = new();
         public HashSet<Guid> ConfirmedCorrectKiraGuessPlayerIds { get; set; } = new();
+        public Guid ActiveLPlayerId { get; set; } = Guid.Empty;
+        public int ActiveLRound { get; set; } = -1;
         public bool LDeathObserved { get; set; }
         public bool LPredictedKiraAtDeath { get; set; }
         public bool LConfirmedPredictionsAtDeath { get; set; }

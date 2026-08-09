@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type { Player, Prediction, CharacterInfo, FightEntry, DeathNote } from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
 import ScoreOdometer from 'src/components/ScoreOdometer.vue'
-import { localizedText } from 'src/platform/localization'
+import { localizedText, message } from 'src/platform/localization'
 
 const props = defineProps<{
   players: Player[]
@@ -42,12 +42,13 @@ const sorted = computed(() =>
     .sort((a, b) => a.status.place - b.status.place),
 )
 
-// Kira doesn't predict, Булькает can't predict at all. Hide after confirmed (round 8+) or when no character names.
+// Kira doesn't predict, Булькает can't predict at all. Round 8 locks on Confirm; round 9 locks absolutely.
 const canPredict = computed(() => {
   if (props.isKira) return false
   if (props.hasBulkaet) return false
   if (!props.characterNames || props.characterNames.length === 0) return false
-  if ((props.roundNo ?? 0) >= 8 && props.confirmedPredict) return false
+  if ((props.roundNo ?? 0) >= 9) return false
+  if ((props.roundNo ?? 0) === 8 && props.confirmedPredict) return false
   return true
 })
 
@@ -423,6 +424,11 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
               class="homelander-identity-revealer"
               title="Скромность: этот игрок разоблачил Homelander"
             >👁️</span>
+            <span
+              v-if="player.homelanderEasyTarget"
+              class="homelander-identity-revealer homelander-easy-target"
+              :title="message('kotgh.gameplay.homelander.modestyEasyTarget')"
+            >🎯</span>
             <span
               v-if="player.omniManIdiot"
               class="omni-man-idiot"

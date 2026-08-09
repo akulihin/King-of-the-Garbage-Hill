@@ -28,6 +28,7 @@ const shotTypeToIconKey: Record<string, string> = {
   Ballista: 'ballista',
   WhiteStone: 'whiteStone',
   Buckshot: 'buckshot',
+  Neptune: 'electricCharge',
   Incendiary: 'incendiary',
   EvilIncendiary: 'incendiary',
   GreekFire: 'greekFire',
@@ -39,6 +40,7 @@ function weaponTooltip(shotType: string): string {
     case 'Ballista': return 'Баллиста — урон 2, безлимитно'
     case 'WhiteStone': return 'Белый камень — урон 8, оглушает (2 выстрела), разрушает модуль палубы'
     case 'Buckshot': return 'Дробь — урон 1, область 2x2 клетки'
+    case 'Neptune': return message('battleship.weapon.neptune.tooltip')
     case 'Incendiary': return 'Горючка — сжигает весь корабль, можно по подбитым клеткам'
     case 'EvilIncendiary': return 'Злая горючка — взрывает весь корабль при попадании в уже уничтоженную палубу'
     case 'GreekFire': return 'Греческий огонь — стреляет только по своей доске и оставляет перманентный огонь'

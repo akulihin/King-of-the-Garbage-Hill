@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
 
-export type BattleshipProjectileKind = 'arrow' | 'stone' | 'buckshot' | 'fire'
+export type BattleshipProjectileKind = 'arrow' | 'stone' | 'buckshot' | 'fire' | 'electric'
 
 type ProjectileView = {
   id: number
@@ -144,6 +144,26 @@ defineExpose({ fire })
   border-radius: 58% 42% 60% 40%;
   background: radial-gradient(circle at 35% 35%, #fff8a6, #ff9f2f 42%, #d62d20 76%, transparent 78%);
   box-shadow: 0 0 12px rgba(255, 111, 32, .85);
+}
+
+.projectile--electric {
+  width: 26px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #99f6e4 22% 78%, transparent);
+  box-shadow: 0 0 7px #2dd4bf, 0 0 15px rgba(34, 211, 238, 0.85);
+}
+.projectile--electric::before,
+.projectile--electric::after {
+  content: '';
+  position: absolute;
+  inset: 2px -4px;
+  border-top: 2px solid #67e8f9;
+  transform: skewX(-28deg) rotate(7deg);
+}
+.projectile--electric::after {
+  transform: skewX(28deg) rotate(-8deg);
+  opacity: 0.72;
 }
 
 .projectile--buckshot {

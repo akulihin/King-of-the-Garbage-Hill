@@ -59,6 +59,9 @@ public class WebGameService
     private AdminLobbyService AdminLobbies =>
         _serviceProvider.GetService<AdminLobbyService>();
 
+    private AlternativeModeLobbyService AlternativeLobbies =>
+        _serviceProvider.GetService<AlternativeModeLobbyService>();
+
     private BlackjackService Blackjack =>
         _serviceProvider.GetRequiredService<BlackjackService>();
 
@@ -111,16 +114,16 @@ public class WebGameService
 
         seat.Status.ConfirmedPredict =
             game.RoundNo != 8
-            || game.GameMode == "Aram"
+            || game.IsAramMode
             || seat.Passives.IsDead
             || Madara.IsMadara(seat)
             || UnknownBug.Is(seat)
             || seat.GameCharacter.DoomRollMode
             || seat.GameCharacter.Passive.Any(passive =>
-                passive.PassiveName is "Тетрадь смерти" or "Булькает");
+                passive.PassiveName is "Тетрадь смерти" or "Булькает" or "AdminPlayerType");
     }
 
-    public LobbyStateDto GetLobbyState()
+    public LobbyStateDto GetLobbyState(ulong viewerId = 0)
     {
         AdminLobbies?.SweepExpiredLobbies();
 
@@ -146,6 +149,10 @@ public class WebGameService
                           && !game.IsFinished,
             });
         }
+
+        if (AlternativeLobbies != null)
+            dto.Games.AddRange(AlternativeLobbies.GetDirectoryEntries(viewerId));
+        dto.ActiveGames = dto.Games.Count;
 
         return dto;
     }
@@ -1113,6 +1120,9 @@ public class WebGameService
                 ? (true, (string)null)
                 : (false, "Halflife 3 cannot be announced right now"));
 
+        if (ErenYeager.TryRejectRestingBlock(player))
+            return Task.FromResult((false, ErenYeager.AttackTitanRestRequiredText()));
+
         if (!Naruto.CanChooseBlock(player))
             return Task.FromResult((false, "Naruto clones cannot block"));
 
@@ -1274,16 +1284,22 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (player.Passives.IsDead)
-            return Task.FromResult((false, "Dead players cannot confirm predictions"));
-        if (game.RoundNo != 8)
-            return Task.FromResult((false, "Predictions can only be confirmed on round 8"));
-        if (player.Status.ConfirmedPredict)
-            return Task.FromResult((false, "Already confirmed"));
+        lock (game)
+        {
+            if (!game.IsCheckIfReady)
+                return Task.FromResult((false, "Already confirmed"));
+            if (player.Passives.IsDead)
+                return Task.FromResult((false, "Dead players cannot confirm predictions"));
+            if (game.RoundNo != 8)
+                return Task.FromResult((false, "Predictions can only be confirmed on round 8"));
+            if (player.Status.ConfirmedPredict)
+                return Task.FromResult((false, "Already confirmed"));
+            if (!Kira.TryFinalizePredictionConfirmation(
+                    game, player, Kira.PredictionConfirmationSource.HumanAction))
+                return Task.FromResult((false, "Already confirmed"));
 
-        player.Status.ConfirmedPredict = true;
-        Kira.RecordPredictionConfirmation(game, player);
-        return Task.FromResult((true, (string)null));
+            return Task.FromResult((true, (string)null));
+        }
     }
 
     public async Task<(bool success, string error)> LevelUp(ulong gameId, ulong discordId, int statIndex)
@@ -1414,11 +1430,15 @@ public class WebGameService
         // Death by pitchforks
         if (demand.Displeasure >= 11)
         {
-            player.Passives.IsDead = true;
-            player.Passives.DeathSource = "Pitchforks";
-            player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
-            game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
-            player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+            lock (game)
+            {
+                Kira.CaptureLDeathPredictionState(game, player);
+                player.Passives.IsDead = true;
+                player.Passives.DeathSource = "Pitchforks";
+                player.Status.AddBonusPointsIgnoringFloor(-500, "Вилы разъяренной толпы");
+                game.AddGlobalLogs($"Жители деревни подняли {player.DiscordUsername} на вилы за жадность! Ведьмак мёртв.");
+                player.Status.AddInGamePersonalLogs("Чеканная монета: Толпа с вилами! Вы мертвы. -500 очков.\n");
+            }
         }
 
         return (true, null);
@@ -1429,10 +1449,6 @@ public class WebGameService
         var (game, player) = FindGameAndPlayer(gameId, discordId);
         if (game == null) return Task.FromResult((false, "Game not found"));
         if (player == null) return Task.FromResult((false, "Player not in this game"));
-        if (player.Passives.IsDead)
-            return Task.FromResult((false, "Dead players cannot change predictions"));
-        if (game.RoundNo >= 9 || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
-            return Task.FromResult((false, "Predictions are already confirmed"));
         if (Madara.IsMadara(player))
             return Task.FromResult((false, "У Мадары нет предположений"));
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает"))
@@ -1443,14 +1459,23 @@ public class WebGameService
             return Task.FromResult((false, "Character is not available for predictions"));
         if (!HasUnlockedCharacter(discordId, characterName)) return Task.FromResult((false, "Character is not unlocked for predictions"));
 
-        var target = game.PlayersList.Find(p => p.GetPlayerId() == targetPlayerId);
-        if (target == null) return Task.FromResult((false, "Target player not found"));
-        if (Sakura.Is(target))
-            return Task.FromResult((false, "Target is not available for predictions"));
+        lock (game)
+        {
+            if (!game.IsCheckIfReady)
+                return Task.FromResult((false, "Predictions are already confirmed"));
+            if (player.Passives.IsDead)
+                return Task.FromResult((false, "Dead players cannot change predictions"));
+            if (game.RoundNo >= 9 || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
+                return Task.FromResult((false, "Predictions are already confirmed"));
 
-        Kira.SetPrediction(player, targetPlayerId, characterName);
+            var target = game.PlayersList.Find(candidate => candidate.GetPlayerId() == targetPlayerId);
+            if (target == null) return Task.FromResult((false, "Target player not found"));
+            if (Sakura.Is(target))
+                return Task.FromResult((false, "Target is not available for predictions"));
 
-        return Task.FromResult((true, (string)null));
+            Kira.SetPrediction(player, targetPlayerId, characterName);
+            return Task.FromResult((true, (string)null));
+        }
     }
 
     public Task<(bool success, string error)> AramReroll(ulong gameId, ulong discordId, int slot)

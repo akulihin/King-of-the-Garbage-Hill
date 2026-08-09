@@ -32,7 +32,7 @@ public static class Homelander
     // or transforms, and must stay out of the ARAM passive pool. It is gated on Is() alone.
     public const string StanEdgar = "Stan Edgar";
     public const int StanEdgarScoreThreshold = 70;
-    public const int StanEdgarPenalty = 33;
+    public const int StanEdgarPenalty = 25;
 
     public const string StanEdgarAvatar = "https://r2.ozvmusic.com/kotgh/art/avatars/stan_edgar.png";
 
@@ -53,11 +53,14 @@ public static class Homelander
     {
         public Dictionary<Guid, RageMark> RageByPlayer { get; set; } = new();
         public List<Guid> RevealedByPlayers { get; set; } = new();
+        public List<Guid> ModestyActivePlayerIds { get; set; } = new();
+        public List<Guid> ConfirmedHomelanderGuessPlayerIds { get; set; } = new();
         public bool EveryoneGuessed { get; set; }
         public Guid LaserTargetThisFight { get; set; } = Guid.Empty;
         public bool MilkTriggered { get; set; }
         public bool StanEdgarResolved { get; set; }
         public bool SevenPointsHaveBeenFrozen { get; set; }
+        public bool SevenPointsExpired { get; set; }
         public int LastRighteousnessRound { get; set; }
         public bool WasLeaderAtRighteousnessStart { get; set; }
         public int LastResolvedWinRound { get; set; }
@@ -162,6 +165,7 @@ public static class Homelander
 
         var shouldBeActive = HasPassive(homelander, Righteousness)
                              && !homelander.Passives.IsDead
+                             && !homelander.Passives.Homelander.SevenPointsExpired
                              && players.FirstOrDefault()?.GetPlayerId() == homelander.GetPlayerId();
         if (homelander.Status.HomelanderSevenPointsActive == shouldBeActive)
             return false;
@@ -177,6 +181,17 @@ public static class Homelander
             homelander.Status.AddInGamePersonalLogs(
                 $"{Righteousness}: Сильная личность!\n");
         return true;
+    }
+
+    public static void ExpireSevenPointsAfterTurnTen(GameClass game)
+    {
+        var homelander = Find(game);
+        if (homelander == null) return;
+
+        var state = homelander.Passives.Homelander;
+        state.SevenPointsExpired = true;
+        state.SevenPointsHaveBeenFrozen = true;
+        homelander.Status.HomelanderSevenPointsActive = false;
     }
 
     public static void OnPassivesDisabled(GamePlayerBridgeClass homelander)
@@ -365,12 +380,61 @@ public static class Homelander
             return;
 
         var state = revealed.Passives.Homelander;
-        if (state.RevealedByPlayers.Contains(revealer.GetPlayerId())) return;
-        state.RevealedByPlayers.Add(revealer.GetPlayerId());
+        var revealerId = revealer.GetPlayerId();
+        if (!state.ModestyActivePlayerIds.Contains(revealerId))
+            state.ModestyActivePlayerIds.Add(revealerId);
+        if (state.RevealedByPlayers.Contains(revealerId)) return;
+        state.RevealedByPlayers.Add(revealerId);
 
         var phrase = Take(RevealPhrases, state.RevealPhrasePool)
             .Replace("(ник врага)", $"**{revealer.DiscordUsername}**");
         revealed.Status.AddInGamePersonalLogs($"{Modesty}: {phrase}\n");
+    }
+
+    public static void RecordConfirmedPrediction(
+        GameClass game,
+        GamePlayerBridgeClass predictor)
+    {
+        var homelander = Find(game);
+        if (!HasPassive(homelander, Modesty)
+            || predictor == null
+            || predictor.GetPlayerId() == homelander.GetPlayerId()
+            || homelander.IsTeamMember(game, predictor.GetPlayerId())
+            || predictor.Predict.All(prediction =>
+                prediction.PlayerId != homelander.GetPlayerId()
+                || prediction.CharacterName != CharacterName))
+            return;
+
+        var state = homelander.Passives.Homelander;
+        var predictorId = predictor.GetPlayerId();
+        if (!state.ModestyActivePlayerIds.Contains(predictorId))
+            state.ModestyActivePlayerIds.Add(predictorId);
+        if (!state.ConfirmedHomelanderGuessPlayerIds.Contains(predictorId))
+            state.ConfirmedHomelanderGuessPlayerIds.Add(predictorId);
+
+        TryReleaseModestyCounter(game, homelander);
+    }
+
+    private static void TryReleaseModestyCounter(
+        GameClass game,
+        GamePlayerBridgeClass homelander)
+    {
+        var state = homelander.Passives.Homelander;
+        if (state.EveryoneGuessed) return;
+
+        var enemyIds = game.PlayersList
+            .Where(player => player.GetPlayerId() != homelander.GetPlayerId()
+                             && !homelander.IsTeamMember(game, player.GetPlayerId()))
+            .Select(player => player.GetPlayerId())
+            .ToList();
+        if (enemyIds.Count == 0
+            || enemyIds.Any(enemyId =>
+                !state.ConfirmedHomelanderGuessPlayerIds.Contains(enemyId)))
+            return;
+
+        state.EveryoneGuessed = true;
+        homelander.Status.AddInGamePersonalLogs(
+            $"{Modesty}: Все разузнали вашу личность. Патриот: \"Раз вы все такие умные... Тогда мне больше не нужно притворяться. Сперва я уничтожу белый дом... потом армейские базы... потом...\"\"\n");
     }
 
     public static void SuppressJustice(
@@ -380,31 +444,10 @@ public static class Homelander
         if (!HasPassive(homelander, Modesty)
             || enemy == null
             || homelander.Passives.Homelander.EveryoneGuessed
-            || !homelander.Passives.Homelander.RevealedByPlayers.Contains(enemy.GetPlayerId()))
+            || !homelander.Passives.Homelander.ModestyActivePlayerIds.Contains(enemy.GetPlayerId()))
             return;
 
         homelander.FightCharacter.Justice.SetJusticeForOneFight(0, Modesty);
-    }
-
-    public static void EvaluatePredictions(GameClass game)
-    {
-        var homelander = Find(game);
-        if (!HasPassive(homelander, Modesty)
-            || homelander.Passives.Homelander.EveryoneGuessed)
-            return;
-
-        var enemies = game.PlayersList
-            .Where(player => player.GetPlayerId() != homelander.GetPlayerId())
-            .ToList();
-        if (enemies.Count != 5
-            || enemies.Any(enemy => enemy.Predict.All(prediction =>
-                prediction.PlayerId != homelander.GetPlayerId()
-                || prediction.CharacterName != CharacterName)))
-            return;
-
-        homelander.Passives.Homelander.EveryoneGuessed = true;
-        homelander.Status.AddInGamePersonalLogs(
-            $"{Modesty}: Все разузнали вашу личность. Патриот: \"Раз вы все такие умные... Тогда мне больше не нужно притворяться. Сперва я уничтожу белый дом... потом армейские базы... потом...\"\"\n");
     }
 
     public static void TryMilk(
@@ -541,6 +584,23 @@ public static class Homelander
         Guid enemyId) =>
         HasPassive(homelander, Modesty)
         && homelander.Passives.Homelander.RevealedByPlayers.Contains(enemyId);
+
+    public static bool IsEasyTargetFor(
+        GameClass game,
+        GamePlayerBridgeClass viewer,
+        GamePlayerBridgeClass target)
+    {
+        if (game == null
+            || !HasPassive(target, Modesty)
+            || viewer == null
+            || viewer.GetPlayerId() == target.GetPlayerId()
+            || viewer.IsTeamMember(game, target.GetPlayerId()))
+            return false;
+
+        var state = target.Passives.Homelander;
+        return !state.EveryoneGuessed
+               && state.ModestyActivePlayerIds.Contains(viewer.GetPlayerId());
+    }
 
     private static string Take(
         IReadOnlyList<string> phrases,

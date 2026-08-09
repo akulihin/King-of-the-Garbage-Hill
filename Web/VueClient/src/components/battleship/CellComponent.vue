@@ -171,6 +171,7 @@ const colLabels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
 const deckSymbolNames: Record<string, string> = {
   ballista: 'Баллиста',
   catapult: 'Тетракамнемёт',
+  electricCharge: message('battleship.weapon.neptune.name'),
   mast: 'Мачта',
   boiler: 'Котельная',
   incendiary: 'Горючка',
@@ -179,6 +180,9 @@ const deckSymbolNames: Record<string, string> = {
 
 const deckSymbolHtml = computed(() => (props.deckSymbols ?? [])
   .map(symbol => ({ symbol, html: renderIcon(symbol, 10) })))
+const electricChargeHtml = computed(() => props.cell?.hasElectricCharge
+  ? renderIcon('electricCharge', 16)
+  : '')
 const bowHtml = computed(() => props.bowDirection ? renderIcon('bow', 10) : '')
 const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map((marker, index) => ({
   marker,
@@ -248,6 +252,7 @@ const cellTooltip = computed(() => {
   addState(props.cell.isCaptured, 'Захвачено')
   addState(props.cell.isDodgeMarked, 'Уклонение')
   addState(props.cell.isManeuverDodgeMarked, 'Манёвренное уклонение')
+  addState(props.cell.hasElectricCharge, message('battleship.status.electricCharge'))
   if (props.cell.isGrabCell || props.rangeOverlay === 'grab')
     extras.push(message('battleship.grab.tooltip'))
   for (const marker of props.cell.summonTrails ?? [])
@@ -279,6 +284,11 @@ const cellTooltip = computed(() => {
       class="cell-icon"
       :class="{ 'cell-icon--boarding': cell?.isBoardingSummon }"
       v-html="cellIconHtml"
+    ></span>
+    <span
+      v-if="electricChargeHtml"
+      class="electric-charge"
+      v-html="electricChargeHtml"
     ></span>
     <span v-if="bowHtml" class="deck-bow" :class="'deck-bow--' + bowDirection" v-html="bowHtml"></span>
     <span v-if="deckSymbolHtml.length" class="deck-symbols">
@@ -317,6 +327,30 @@ const cellTooltip = computed(() => {
   transition: all 0.15s;
   position: relative;
   user-select: none;
+}
+
+.electric-charge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 12;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 3px rgba(45, 212, 191, 0.95))
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.9));
+  animation: electric-charge-pulse 1.2s ease-in-out infinite alternate;
+}
+.electric-charge :deep(img) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+@keyframes electric-charge-pulse {
+  from { transform: scale(0.9); opacity: 0.82; }
+  to { transform: scale(1.08); opacity: 1; }
 }
 
 /* -- Base states -------------------------------------------------- */

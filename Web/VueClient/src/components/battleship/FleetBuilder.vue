@@ -171,6 +171,8 @@ function upgradeDescription(upgrade: { name: string; description: string | null;
 }
 
 function catalogDescription(definition: BattleshipShipCatalogEntry): string {
+  if (definition.descriptionKey)
+    return message(definition.descriptionKey)
   if (definition.abilities.includes('matryoshka_stage_4'))
     return message('battleship.ability.matryoshka.description')
   return definition.description ?? ''

@@ -511,13 +511,16 @@ public class StartGameLogic : IServiceSingleton
         allCharacters.RemoveAll(character => UnknownBug.Is(character.Name));
         allCharacters.RemoveAll(character => Cthulhu.Is(character.Name));
 
-        // Remove team-mode-only characters for non-team games
-        allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
+        // Team-only characters belong in team drafts, but never in a free-for-all draft.
+        if (!isTeamMode)
+            allCharacters = allCharacters.Where(x => !x.TeamModeOnly).ToList();
 
         // Draft alternatives are rolled for humans, so two strict bot slots are
         // sufficient. Naruto is never a natural team-mode option.
         if (strictBotCount < 2 || isTeamMode)
             allCharacters.RemoveAll(x => x.Name == Naruto.CharacterName);
+        if (isTeamMode)
+            allCharacters.RemoveAll(x => x.Name == "HardKitty");
 
         // Remove already-assigned characters
         foreach (var excluded in excludedCharacters)

@@ -420,6 +420,14 @@ public static class GameStateMapper
                 game?.IsFinished ?? false,
                 forceProVisibility),
         };
+        if (isMe && game != null)
+        {
+            dto.LRevealSerial = game.PlayersList
+                .Where(candidate => candidate.Passives.KiraL.LPlayerId == player.GetPlayerId())
+                .Select(candidate => candidate.Passives.KiraL.IdentityRevealSerial)
+                .DefaultIfEmpty(0)
+                .Max();
+        }
         if (viewerIsHomelander
             && requestingPlayer != null
             && !isMe
@@ -431,6 +439,9 @@ public static class GameStateMapper
             dto.HomelanderIdentityRevealer =
                 Homelander.WasRevealedBy(requestingPlayer, player.GetPlayerId());
         }
+        if (requestingPlayer != null)
+            dto.HomelanderEasyTarget =
+                Homelander.IsEasyTargetFor(game, requestingPlayer, player);
         if (viewerIsOmniMan
             && requestingPlayer != null
             && !isMe
@@ -739,6 +750,7 @@ public static class GameStateMapper
                                 Losses = eren.Losses,
                                 AttackTitanActive = eren.AttackTitanActiveThisRound,
                                 AttackTitanCooldown = eren.AttackTitanCooldown,
+                                BlockUnavailableThisTurn = eren.BlockUnavailableThisTurn,
                                 AttackTitanSoundSerial = eren.AttackTitanSoundSerial,
                                 TatakeSoundSerial = eren.TatakeSoundSerial,
                                 RumblingTriggered = eren.RumblingTriggered,

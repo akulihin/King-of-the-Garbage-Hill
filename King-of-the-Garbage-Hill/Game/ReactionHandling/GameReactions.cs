@@ -378,11 +378,22 @@ public sealed class GameReaction : IServiceSingleton
                         break;
 
                     case "confirm-prefict":
-                        if (game == null || game.RoundNo != 8 || player.Passives.IsDead
-                                         || player.Status.ConfirmedPredict)
+                        if (game == null)
                             break;
-                        player.Status.ConfirmedPredict = true;
-                        Kira.RecordPredictionConfirmation(game, player);
+                        bool predictionsFinalized;
+                        lock (game)
+                        {
+                            predictionsFinalized = game.IsCheckIfReady
+                                                   && game.RoundNo == 8
+                                                   && !player.Passives.IsDead
+                                                   && !player.Status.ConfirmedPredict
+                                                   && Kira.TryFinalizePredictionConfirmation(
+                                                       game,
+                                                       player,
+                                                       Kira.PredictionConfirmationSource.HumanAction);
+                        }
+                        if (!predictionsFinalized)
+                            break;
                         embed = _upd.FightPage(player);
                         components = await _upd.GetGameButtons(player, game);
                         await _help.ModifyGameMessage(player, embed, components);
@@ -410,6 +421,14 @@ public sealed class GameReaction : IServiceSingleton
                         {
                             if (GordonFreeman.AnnounceHalfLife3(player, game))
                                 await _upd.UpdateMessage(player);
+                            break;
+                        }
+
+                        if (ErenYeager.TryRejectRestingBlock(player))
+                        {
+                            await _help.SendMsgAndDeleteItAfterRound(
+                                player, ErenYeager.AttackTitanRestRequiredText(), 0);
+                            await _upd.UpdateMessage(player);
                             break;
                         }
 
@@ -736,7 +755,7 @@ public sealed class GameReaction : IServiceSingleton
         var account = _accounts.GetAccount(player.DiscordId);
         if (account == null) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
-        if (game == null || player.Passives.IsDead
+        if (game == null || !game.IsCheckIfReady || player.Passives.IsDead
                          || game.RoundNo >= 9
                          || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
             return;
@@ -772,7 +791,8 @@ public sealed class GameReaction : IServiceSingleton
         if (player.GameCharacter.Passive.Any(x => x.PassiveName == "Булькает")) return;
         var game = _global.GamesList.Find(x => x.GameId == player.GameId);
         if (game == null) return;
-        if (player.Passives.IsDead
+        if (!game.IsCheckIfReady
+            || player.Passives.IsDead
             || game.RoundNo >= 9
             || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
             return;
@@ -800,7 +820,15 @@ public sealed class GameReaction : IServiceSingleton
         if (Sakura.Is(predictedPlayer)) return;
         var predictedPlayerId = predictedPlayer.GetPlayerId();
 
-        Kira.SetPrediction(player, predictedPlayerId, predictedCharacterName);
+        lock (game)
+        {
+            if (!game.IsCheckIfReady
+                || player.Passives.IsDead
+                || game.RoundNo >= 9
+                || (game.RoundNo == 8 && player.Status.ConfirmedPredict))
+                return;
+            Kira.SetPrediction(player, predictedPlayerId, predictedCharacterName);
+        }
 
 
         embed = _upd.FightPage(player);
@@ -846,6 +874,11 @@ public sealed class GameReaction : IServiceSingleton
 
                 return await AttackInsteadOfBlock(player, game, fallbackToSkip: true);
             }
+
+            // A resting Attack Titan cannot degrade into an ordinary Block. Automated turns retry
+            // through the authoritative attack handler and use Skip only when no legal target exists.
+            if (ErenYeager.TryRejectRestingBlock(player))
+                return await AttackInsteadOfBlock(player, game, fallbackToSkip: true);
 
             // Теневые clones have no Block action. This is the authoritative bot fallback in case
             // any AI policy or empty-target path still asks for Block.

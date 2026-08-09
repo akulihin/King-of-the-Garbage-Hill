@@ -327,6 +327,7 @@ export const ICONS: Record<string, string> = {
 // remaining UI/state icons as inline SVGs so only designer-owned artwork is
 // replaced here.
 const GDD_ICON_PATHS: Record<string, string> = {
+  electricCharge: '/battleship/electric-charge.png',
   whiteStone: '/battleship/icons/white-stone.png',
   buckshot: '/battleship/icons/buckshot.png',
   incendiary: '/battleship/icons/incendiary.png',

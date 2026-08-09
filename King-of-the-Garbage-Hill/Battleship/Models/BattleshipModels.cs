@@ -10,12 +10,30 @@ public class BattleshipGame
     public BsGamePhase Phase { get; set; } = BsGamePhase.Lobby;
     public BattleshipPlayer Player1 { get; set; }
     public BattleshipPlayer Player2 { get; set; }
+    /// <summary>True for an intentionally closed human-versus-bot match.</summary>
+    public bool VsBot { get; set; }
+    /// <summary>Whether the second seat may be claimed by a human while the game is in Lobby.</summary>
+    public bool CanJoinPlayer2 { get; set; } = true;
+    /// <summary>Stable bot generation selected when the match was created.</summary>
+    public BattleshipBotVersion ConfiguredBotVersion { get; set; } = BattleshipBotVersion.V1;
+    /// <summary>
+    /// Compatibility marker for matches created through the original parameterless hub method:
+    /// their bot is only a replaceable Lobby placeholder, not a closed bot opponent.
+    /// </summary>
+    public bool UsesLegacyBotPlaceholder { get; set; }
     public string CurrentTurnPlayerId { get; set; }
     public int TurnNumber { get; set; }
     public bool IsFinished { get; set; }
     public string WinnerId { get; set; }
     public List<LogEntry> GameLog { get; set; } = new();
     public int ShotCount { get; set; } // Global shot counter (both players)
+    /// <summary>
+    /// Global-shot cursor for the last V2/V3 out-of-turn response window consumed by the bot.
+    /// A separate pending cursor is armed only when a resolved human shot preserves that human's turn.
+    /// </summary>
+    public int AdvancedBotResponseCursor { get; set; } = -1;
+    public int PendingAdvancedBotResponseShotCount { get; set; } = -1;
+    public string PendingAdvancedBotResponsePlayerId { get; set; }
     /// <summary>The turn whose one-time bot setup (status gate, maneuver and deploys) has run.</summary>
     public int BotPreparedTurnNumber { get; set; } = -1;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -53,6 +71,11 @@ public class BattleshipGame
     public bool MetaSettled { get; set; }
     /// <summary>Per-player settlement summary, keyed by DiscordId. Only ever sent to that player (see ToDto).</summary>
     public Dictionary<string, BattleshipEndReward> EndRewards { get; set; } = new();
+    /// <summary>
+    /// Per-bot memory contains only facts that crossed the same fog/Mast boundary as a
+    /// human observation. It never stores physical enemy ship references.
+    /// </summary>
+    public Dictionary<string, BattleshipBotKnowledge> BotKnowledge { get; set; } = new();
 
     public BattleshipPlayer GetPlayer(string discordId)
     {
@@ -117,6 +140,30 @@ public class BattleshipGame
                     !deck.ModuleDestroyed)));
 }
 
+public class BattleshipBotKnowledge
+{
+    /// <summary>Names legally observed while Mast detail was available remain remembered.</summary>
+    public HashSet<string> KnownSunkShipNames { get; set; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Live enemy cells in the bot's previous sanitized observation. Comparing this set with
+    /// the next public observation can identify discarded paint without consulting ship state.
+    /// </summary>
+    public HashSet<int> LastObservedLiveEnemyCells { get; set; } = new();
+
+    /// <summary>
+    /// Public coordinates whose former ship paint was later proven stale. Coordinates use
+    /// row * 10 + col so the memory remains serialization-friendly and contains no ship identity.
+    /// </summary>
+    public HashSet<int> StaleEnemyEvidenceCells { get; set; } = new();
+
+    /// <summary>
+    /// Previously resolved water cells searched again during the current public movement
+    /// hypothesis. A newly discovered stale deck starts a fresh finite search pass.
+    /// </summary>
+    public HashSet<int> RecheckedMovementWaterCells { get; set; } = new();
+}
+
 /// <summary>
 /// What the meta settlement did for one player when the game ended.
 /// Snapshot of the account stats after the update; rides the state DTO as MyEndReward.
@@ -150,6 +197,8 @@ public class BattleshipPlayer
     public string DiscordId { get; set; }
     public string Username { get; set; }
     public bool IsBot { get; set; }
+    /// <summary>Selected AI generation. Ignored for human players.</summary>
+    public BattleshipBotVersion BotVersion { get; set; } = BattleshipBotVersion.V1;
     public Faction Faction { get; set; } = Faction.Empire;
     public int CoinsRemaining { get; set; } = 40;
     public Board Board { get; set; } = new();
@@ -205,6 +254,8 @@ public class Board
 {
     public Cell[,] Grid { get; set; } = new Cell[10, 10];
     public List<Ship> PlacedShips { get; set; } = new();
+    /// <summary>Persistent turquoise triangles produced by completed Neptune shot trios.</summary>
+    public List<ElectricTriangle> ElectricTriangles { get; set; } = new();
 
     public Board()
     {
@@ -228,6 +279,13 @@ public class Cell
     public bool IsHit { get; set; }
     public bool IsMiss { get; set; }
     public bool IsBurning { get; set; }
+    /// <summary>
+    /// One-shot Burn applied by a Neptune triangle. Unlike Greek Fire, this is presentation
+    /// history rather than a continuing hazard for units that enter the cell later.
+    /// </summary>
+    public bool IsNeptuneBurned { get; set; }
+    /// <summary>Persistent Electric Charge cell status left by a successful Neptune hit.</summary>
+    public bool HasElectricCharge { get; set; }
     public Ship ShipRef { get; set; }
     public Summon SummonRef { get; set; }
     public bool WasShipHit { get; set; } // Snapshot: a ship was present when this cell was hit (persists after ship moves)
@@ -278,6 +336,19 @@ public class CellWreckState
     public string SourceShipId { get; set; }
     public string SourceShipName { get; set; }
     public int SourceDeckIndex { get; set; } = -1;
+}
+
+public class ElectricTriangle
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string SourceWeaponId { get; set; }
+    public List<BoardCoordinate> Vertices { get; set; } = new();
+}
+
+public class BoardCoordinate
+{
+    public int Row { get; set; }
+    public int Col { get; set; }
 }
 
 public class SummonMarker
@@ -432,6 +503,11 @@ public class Weapon
     public bool PreservedModuleDestroyed { get; set; }
     /// <summary>Placement-time ammo choice for weapons such as the Tetracatapult.</summary>
     public ShotType? ConfiguredShotType { get; set; }
+    /// <summary>
+    /// Neptune resolves each consecutive group of three shots independently. Misses and shots
+    /// split between physical boards remain in the group so they correctly prevent a triangle.
+    /// </summary>
+    public List<NeptuneShotRecord> NeptuneShotGroup { get; set; } = new();
 
     public bool HasAmmo => Ammo == -1 || Ammo > 0;
 
@@ -439,6 +515,14 @@ public class Weapon
     {
         if (Ammo > 0) Ammo--;
     }
+}
+
+public class NeptuneShotRecord
+{
+    public string BoardOwnerId { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public bool CreatedElectricCharge { get; set; }
 }
 
 public class Summon
@@ -619,6 +703,7 @@ public class ShotResult
     public bool Destroyed { get; set; }
     public bool Burned { get; set; }
     public bool Dodged { get; set; }
+    public bool ElectricCharged { get; set; }
     /// <summary>The resolving action immediately applied a Penalty to its shooter.</summary>
     public bool PenaltyApplied { get; set; }
     public bool ShipSunk { get; set; }
@@ -668,6 +753,7 @@ public class ShipDefinition
     public bool IsFree { get; set; }
     public bool IsHome { get; set; } // "Домашний" unit
     public string Description { get; set; }
+    public string DescriptionKey { get; set; }
     public List<UpgradeDefinition> AvailableUpgrades { get; set; } = new();
 }
 

@@ -89,6 +89,7 @@ let halfLifeReleaseTimer: ReturnType<typeof setTimeout> | null = null
 let deepVeilTimer: ReturnType<typeof setTimeout> | null = null
 let omniManInvasionTimer: ReturnType<typeof setTimeout> | null = null
 let omniManUndergroundTrainTimer: ReturnType<typeof setTimeout> | null = null
+let lRevealTimer: ReturnType<typeof setTimeout> | null = null
 
 const terminalCommitVisible = ref(false)
 const terminalCommitPoints = ref(0)
@@ -306,6 +307,7 @@ onUnmounted(() => {
   if (deepVeilTimer) clearTimeout(deepVeilTimer)
   if (omniManInvasionTimer) clearTimeout(omniManInvasionTimer)
   if (omniManUndergroundTrainTimer) clearTimeout(omniManUndergroundTrainTimer)
+  if (lRevealTimer) clearTimeout(lRevealTimer)
   if (store.isConnected && gameIdNum.value) {
     store.leaveGame(gameIdNum.value)
   }
@@ -591,6 +593,8 @@ const hasBulkaet = computed(
 )
 const isMadaraRoundEight = computed(() => isMadara.value && store.gameState?.roundNo === 8)
 const isGordon = computed(() => me.value?.character.name === 'Гордон Фримен')
+const erenState = computed(() => me.value?.passiveAbilityStates?.eren ?? null)
+const erenBlockUnavailable = computed(() => erenState.value?.blockUnavailableThisTurn ?? false)
 const gordonState = computed(() => me.value?.passiveAbilityStates?.gordon ?? null)
 const gordonHalfLife = computed(() => gordonState.value?.halfLife ?? null)
 const transitionPaused = computed(() => store.gameState?.isRoundTransitionPaused ?? false)
@@ -619,10 +623,12 @@ const turnGuidanceTarget = computed<TurnGuidanceTarget | null>(() => {
   if (me.value.darksciChoiceNeeded) return 'darksci'
   if (me.value.adeptChoiceAvailable) return 'adept'
   if (
-    (store.gameState?.roundNo ?? 0) >= 8
+    (store.gameState?.roundNo ?? 0) === 8
     && !store.isKira
     && !isMadara.value
     && !hasBulkaet.value
+    && !store.isAdmin
+    && (store.gameState.allCharacterNames?.length ?? 0) > 0
     && !me.value.status.confirmedPredict
   ) return 'predict'
   return null
@@ -847,7 +853,22 @@ function finishGame() {
 // ── Round start overlay ─────────────────────────────────────────────
 const showRoundOverlay = ref(false)
 const overlayRoundNo = ref(0)
+const showLRevealOverlay = ref(false)
 const showLogin = ref(false) // for connection overlay check
+
+watch(() => store.myPlayer?.lRevealSerial ?? 0, (serial) => {
+  if (serial <= 0) return
+  const storageKey = `kotgh-l-reveal:${gameIdNum.value}:${serial}`
+  if (sessionStorage.getItem(storageKey)) return
+
+  sessionStorage.setItem(storageKey, 'shown')
+  showLRevealOverlay.value = true
+  if (lRevealTimer) clearTimeout(lRevealTimer)
+  lRevealTimer = setTimeout(() => {
+    showLRevealOverlay.value = false
+    lRevealTimer = null
+  }, 1000)
+}, { immediate: true })
 
 watch(() => store.gameState?.roundNo, (newRound, oldRound) => {
   if (newRound && oldRound && newRound !== oldRound && newRound > 1) {
@@ -1581,6 +1602,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
     <OmniManInvasion v-if="omniManInvasionVisible" />
     <OmniManUndergroundTrain
       v-if="omniManUndergroundTrainVisible"
+      :title="translateText('Подземный Поезд')"
       :phrase="omniManUndergroundTrainPhrase"
     />
     <HalfLife3Transition
@@ -1591,6 +1613,11 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
       :is-submitting="gordonActionPending"
       @resolve="resolveHalfLife3Decision"
     />
+    <Transition name="l-reveal">
+      <div v-if="showLRevealOverlay" class="l-reveal-overlay" aria-label="L">
+        <span class="l-reveal-symbol">L</span>
+      </div>
+    </Transition>
     <!-- Round announce cinematic overlay -->
     <Transition name="round-announce">
       <div v-if="showRoundOverlay" class="round-announce" :key="overlayRoundNo">
@@ -1841,7 +1868,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
             </button>
           </div>
           <div v-if="!me?.adeptChoiceAvailable && !isMadaraRoundEight" class="act-group">
-            <button v-if="!isGordon" class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused" title="Block" @click="store.block()">
+            <button v-if="!isGordon" class="act-btn shield" :disabled="!store.isMyTurn || store.mustSpendLevelUp || transitionPaused || erenBlockUnavailable" title="Block" @click="store.block()">
               <span class="gi gi-lg gi-def">DEF</span> Block
             </button>
             <button
@@ -1894,7 +1921,7 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
             </button>
           </div>
 
-          <div v-if="(store.gameState.roundNo ?? 0) >= 8 && !store.isKira && !isMadara && !hasBulkaet && !me?.status.confirmedPredict" class="act-group">
+          <div v-if="(store.gameState.roundNo ?? 0) === 8 && !store.isKira && !isMadara && !hasBulkaet && !store.isAdmin && (store.gameState.allCharacterNames?.length ?? 0) > 0 && !me?.status.confirmedPredict" class="act-group">
             <button class="act-btn predict-confirm" :disabled="transitionPaused" title="Confirm Predictions" @click="store.confirmPredict()">
               Confirm Prediction
             </button>
@@ -3123,6 +3150,57 @@ function displayText(value: LocalizedText | undefined, fallback = ''): string {
 }
 
 /* ── Round announce cinematic overlay ────────────────────────────── */
+.l-reveal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 360;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.13), transparent 34%),
+    rgba(0, 0, 0, 0.82);
+}
+
+.l-reveal-symbol {
+  position: relative;
+  color: #f2f0ea;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(15rem, 58vw, 40rem);
+  font-weight: 700;
+  font-style: italic;
+  line-height: 0.72;
+  transform: rotate(-4deg) skewX(-7deg);
+  text-shadow:
+    -0.04em 0.025em 0 #050505,
+    0 0 0.025em #fff,
+    0 0 0.12em rgba(255, 255, 255, 0.36);
+  filter: contrast(1.25);
+  animation: l-symbol-flash 1s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+@keyframes l-symbol-flash {
+  0% { opacity: 0; transform: rotate(-8deg) skewX(-10deg) scale(0.7); filter: blur(9px) contrast(1.6); }
+  18% { opacity: 1; transform: rotate(-4deg) skewX(-7deg) scale(1.08); filter: blur(0) contrast(1.3); }
+  74% { opacity: 1; transform: rotate(-4deg) skewX(-7deg) scale(1); }
+  100% { opacity: 0; transform: rotate(-2deg) skewX(-5deg) scale(1.14); filter: blur(2px) contrast(1.5); }
+}
+
+.l-reveal-enter-active,
+.l-reveal-leave-active { transition: opacity 0.08s linear; }
+.l-reveal-enter-from,
+.l-reveal-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .l-reveal-symbol { animation: l-symbol-fade 1s linear both; }
+}
+
+@keyframes l-symbol-fade {
+  0%, 100% { opacity: 0; }
+  12%, 82% { opacity: 1; }
+}
+
 .round-announce {
   position: fixed;
   inset: 0;

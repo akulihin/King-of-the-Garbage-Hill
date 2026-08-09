@@ -413,6 +413,7 @@ const isIncendiaryMode = computed(() =>
   store.selectedShotType === 'Incendiary' || store.selectedShotType === 'EvilIncendiary')
 const isGreekFireMode = computed(() =>
   store.selectedShotType === 'GreekFire' || store.selectedShotType === 'EvilGreekFire')
+const isNeptuneMode = computed(() => store.selectedShotType === 'Neptune')
 const isEvilGreekFireResponse = computed(() =>
   store.selectedShotType === 'EvilGreekFire'
   && !isMyTurn.value
@@ -557,11 +558,16 @@ async function handleMyBoardCellClick(row: number, col: number) {
     return
   }
   if (hasCapturedShip.value) {
-    if (cell?.isCaptured && !cell.isDestroyed) await store.shootOwnBoard(row, col)
+    if (cell?.isCaptured && (!cell.isDestroyed || isNeptuneMode.value))
+      await store.shootOwnBoard(row, col)
     return
   }
   // Greek Fire is an own-board-only Boiler shot.
   if (isGreekFireMode.value) {
+    await store.shootOwnBoard(row, col)
+    return
+  }
+  if (isNeptuneMode.value) {
     await store.shootOwnBoard(row, col)
     return
   }
@@ -794,6 +800,7 @@ const weaponCursorClass = computed(() => {
   switch (store.selectedShotType) {
     case 'Buckshot': return 'cursor-buckshot'
     case 'WhiteStone': return 'cursor-whitestone'
+    case 'Neptune': return 'cursor-neptune'
     case 'Incendiary': return 'cursor-incendiary'
     case 'EvilIncendiary': return 'cursor-incendiary'
     case 'GreekFire': return 'cursor-greekfire'
@@ -824,6 +831,7 @@ function projectileKindFor(result: BattleshipShotResult | null): BattleshipProje
     case 'Stone': return 'stone'
     case 'Buckshot': return 'buckshot'
     case 'Fire': return 'fire'
+    case 'Electric': return 'electric'
     default: return 'arrow'
   }
 }
@@ -1073,7 +1081,7 @@ onUnmounted(() => {
       </div>
 
       <!-- My Board (overview) -->
-      <div class="board-section board-mine" :class="{ 'board-active': isMyTurn }">
+      <div class="board-section board-mine" :class="[{ 'board-active': isMyTurn }, weaponCursorClass]">
         <div class="board-label">
           <span class="player-label">{{ myPlayer?.username ?? 'Вы' }}</span>
           <span v-if="myPlayer" class="faction-label">{{ factionLabel(myPlayer.faction) }}</span>
@@ -1093,7 +1101,7 @@ onUnmounted(() => {
             :last-shot-cell="myLastShot"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="!!pendingMatryoshka || pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
+            :clickable="!!pendingMatryoshka || pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode || isNeptuneMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
             :maneuver-active="!!pendingMatryoshka || pirateRestoreActive || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive"
             :maneuver-ship-cells="pendingMatryoshka ? matryoshkaWreckCells : maneuverShipCells"
             :maneuver-target-cells="pendingMatryoshka ? matryoshkaTargetCells : pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
@@ -1408,6 +1416,9 @@ onUnmounted(() => {
 }
 .cursor-whitestone {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='4' x2='20' y2='20' stroke='%23c0392b' stroke-width='2.5'/%3E%3Cline x1='20' y1='4' x2='4' y2='20' stroke='%23c0392b' stroke-width='2.5'/%3E%3C/svg%3E") 12 12, crosshair;
+}
+.cursor-neptune {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M13 2L5 13h6l-1 9 9-13h-6z' fill='%232dd4bf' stroke='%230f766e' stroke-width='1.2'/%3E%3C/svg%3E") 12 12, crosshair;
 }
 .cursor-incendiary, .cursor-greekfire {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 2c0 6-5 8-5 13a5 5 0 0010 0c0-5-5-7-5-13z' fill='none' stroke='%23e67e22' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair;

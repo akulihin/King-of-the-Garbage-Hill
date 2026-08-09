@@ -344,6 +344,7 @@ public class DoomsdayMachine : IServiceSingleton
                 DoomGuy.PrepareSharkShield(doom);
 
         DeepCopyGameCharacterToFightCharacter(game);
+        Kira.CaptureActiveLForRound(game);
 
         // Геральт — Медитация: skip works as block
         if (!isEternalTsukuyomiRound && !game.IsKratosEvent)
@@ -2126,7 +2127,12 @@ public class DoomsdayMachine : IServiceSingleton
         game.RoundNo++;
         JonSnow.ExpireBlackCastleBeforeScoreSort(game);
 
-        if (game.GameMode == "aram" && game.RoundNo == 2)
+        // Праведность's virtual Seven belongs only to the ten ordinary turns. Remove it before
+        // any round-11 score work and before Stan Edgar evaluates the settled turn-10 result.
+        if (game.RoundNo == 11)
+            Homelander.ExpireSevenPointsAfterTurnTen(game);
+
+        if (game.IsAramMode && game.RoundNo == 2)
         {
             game.TurnLengthInSecond = 300;
         }
@@ -2135,8 +2141,9 @@ public class DoomsdayMachine : IServiceSingleton
 
         await _characterPassives.HandleNextRound(game);
 
-        // Vought's audit of turn 10. Deliberately here: round-10 score is fully settled (including
-        // Сайтама's round-11 moral reclaim inside HandleNextRound), the fight line still reaches
+        // Vought's audit of turn 10. Deliberately here: round-10 score is fully settled, the virtual
+        // Seven has already betrayed Homelander, and Сайтама's round-11 moral reclaim inside
+        // HandleNextRound is included. The fight line still reaches
         // SortGameLogs below so it lands inside the round's fight table, and the point loss happens
         // before the leaderboard sort so it decides the final standing. Both early endings
         // (Космический ужас, Вилтрумайты) return before this point and therefore cancel it.
@@ -2455,7 +2462,7 @@ public class DoomsdayMachine : IServiceSingleton
         game.TimePassed.Reset();
         game.TimePassed.Start();
 
-        if(game.GameMode is "Normal" or "Aram")
+        if(game.GameMode is "Normal" or "Aram" or "Team" or "TeamAram")
             _logs.Info($"Finished calculating game #{game.GameId} (round# {game.RoundNo - 1}). || {watch.Elapsed.TotalSeconds}s");
 
         watch.Stop();

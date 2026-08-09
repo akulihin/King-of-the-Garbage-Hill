@@ -51,7 +51,7 @@ The source hierarchy below should be approved before implementation begins becau
 1. Explicit appendix `Required behavior` and designer-resolution notes override older conflicting GDD prose.
 2. Detailed current mechanic and unit tabs override the standard-rules baseline and `AI summ`.
 3. `AI summ` is non-normative reference material.
-4. `Вкладка 28`, its old fleet rules and Neptune diagrams are excluded from implementation.
+4. `Вкладка 28` and its old fleet rules/Neptune diagrams are excluded from implementation. The separate 2026-08-09 Нептуновозчик/Нептун specification recorded in `BattleshipGDD.md` is the current replacement rule.
 5. An image is normative only when text relies on it for geometry or declares it a final UI asset.
 
 - [x] Approve
@@ -367,7 +367,7 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 | I15 | Make Light Wood dodge only into the documented free cell behind; remove opposite fallback and stale hit metadata. | `BattleshipGameEngine.cs:1737-1798` |
 | I16 | Include the physical target board and all AoE cells in SignalR shot events. | `GameHub.cs:1409-1465`; `battleship.ts:210-221` |
 | I17 | Enforce setup phases; lock/revalidate confirmed placement; restore a previous placement after failed reposition; do not replace bots after setup starts. | `BattleshipService.cs:198-225`, `:290-461` |
-| I18 | Remove bot access to hidden ship positions; add legal summon-targeting and maneuver parity where applicable. | `BattleshipBotAI.cs:818+` |
+| I18 | Remove advanced-bot access to hidden ship positions; add legal summon-targeting, movement belief and maneuver parity where applicable. | `BattleshipBotObservationFactory` `Create`; `BattleshipAdvancedBotAI` `BotObservation`/`ChooseTarget` |
 | I19 | Show only legal weapons, label Aim in revealed cells, and retain Buckshot during Boarding unless explicitly prohibited. | `WeaponBar.vue:51-72`; `BattleshipService.cs:1763-1834` |
 | I20 | Decide whether the GDD's nine embedded UI icons are final assets; current inline SVGs differ materially for Ram and Scout. | `battleship-icons.ts` |
 
@@ -401,7 +401,7 @@ Approving an `I` item means “make code and UI match the behavior stated here.�
 
 **Part C comments by ID**
 
-> 
+> I18 is enforced structurally for the selectable V2/V3 policies: the only enemy-board read is the fog-projection factory, and the tactical API receives no opponent `Player`, `Board`, `Ship` or `Deck`. It retains only information a human could remember, including Mast-authorized names and movement inferences from public observations. V1 is explicitly the legacy compatibility policy rather than part of this guarantee.
 
 ---
 
@@ -431,14 +431,14 @@ Current state: costs one coin but adds only an unused ability flag.
 
 ### X03 — Neptune and obsolete content
 
-Current state: Neptune is ranked/listed but unavailable; detailed mechanics and seven diagrams exist only in the explicitly obsolete tab.
+Current state: superseded on 2026-08-09 by the designer's direct Нептуновозчик/Нептун specification. The new rule is implemented and documented independently; the seven old diagrams remain archival.
 
-- [x] Keep unavailable; old rules remain archival
+- [ ] Keep unavailable; old rules remain archival
 - [ ] Remove Neptune references from current tabs
-- [ ] Restore Neptune — attach updated rules
+- [x] Restore Neptune — updated direct rules attached in `BattleshipGDD.md`
 
 **Comment:**  
-> 
+> Designer request, 2026-08-09: add Нептуновозчик to Empire as a paid Triple replacement and implement the three-charge turquoise triangle.
 
 ### X04 — Tetracor region
 

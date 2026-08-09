@@ -6,6 +6,151 @@
       "ru": "Морской Бой",
       "en": "Battleship"
     },
+    "battleship.lobby.createEyebrow": {
+      "visibility": "public",
+      "ru": "Новая битва",
+      "en": "New battle"
+    },
+    "battleship.lobby.createTitle": {
+      "visibility": "public",
+      "ru": "Настройка игры",
+      "en": "Game setup"
+    },
+    "battleship.lobby.close": {
+      "visibility": "public",
+      "ru": "Закрыть",
+      "en": "Close"
+    },
+    "battleship.lobby.opponentLabel": {
+      "visibility": "public",
+      "ru": "Противник",
+      "en": "Opponent"
+    },
+    "battleship.lobby.opponentBot": {
+      "visibility": "public",
+      "ru": "Бот",
+      "en": "Bot"
+    },
+    "battleship.lobby.opponentBotHint": {
+      "visibility": "public",
+      "ru": "Начать сразу",
+      "en": "Start immediately"
+    },
+    "battleship.lobby.opponentPlayer": {
+      "visibility": "public",
+      "ru": "Игрок",
+      "en": "Player"
+    },
+    "battleship.lobby.opponentPlayerHint": {
+      "visibility": "public",
+      "ru": "Открытое лобби",
+      "en": "Open lobby"
+    },
+    "battleship.lobby.botVersionLabel": {
+      "visibility": "public",
+      "ru": "Версия бота",
+      "en": "Bot version"
+    },
+    "battleship.lobby.botVersionOption": {
+      "visibility": "public",
+      "ru": "V{version}",
+      "en": "V{version}"
+    },
+    "battleship.lobby.botVersion1": {
+      "visibility": "public",
+      "ru": "V1 — Классический",
+      "en": "V1 — Classic"
+    },
+    "battleship.lobby.botVersion2": {
+      "visibility": "public",
+      "ru": "V2 — Тактический",
+      "en": "V2 — Tactical"
+    },
+    "battleship.lobby.botVersion3": {
+      "visibility": "public",
+      "ru": "V3 — Эксперт",
+      "en": "V3 — Expert"
+    },
+    "battleship.lobby.botDisplayName": {
+      "visibility": "public",
+      "ru": "Бот V{version}",
+      "en": "Bot V{version}"
+    },
+    "battleship.lobby.botManagedTooltip": {
+      "visibility": "public",
+      "ru": "Управляется ботом V{version}",
+      "en": "Controlled by bot V{version}"
+    },
+    "battleship.lobby.waitingForPlayer": {
+      "visibility": "public",
+      "ru": "Ожидает игрока",
+      "en": "Waiting for player"
+    },
+    "battleship.lobby.opponentReadyTitle": {
+      "visibility": "public",
+      "ru": "Противник готов",
+      "en": "Opponent ready"
+    },
+    "battleship.lobby.opponentJoinedTitle": {
+      "visibility": "public",
+      "ru": "Противник подключился",
+      "en": "Opponent joined"
+    },
+    "battleship.lobby.waitingForOpponentReady": {
+      "visibility": "public",
+      "ru": "Ожидание готовности противника...",
+      "en": "Waiting for the opponent to get ready..."
+    },
+    "battleship.lobby.waitingTitle": {
+      "visibility": "public",
+      "ru": "Ожидание игрока...",
+      "en": "Waiting for a player..."
+    },
+    "battleship.lobby.startGame": {
+      "visibility": "public",
+      "ru": "Начать игру",
+      "en": "Start game"
+    },
+    "battleship.lobby.readyWaitingAction": {
+      "visibility": "public",
+      "ru": "Готов — ожидаем противника",
+      "en": "Ready — waiting for opponent"
+    },
+    "battleship.lobby.confirmingReady": {
+      "visibility": "public",
+      "ru": "Подтверждение...",
+      "en": "Confirming..."
+    },
+    "battleship.lobby.cancel": {
+      "visibility": "public",
+      "ru": "Отмена",
+      "en": "Cancel"
+    },
+    "battleship.lobby.creating": {
+      "visibility": "public",
+      "ru": "Создание...",
+      "en": "Creating..."
+    },
+    "battleship.lobby.createAction": {
+      "visibility": "public",
+      "ru": "Создать игру",
+      "en": "Create game"
+    },
+    "battleship.error.createFailed": {
+      "visibility": "public",
+      "ru": "Не удалось создать игру. Проверьте соединение и попробуйте снова.",
+      "en": "Could not create the game. Check your connection and try again."
+    },
+    "battleship.error.unknownBotVersion": {
+      "visibility": "owner",
+      "ru": "Неизвестная версия бота.",
+      "en": "Unknown bot version."
+    },
+    "battleship.error.waitForOpponent": {
+      "visibility": "owner",
+      "ru": "Сначала дождитесь второго игрока.",
+      "en": "Wait for a second player first."
+    },
     "battleship.turnSkip.title": {
       "visibility": "public",
       "ru": "Ход пропущен",
@@ -90,6 +235,26 @@
       "visibility": "public",
       "ru": "Источник",
       "en": "Source"
+    },
+    "battleship.ship.neptuneCarrier.description": {
+      "visibility": "public",
+      "ru": "Домашний юнит Империи (East), заменяет Трёхпалубник Triple. Палубы: 4/6/4. На центральной палубе установлен Нептун; на остальных палубах модулей нет. Нептун наносит 1 урон, имеет 3 снаряда, наведение 10 и может стрелять по своему полю. Он попадает в палубы кораблей, суммонов/лодки и абордажные корабли, включая уничтоженные палубы и цели с обычным уклонением, если цель не имеет отдельного иммунитета к Нептуну. Каждое такое попадание оставляет на клетке Электрический заряд. Если все три выстрела создали три разные метки на одном поле, их центры образуют бирюзовый треугольник: все клетки, площадь которых не менее чем на 50% лежит внутри треугольника, получают Burn как от Горючки; Burn_resist защищает корабль.",
+      "en": "An Empire home unit (East) that replaces a Triple three-deck ship. Decks: 4/6/4. Neptune is mounted on the central deck; the other decks have no modules. Neptune deals 1 damage, carries 3 shots, has aim speed 10, and can fire at its owner's field. It hits ship decks, summons/boats, and boarding ships, including destroyed decks and targets with ordinary dodge, unless the target has explicit Neptune immunity. Each such hit leaves Electric Charge on the cell. If all three shots create three distinct marks on one field, their centers form a turquoise triangle: every cell with at least 50% of its area inside the triangle receives Burn as from Incendiary; Burn_resist protects a ship."
+    },
+    "battleship.weapon.neptune.name": {
+      "visibility": "public",
+      "ru": "Нептун",
+      "en": "Neptune"
+    },
+    "battleship.weapon.neptune.tooltip": {
+      "visibility": "public",
+      "ru": "Нептун — урон 1, 3 снаряда; попадает в корабли, суммонов/лодки и абордажные корабли несмотря на обычное уклонение, стреляет по обоим полям и оставляет Электрический заряд",
+      "en": "Neptune — 1 damage, 3 shots; hits ships, summons/boats, and boarding ships despite ordinary dodge, can fire at either field, and leaves Electric Charge"
+    },
+    "battleship.status.electricCharge": {
+      "visibility": "public",
+      "ru": "Электрический заряд",
+      "en": "Electric Charge"
     },
     "battleship.maneuver.voluntaryTitle": {
       "visibility": "public",

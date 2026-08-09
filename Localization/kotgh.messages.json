@@ -31,6 +31,16 @@
       "ru": "Черт, не могу записать его имя, пока он так пристально смотрит... Надо попробовать еще раз",
       "en": "Damn, I can't write his name while he's staring at me so intently... I'll have to try again"
     },
+    "kotgh.gameplay.homelander.modestyEasyTarget": {
+      "visibility": "owner",
+      "ru": "Скромность: легкая цель",
+      "en": "Modesty: easy target"
+    },
+    "kotgh.gameplay.eren.attackTitanRestRequired": {
+      "visibility": "owner",
+      "ru": "Превращение в титана требует отдыха",
+      "en": "Transforming into a Titan requires rest"
+    },
     "kotgh.gameplay.gordon.halfLifeFailure": {
       "visibility": "owner",
       "ru": "Halflife 3: Недостаточно профита, нельзя выпускать игру.",
@@ -145,6 +155,191 @@
       "visibility": "public",
       "ru": "Свободные места станут обычными ботами Legacy+ со случайными персонажами.",
       "en": "Empty seats become default Legacy+ bots with random characters."
+    },
+    "kotgh.adminLobby.alternativeStart": {
+      "visibility": "public",
+      "ru": "После запуска игроки перейдут в общее 10-минутное лобби подготовки выбранного режима. Добавленные здесь боты сохранят свою сложность.",
+      "en": "Starting opens the selected mode's shared 10-minute preparation lobby. Bots added here keep their chosen difficulty."
+    },
+    "kotgh.alternative.menu": {
+      "visibility": "public",
+      "ru": "Альтернативный режим",
+      "en": "Alternative mode"
+    },
+    "kotgh.alternative.team": {
+      "visibility": "public",
+      "ru": "Командная игра",
+      "en": "Team game"
+    },
+    "kotgh.alternative.aram": {
+      "visibility": "public",
+      "ru": "Рандомная гора",
+      "en": "Random Hill"
+    },
+    "kotgh.alternative.teamAram": {
+      "visibility": "public",
+      "ru": "Командный рандом",
+      "en": "Team Random"
+    },
+    "kotgh.alternative.teamDescription": {
+      "visibility": "public",
+      "ru": "Выберите состав 2v2v2 или 3v3, распределитесь по командам и соберите состав персонажей.",
+      "en": "Choose 2v2v2 or 3v3, arrange the teams, and build each character lineup."
+    },
+    "kotgh.alternative.aramDescription": {
+      "visibility": "public",
+      "ru": "Создайте ARAM-персонажа со случайными статами и четырьмя выбранными пассивками.",
+      "en": "Build an ARAM character with random stats and four selected passives."
+    },
+    "kotgh.alternative.teamAramDescription": {
+      "visibility": "public",
+      "ru": "Сначала распределитесь по командам, затем создайте для боя случайных персонажей.",
+      "en": "Arrange the teams first, then build random characters for the match."
+    },
+    "kotgh.alternative.preparation": {
+      "visibility": "public",
+      "ru": "Лобби подготовки",
+      "en": "Preparation lobby"
+    },
+    "kotgh.alternative.teamStage": {
+      "visibility": "public",
+      "ru": "Определение команд",
+      "en": "Team assignment"
+    },
+    "kotgh.alternative.characterStage": {
+      "visibility": "public",
+      "ru": "Выбор персонажа",
+      "en": "Character selection"
+    },
+    "kotgh.alternative.aramStage": {
+      "visibility": "public",
+      "ru": "Создание персонажа",
+      "en": "Character creation"
+    },
+    "kotgh.alternative.sharedTimer": {
+      "visibility": "public",
+      "ru": "Общий таймер подготовки",
+      "en": "Shared preparation timer"
+    },
+    "kotgh.alternative.teamFormat": {
+      "visibility": "public",
+      "ru": "Состав команд",
+      "en": "Team format"
+    },
+    "kotgh.alternative.botDifficulty": {
+      "visibility": "public",
+      "ru": "Сложность ботов",
+      "en": "Bot difficulty"
+    },
+    "kotgh.alternative.moveHint": {
+      "visibility": "public",
+      "ru": "Нажмите на свободное место, чтобы перейти в него. После каждого изменения все игроки подтверждают состав заново.",
+      "en": "Click an empty seat to move there. Every roster change makes all players confirm again."
+    },
+    "kotgh.alternative.emptySeat": {
+      "visibility": "public",
+      "ru": "Свободное место",
+      "en": "Empty seat"
+    },
+    "kotgh.alternative.bot": {
+      "visibility": "public",
+      "ru": "Бот",
+      "en": "Bot"
+    },
+    "kotgh.alternative.ready": {
+      "visibility": "public",
+      "ru": "Готов",
+      "en": "Ready"
+    },
+    "kotgh.alternative.notReady": {
+      "visibility": "public",
+      "ru": "Не готов",
+      "en": "Not ready"
+    },
+    "kotgh.alternative.waiting": {
+      "visibility": "public",
+      "ru": "Ожидаем остальных игроков…",
+      "en": "Waiting for the other players…"
+    },
+    "kotgh.alternative.leave": {
+      "visibility": "public",
+      "ru": "Покинуть лобби",
+      "en": "Leave lobby"
+    },
+    "kotgh.alternative.cancel": {
+      "visibility": "public",
+      "ru": "Отменить лобби",
+      "en": "Cancel lobby"
+    },
+    "kotgh.alternative.chooseCharacter": {
+      "visibility": "public",
+      "ru": "Выберите одного персонажа. После выбора изменить решение нельзя.",
+      "en": "Choose one character. The choice cannot be changed after it is locked."
+    },
+    "kotgh.alternative.mainRoll": {
+      "visibility": "public",
+      "ru": "Основной ролл",
+      "en": "Main roll"
+    },
+    "kotgh.alternative.switchOption": {
+      "visibility": "public",
+      "ru": "Вариант switch · 5 ZBS",
+      "en": "Switch option · 5 ZBS"
+    },
+    "kotgh.alternative.alliedLineup": {
+      "visibility": "public",
+      "ru": "Подтверждённый состав союзников",
+      "en": "Confirmed allied lineup"
+    },
+    "kotgh.alternative.stats": {
+      "visibility": "public",
+      "ru": "Статы",
+      "en": "Stats"
+    },
+    "kotgh.alternative.passiveSlot": {
+      "visibility": "public",
+      "ru": "Слот пассивки {slot}",
+      "en": "Passive slot {slot}"
+    },
+    "kotgh.alternative.unlockPassive": {
+      "visibility": "public",
+      "ru": "Открыть ещё одну пассивку",
+      "en": "Unlock another passive"
+    },
+    "kotgh.alternative.unlockCost": {
+      "visibility": "public",
+      "ru": "Цена: −1 к каждому стату",
+      "en": "Cost: −1 to every stat"
+    },
+    "kotgh.alternative.chooseFour": {
+      "visibility": "public",
+      "ru": "Выберите по одной пассивке в каждом из четырёх слотов, затем подтвердите персонажа.",
+      "en": "Choose one passive in each of the four slots, then confirm the character."
+    },
+    "kotgh.alternative.lockBuild": {
+      "visibility": "public",
+      "ru": "Подтвердить персонажа",
+      "en": "Confirm character"
+    },
+    "kotgh.alternative.buildLocked": {
+      "visibility": "public",
+      "ru": "Персонаж подтверждён",
+      "en": "Character confirmed"
+    },
+    "kotgh.alternative.preparing": {
+      "visibility": "public",
+      "ru": "Подготовка",
+      "en": "Preparing"
+    },
+    "kotgh.alternative.joinPreparation": {
+      "visibility": "public",
+      "ru": "Присоединиться",
+      "en": "Join"
+    },
+    "kotgh.alternative.close": {
+      "visibility": "public",
+      "ru": "Закрыть",
+      "en": "Close"
     }
   }
 }

@@ -32,6 +32,7 @@ public sealed class AdminLobbyService
     private readonly CharactersPull _charactersPull;
     private readonly GameNotificationService _notificationService;
     private readonly WebGameService _webGameService;
+    private readonly AlternativeModeLobbyService _alternativeLobbyService;
     private readonly StartGameLogic _startGameLogic;
     private readonly IHubContext<GameHub> _hubContext;
     private readonly ConcurrentDictionary<ulong, AdminLobby> _lobbies = new();
@@ -47,6 +48,7 @@ public sealed class AdminLobbyService
         CharactersPull charactersPull,
         GameNotificationService notificationService,
         WebGameService webGameService,
+        AlternativeModeLobbyService alternativeLobbyService,
         StartGameLogic startGameLogic,
         IHubContext<GameHub> hubContext)
     {
@@ -55,6 +57,7 @@ public sealed class AdminLobbyService
         _charactersPull = charactersPull;
         _notificationService = notificationService;
         _webGameService = webGameService;
+        _alternativeLobbyService = alternativeLobbyService;
         _startGameLogic = startGameLogic;
         _hubContext = hubContext;
     }
@@ -298,6 +301,29 @@ public sealed class AdminLobbyService
         }
     }
 
+    public (AdminLobbyStateDto State, string Error) SetMode(
+        ulong ownerId,
+        string mode,
+        int teamSize)
+    {
+        if (!IsGodAdmin(ownerId)) return (null, "Admin access required.");
+        if (!_lobbies.TryGetValue(ownerId, out var lobby))
+            return (null, "Admin lobby not found");
+        if (mode != "Normal" && !AlternativeModeLobbyService.IsSupportedMode(mode))
+            return (null, "Unknown game mode");
+        if (teamSize is not (2 or 3))
+            return (null, "Team size must be 2 or 3");
+
+        lock (lobby)
+        {
+            if (lobby.IsClosed || lobby.IsStarting)
+                return (null, "Admin lobby is unavailable");
+            lobby.GameMode = mode;
+            lobby.TeamSize = teamSize;
+            return (BuildState(lobby), null);
+        }
+    }
+
     public (AdminLobbyStateDto State, string Error) SetCharacter(
         ulong ownerId,
         int slotIndex,
@@ -411,6 +437,8 @@ public sealed class AdminLobbyService
             return (0, "Admin lobby not found");
 
         AdminLobbySlot[] slots;
+        string selectedMode;
+        int selectedTeamSize;
         lock (lobby)
         {
             if (lobby.IsClosed)
@@ -427,14 +455,23 @@ public sealed class AdminLobbyService
                     return (0, "пользователь уже играет");
             }
 
-            var strictBotCount = lobby.Slots.Count(slot => slot.Kind != "human");
-            if (strictBotCount < 2 && lobby.Slots.Any(slot =>
-                    slot.CharacterName == Naruto.CharacterName))
-                return (0, "Наруто требует минимум два места для ботов");
+            if (lobby.GameMode == "Normal")
+            {
+                var strictBotCount = lobby.Slots.Count(slot => slot.Kind != "human");
+                if (strictBotCount < 2 && lobby.Slots.Any(slot =>
+                        slot.CharacterName == Naruto.CharacterName))
+                    return (0, "Наруто требует минимум два места для ботов");
+            }
 
             lobby.IsStarting = true;
             slots = lobby.Slots.Select(slot => slot.Clone()).ToArray();
+            selectedMode = lobby.GameMode;
+            selectedTeamSize = lobby.TeamSize;
         }
+
+        if (selectedMode != "Normal")
+            return await StartAlternativeLobbyAsync(
+                ownerId, lobby, slots, selectedMode, selectedTeamSize);
 
         GameClass game = null;
         try
@@ -551,6 +588,62 @@ public sealed class AdminLobbyService
             if (game != null)
                 _webGameService.AbortAdminLobbyGame(game);
             Console.WriteLine($"[WebAPI] Admin lobby start failed: {ex}");
+            return ResetStarting(lobby, 0, ex.Message);
+        }
+    }
+
+    private async Task<(ulong GameId, string Error)> StartAlternativeLobbyAsync(
+        ulong ownerId,
+        AdminLobby lobby,
+        IReadOnlyList<AdminLobbySlot> slots,
+        string mode,
+        int teamSize)
+    {
+        try
+        {
+            var seeds = slots.Select(slot => new AlternativeLobbySeedSeat
+            {
+                Kind = slot.Kind,
+                DiscordId = slot.DiscordId,
+                Username = slot.Username,
+                AiDifficulty = slot.AiDifficulty,
+                HasWebConnection = slot.Kind == "human"
+                                   && _notificationService.HasWebConnection(slot.DiscordId),
+            }).ToList();
+            var (lobbyId, error) = await _alternativeLobbyService.CreateAdminAsync(
+                ownerId, mode, teamSize, seeds);
+            if (error != null)
+                return ResetStarting(lobby, 0, error);
+
+            _lobbies.TryRemove(new KeyValuePair<ulong, AdminLobby>(ownerId, lobby));
+            lock (lobby)
+                lobby.IsClosed = true;
+
+            foreach (var slot in slots.Where(slot => slot.Kind == "human"))
+            {
+                if (slot.DiscordId != ownerId)
+                    _reservations.TryRemove(
+                        new KeyValuePair<ulong, ulong>(slot.DiscordId, ownerId));
+                var connections = _notificationService.GetConnections(slot.DiscordId).ToList();
+                if (connections.Count > 0)
+                {
+                    try
+                    {
+                        await _hubContext.Clients.Clients(connections)
+                            .SendAsync("AdminLobbyReserved", new { reserved = false });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(
+                            $"[WebAPI] Admin alternative overlay clear failed for {slot.DiscordId}: {ex.Message}");
+                    }
+                }
+            }
+            return (lobbyId, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[WebAPI] Admin alternative lobby start failed: {ex}");
             return ResetStarting(lobby, 0, ex.Message);
         }
     }
@@ -750,6 +843,8 @@ public sealed class AdminLobbyService
         return new AdminLobbyStateDto
         {
             OwnerId = lobby.OwnerId.ToString(),
+            GameMode = lobby.GameMode,
+            TeamSize = lobby.TeamSize,
             Slots = lobby.Slots.Select(slot => new AdminLobbySlotDto
             {
                 Kind = slot.Kind,
@@ -960,6 +1055,8 @@ internal sealed class AdminLobby
     public DateTime? OwnerDisconnectedUtc { get; set; }
     public bool IsStarting { get; set; }
     public bool IsClosed { get; set; }
+    public string GameMode { get; set; } = "Normal";
+    public int TeamSize { get; set; } = 2;
 }
 
 internal sealed class AdminLobbySlot
@@ -987,6 +1084,8 @@ internal sealed class AdminLobbySlot
 public sealed class AdminLobbyStateDto
 {
     public string OwnerId { get; set; } = "";
+    public string GameMode { get; set; } = "Normal";
+    public int TeamSize { get; set; } = 2;
     public List<AdminLobbySlotDto> Slots { get; set; } = new();
     public List<AdminLobbyCharacterDto> Characters { get; set; } = new();
 }

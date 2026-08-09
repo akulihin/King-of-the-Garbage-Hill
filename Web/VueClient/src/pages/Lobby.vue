@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Dices, Gift, PackageOpen, ShieldCheck, Sparkles, Trophy } from 'lucide-vue-next'
+import { Dices, Gift, PackageOpen, ShieldCheck, Sparkles, Trophy, Users } from 'lucide-vue-next'
 import { useGameStore } from 'src/store/game'
 import { signalrService, type ReplayListEntry, type CharacterListEntry } from 'src/services/signalr'
 import LootBox from 'src/components/LootBox.vue'
 import DailyQuestBoard from 'src/components/DailyQuestBoard.vue'
 import { currentLocale } from 'src/i18n'
+import { message } from 'src/platform/localization/messages'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
@@ -16,6 +17,7 @@ const router = useRouter()
 const isCreatingGame = ref(false)
 const isChangingMode = ref(false)
 const showCharacterPicker = ref(false)
+const showAlternativeModes = ref(false)
 const characterSearch = ref('')
 const recentReplays = ref<ReplayListEntry[]>([])
 
@@ -171,6 +173,14 @@ onMounted(() => {
   signalrService.onGameJoined = (data) => {
     router.push(`/game/${data.gameId}`)
   }
+  signalrService.onAlternativeLobbyCreated = (data) => {
+    isCreatingGame.value = false
+    showAlternativeModes.value = false
+    router.push(`/alternative-lobby/${data.lobbyId}`)
+  }
+  signalrService.onAlternativeLobbyJoined = (data) => {
+    router.push(`/alternative-lobby/${data.lobbyId}`)
+  }
 })
 
 onUnmounted(() => {
@@ -179,6 +189,8 @@ onUnmounted(() => {
   store.setLootBoxFlowActive(false)
   signalrService.onGameCreated = null
   signalrService.onGameJoined = null
+  signalrService.onAlternativeLobbyCreated = null
+  signalrService.onAlternativeLobbyJoined = null
 })
 
 async function createGame() {
@@ -191,6 +203,12 @@ async function createRankedGame() {
   if (store.godReservation || store.accountGameplayMode !== 'Pro') return
   isCreatingGame.value = true
   await store.createRankedGame()
+}
+
+async function createAlternativeMode(mode: 'Team' | 'Aram' | 'TeamAram') {
+  if (store.godReservation || isCreatingGame.value) return
+  isCreatingGame.value = true
+  await store.createAlternativeLobby(mode)
 }
 
 async function changeGameplayMode(mode: 'Casual' | 'Pro') {
@@ -222,6 +240,11 @@ async function selectTestCharacter(name: string) {
 async function handleJoinGame(gameId: number) {
   if (store.godReservation) return
   await store.joinWebGame(gameId)
+}
+
+async function handleJoinPreparation(lobbyId: number) {
+  if (store.godReservation) return
+  await store.joinAlternativeLobby(lobbyId)
 }
 
 function openAdminLobby() {
@@ -482,6 +505,14 @@ function handleVisibilityChange() {
             {{ isCreatingGame ? 'Creating...' : '+ New Game' }}
           </button>
           <button
+            v-if="store.isAuthenticated"
+            class="btn btn-alt-mode btn-sm"
+            :disabled="isCreatingGame || store.godReservation"
+            @click="showAlternativeModes = true"
+          >
+            {{ message('kotgh.alternative.menu') }}
+          </button>
+          <button
             v-if="store.isAuthenticated && store.accountGameplayMode === 'Pro'"
             class="btn btn-ranked btn-sm"
             :disabled="isCreatingGame || store.godReservation"
@@ -530,7 +561,7 @@ function handleVisibilityChange() {
           class="game-card card"
           :class="{ 'almost-full': game.playerCount >= 5 }"
         >
-          <span class="round-pip">R{{ game.roundNo }}</span>
+          <span class="round-pip">{{ game.isPreparation ? 'PREP' : `R${game.roundNo}` }}</span>
           <div class="game-card-header">
             <span class="game-id">Game #{{ game.gameId }}</span>
             <span class="game-mode" :class="game.gameMode.toLowerCase()">
@@ -540,8 +571,8 @@ function handleVisibilityChange() {
 
           <div class="game-card-stats">
             <div class="stat-row">
-              <span class="stat-label">Round</span>
-              <span class="stat-value">{{ game.roundNo }} / 10</span>
+              <span class="stat-label">{{ game.isPreparation ? message('kotgh.alternative.preparation') : 'Round' }}</span>
+              <span class="stat-value">{{ game.isPreparation ? message('kotgh.alternative.preparing') : `${game.roundNo} / 10` }}</span>
             </div>
             <div class="stat-row">
               <span class="stat-label">Players</span>
@@ -554,7 +585,7 @@ function handleVisibilityChange() {
             <div class="stat-row">
               <span class="stat-label">Status</span>
               <span class="stat-value" :class="{ finished: game.isFinished }">
-                {{ game.isFinished ? 'Finished' : 'In Progress' }}
+                {{ game.isPreparation ? message('kotgh.alternative.preparing') : game.isFinished ? 'Finished' : 'In Progress' }}
               </span>
             </div>
           </div>
@@ -575,7 +606,15 @@ function handleVisibilityChange() {
 
           <div class="game-card-actions">
             <button
-              v-if="game.canJoin && store.isAuthenticated"
+              v-if="game.isPreparation && game.canJoin && store.isAuthenticated"
+              class="btn btn-primary"
+              :disabled="store.godReservation"
+              @click="handleJoinPreparation(game.gameId)"
+            >
+              {{ message('kotgh.alternative.joinPreparation') }}
+            </button>
+            <button
+              v-else-if="game.canJoin && store.isAuthenticated"
               class="btn btn-primary"
               :disabled="store.godReservation"
               @click="handleJoinGame(game.gameId)"
@@ -583,13 +622,13 @@ function handleVisibilityChange() {
               Join
             </button>
             <button
-              v-else
+              v-else-if="!game.isPreparation"
               class="btn btn-primary"
               @click="viewGame(game.gameId)"
             >
               View
             </button>
-            <button class="btn btn-ghost" @click="spectateGame(game.gameId)">
+            <button v-if="!game.isPreparation" class="btn btn-ghost" @click="spectateGame(game.gameId)">
               Spectate
             </button>
           </div>
@@ -637,6 +676,33 @@ function handleVisibilityChange() {
               Watch Replay
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Character Picker Modal (Admin Test Game) -->
+    <div v-if="showAlternativeModes" class="modal-overlay" @click.self="showAlternativeModes = false">
+      <div class="modal-content alternative-mode-modal">
+        <div class="modal-header">
+          <h2>{{ message('kotgh.alternative.menu') }}</h2>
+          <button class="btn btn-ghost btn-sm" @click="showAlternativeModes = false">×</button>
+        </div>
+        <div class="alternative-mode-grid">
+          <button type="button" class="alternative-mode-option team-option" :disabled="isCreatingGame" @click="createAlternativeMode('Team')">
+            <Users :size="25" />
+            <strong>{{ message('kotgh.alternative.team') }}</strong>
+            <span>{{ message('kotgh.alternative.teamDescription') }}</span>
+          </button>
+          <button type="button" class="alternative-mode-option aram-option" :disabled="isCreatingGame" @click="createAlternativeMode('Aram')">
+            <Dices :size="25" />
+            <strong>{{ message('kotgh.alternative.aram') }}</strong>
+            <span>{{ message('kotgh.alternative.aramDescription') }}</span>
+          </button>
+          <button type="button" class="alternative-mode-option mixed-option" :disabled="isCreatingGame" @click="createAlternativeMode('TeamAram')">
+            <Sparkles :size="25" />
+            <strong>{{ message('kotgh.alternative.teamAram') }}</strong>
+            <span>{{ message('kotgh.alternative.teamAramDescription') }}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -824,6 +890,17 @@ function handleVisibilityChange() {
 .game-mode.normal { background: var(--kh-c-secondary-info-500); color: var(--text-primary); border: 1px solid var(--accent-blue); }
 .game-mode.aram { background: var(--kh-c-secondary-purple-500); color: var(--text-primary); border: 1px solid var(--accent-purple); }
 .game-mode.team { background: var(--kh-c-secondary-success-500); color: var(--text-primary); border: 1px solid var(--accent-green); }
+.game-mode.teamaram { background: linear-gradient(90deg, var(--kh-c-secondary-success-500), var(--kh-c-secondary-purple-500)); color: var(--text-primary); border: 1px solid var(--accent-purple); }
+
+.btn-alt-mode { border-color: var(--accent-purple); color: var(--text-primary); background: color-mix(in srgb, var(--accent-purple) 16%, var(--bg-card)); }
+.btn-alt-mode:hover { border-color: var(--accent-gold); transform: translateY(-1px); }
+.alternative-mode-modal { width: min(780px, calc(100vw - 28px)); }
+.alternative-mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 14px; }
+.alternative-mode-option { display: flex; min-height: 190px; flex-direction: column; align-items: flex-start; gap: 9px; padding: 18px; border: 1px solid var(--border-subtle); border-radius: 13px; color: var(--text-primary); background: var(--bg-inset); cursor: pointer; text-align: left; }
+.alternative-mode-option:hover { transform: translateY(-2px); border-color: var(--accent-gold); }
+.alternative-mode-option strong { font-size: .93rem; }.alternative-mode-option span { color: var(--text-muted); font-size: .68rem; line-height: 1.5; }
+.team-option { color: var(--accent-green); }.aram-option { color: var(--accent-purple); }.mixed-option { color: var(--accent-gold); }
+.alternative-mode-option strong, .alternative-mode-option span { color: var(--text-primary); }.alternative-mode-option span { color: var(--text-muted); }
 
 .game-card-stats {
   display: flex;
@@ -1296,6 +1373,12 @@ function handleVisibilityChange() {
   .games-grid {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+  .alternative-mode-grid {
+    grid-template-columns: 1fr;
+  }
+  .alternative-mode-option {
+    min-height: 130px;
   }
   .game-card-actions .btn {
     min-height: 44px;

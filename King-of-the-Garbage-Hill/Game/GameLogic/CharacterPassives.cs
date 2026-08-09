@@ -26,6 +26,7 @@ public class CharacterPassives : IServiceSingleton
     private readonly BlackjackService _blackjackService;
     private readonly object _fairPredictionCatalogLock = new();
     private List<CharacterClass> _fairPredictionCatalog;
+    private const int FairPredictionMaxRosterReservationPenalty = 80;
 
     public CharacterPassives(SecureRandom rand, HelperFunctions help,
         LoginFromConsole log, GameUpdateMess gameUpdateMess, CharactersPull charactersPull,
@@ -127,7 +128,9 @@ public class CharacterPassives : IServiceSingleton
     }
 
 
-    public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(List<GamePlayerBridgeClass> playersList)
+    public List<GamePlayerBridgeClass> HandleEventsBeforeFirstRound(
+        List<GamePlayerBridgeClass> playersList,
+        bool ordinaryPredictionsEnabled = true)
     {
         Naruto.InitializeTeam(playersList, () =>
             _charactersPull.GetAllCharactersNoFilter().Find(character =>
@@ -349,12 +352,27 @@ public class CharacterPassives : IServiceSingleton
                     break;
 
                 case "L":
-                    // Pick random enemy as L (prefer human players)
-                    var lCandidates = playersList
-                        .Where(x => x.GetPlayerId() != player.GetPlayerId() && x.PlayerType != 404)
+                    // L always comes from the living roster. Prefer a human with an ordinary prediction
+                    // sheet, then any human, then a strict bot with predictions, then any strict bot.
+                    var livingLTargets = playersList
+                        .Where(candidate => candidate.GetPlayerId() != player.GetPlayerId()
+                                            && !candidate.Passives.IsDead)
+                        .ToList();
+                    var lCandidates = livingLTargets.Where(candidate =>
+                            candidate.PlayerType != 404
+                            && Kira.CanMakeOrdinaryPredictions(candidate, ordinaryPredictionsEnabled))
                         .ToList();
                     if (lCandidates.Count == 0)
-                        lCandidates = playersList.Where(x => x.GetPlayerId() != player.GetPlayerId()).ToList();
+                        lCandidates = livingLTargets.Where(candidate => candidate.PlayerType != 404).ToList();
+                    if (lCandidates.Count == 0)
+                        lCandidates = livingLTargets.Where(candidate =>
+                                candidate.PlayerType == 404
+                                && Kira.CanMakeOrdinaryPredictions(candidate, ordinaryPredictionsEnabled))
+                            .ToList();
+                    if (lCandidates.Count == 0)
+                        lCandidates = livingLTargets.Where(candidate => candidate.PlayerType == 404).ToList();
+                    if (lCandidates.Count == 0)
+                        break;
 
                     // L is the sole random-mark exception to Rick's Most wanted.
                     var lTarget = lCandidates[_rand.Random(0, lCandidates.Count - 1)].GetPlayerId();
@@ -1292,8 +1310,7 @@ public class CharacterPassives : IServiceSingleton
                         {
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: У этого монстра нет имени...\n");
                         }
-                        else if (target.GetPlayerId() == Salldorum.ResolveRandomTargetId(
-                                     game, me, me.Passives.KiraL.LPlayerId))
+                        else if (target.GetPlayerId() == Kira.ResolveActiveLPlayerId(game, me))
                         {
                             // Don't consume eyes on L — keep them for a useful target
                             me.Status.AddInGamePersonalLogs("Глаза бога смерти: Ты не можешь увидеть имя L...\n");
@@ -4147,6 +4164,7 @@ public class CharacterPassives : IServiceSingleton
                     if (player.GameCharacter.Name == ErenYeager.CharacterName)
                     {
                         var eren = player.Passives.Eren;
+                        eren.BlockUnavailableThisTurn = false;
                         if (eren.AttackTitanActiveThisRound)
                         {
                             var wasAttacked = game.PlayersList.Any(enemy =>
@@ -4932,11 +4950,14 @@ public class CharacterPassives : IServiceSingleton
 
                                 if (causedDeath)
                                 {
-                                    if (!JonSnow.TryEndWatch(dnTarget, game, "Kira"))
+                                    var diedFromHeartAttack = !JonSnow.TryEndWatch(dnTarget, game, "Kira");
+                                    if (diedFromHeartAttack)
                                     {
                                         dnTarget.Passives.IsDead = true;
                                         dnTarget.Passives.DeathSource = "Kira";
                                         _blackjackService.RegisterShinigamiArrival(game, dnTarget);
+                                        if (player.Passives.KiraL.IdentityRevealSerial == 0)
+                                            player.Passives.KiraL.IdentityRevealSerial = 1;
                                     }
                                     dnTarget.Passives.AchievementTracker.WasKilledByKira = true;
                                     if (dnTarget.GameCharacter.Name == "Кира")
@@ -4948,8 +4969,8 @@ public class CharacterPassives : IServiceSingleton
                                         mp.Status.AddRegularPoints(1, "Монстр");
                                         game.Phrases.MonsterDeath.SendLog(mp, false);
                                     }
-                                    var isL = dnTarget.GetPlayerId() == Salldorum.ResolveRandomTargetId(
-                                        game, player, player.Passives.KiraL.LPlayerId);
+                                    var isL = dnTarget.GetPlayerId() ==
+                                              Kira.ResolveActiveLPlayerId(game, player);
                                     var pts = isL ? 4 : 2;
                                     player.Status.AddRegularPoints(pts, "Тетрадь смерти");
                                     player.GameCharacter.AddIntelligence(-1, "Гений");
@@ -4999,7 +5020,7 @@ public class CharacterPassives : IServiceSingleton
                     if (kiraL.LPlayerId != Guid.Empty && !kiraL.IsArrested)
                     {
                         // Check if Kira and L fought this round (either lost to the other)
-                        var activeL = Salldorum.ResolveRandomTargetId(game, player, kiraL.LPlayerId);
+                        var activeL = Kira.ResolveActiveLPlayerId(game, player);
                         var lPlayer = game.PlayersList.Find(x => x.GetPlayerId() == activeL);
                         if (lPlayer != null)
                         {
@@ -5730,11 +5751,6 @@ public class CharacterPassives : IServiceSingleton
 
                 switch (passive.PassiveName)
                 {
-                    case Homelander.Modesty:
-                        if (game.RoundNo == 9)
-                            Homelander.EvaluatePredictions(game);
-                        break;
-
                     case ErenYeager.Sheep:
                         if (player.GameCharacter.Name == ErenYeager.CharacterName
                             && game.RoundNo is >= 2 and <= 8)
@@ -5866,41 +5882,8 @@ public class CharacterPassives : IServiceSingleton
                         break;
 
                     case "L":
-                        if (game.RoundNo >= 9)
-                        {
-                            var kiraLNext = player.Passives.KiraL;
-                            if (kiraLNext.LPlayerId != Guid.Empty && !kiraLNext.IsArrested)
-                            {
-                                if (Kira.IsArrestQualified(game, player))
-                                {
-                                    // Goblins are immune to kill effects
-                                    if (player.GameCharacter.Name == "Стая Гоблинов") break;
-                                    if (Itachi.TryPreventDeath(player, game)) break;
-                                    kiraLNext.IsArrested = true;
-                                    player.Passives.IsDead = true;
-                                    player.Passives.DeathSource = "Kira";
-                                    _blackjackService.RegisterShinigamiArrival(game, player);
-                                    // Монстр без имени: +1 regular point per death
-                                    foreach (var mp in game.PlayersList.Where(x => !x.Passives.IsDead
-                                                 && x.GameCharacter.Passive.Any(y => y.PassiveName == "Монстр")))
-                                    {
-                                        mp.Status.AddRegularPoints(1, "Монстр");
-                                        game.Phrases.MonsterDeath.SendLog(mp, false);
-                                    }
-                                    player.Status.AddBonusPointsIgnoringFloor(-500, "Арест Киры");
-
-                                    game.AddGlobalLogs(
-                                        "**L:** Эй, Кира.\n" +
-                                        "**Kira:** Да?\n" +
-                                        "**L:** Ты арестован. Ты Кира. Я думал так начать ко всем обращаться, но им оказался ты.\n\n" +
-                                        $"**L:** Я поймал Киру... Причем совершенно случайно. Оказалось что он играл со мной в одну текстовую онлайн игру под ником {player.DiscordUsername} и пытался убить своих оппонентов с помощью какой-то тетрадки. Кто бы мог подумать. \n" +
-                                        "А еще я уронил мороженное на тетрадь, она заляпалась и испортилась, теперь никто больше не будет умирать. Но не волнуйтесь, мороженное я слизал. \n" +
-                                        "**Рюк:** Лайт, ну ты чего, совсем дурачок что ли? Зачем ты вообще играл в этот мусор? Нафига ты мне такой нужен. Запишу тебя в __свою__ тетрадь. \n" +
-                                        "Kira -500 **очков**\n" +
-                                        "Рюк +500 **очков**");
-                                }
-                            }
-                        }
+                        // Arrest is resolved after the whole opening batch so resurrection and survivor
+                        // state cannot make unanimity depend on leaderboard/passive iteration order.
                         break;
 
                     case "Ищет достойного противника":
@@ -6875,6 +6858,8 @@ public class CharacterPassives : IServiceSingleton
             //end Я за чаем
         }
 
+        ResolveKiraArrests(game);
+
         // Таинственный Суппорт — "Premade": prevent marked player from skipping
         foreach (var supporter in game.PlayersList)
         {
@@ -6894,6 +6879,64 @@ public class CharacterPassives : IServiceSingleton
             }
         }
 
+    }
+
+    private void ResolveKiraArrests(GameClass game)
+    {
+        if (game.RoundNo < 9)
+            return;
+
+        lock (game)
+        {
+            var arrestCandidates = game.PlayersList.Where(candidate =>
+                    !candidate.Passives.IsDead
+                    && candidate.Passives.KiraL.LPlayerId != Guid.Empty
+                    && candidate.GameCharacter.Passive.Any(passive => passive.PassiveName == "L"))
+                .ToList();
+            // Qualify the whole batch against one post-resurrection survivor state before any arrest
+            // changes IsDead. Multiple Kira holders therefore cannot change one another's voter pools.
+            var qualifiedKiras = arrestCandidates.Where(player =>
+                    !player.Passives.KiraL.IsArrested && Kira.IsArrestQualified(game, player))
+                .ToList();
+            var monsterRecipients = game.PlayersList.Where(candidate =>
+                    !candidate.Passives.IsDead
+                    && candidate.GameCharacter.Passive.Any(passive => passive.PassiveName == "Монстр"))
+                .ToList();
+
+            foreach (var player in qualifiedKiras)
+            {
+                var kiraL = player.Passives.KiraL;
+                // Goblins are immune to kill effects.
+                if (player.GameCharacter.Name == "Стая Гоблинов")
+                    continue;
+                if (Itachi.TryPreventDeath(player, game))
+                    continue;
+
+                Kira.CaptureLDeathPredictionState(game, player);
+                kiraL.IsArrested = true;
+                player.Passives.IsDead = true;
+                player.Passives.DeathSource = "Kira";
+                _blackjackService.RegisterShinigamiArrival(game, player);
+                // Монстр без имени: use the pre-arrest survivor snapshot. If several Kiras are arrested
+                // together, their iteration order cannot change which living-at-batch-start Monsters score.
+                foreach (var monster in monsterRecipients)
+                {
+                    monster.Status.AddRegularPoints(1, "Монстр");
+                    game.Phrases.MonsterDeath.SendLog(monster, false);
+                }
+
+                player.Status.AddBonusPointsIgnoringFloor(-500, "Арест Киры");
+                game.AddGlobalLogs(
+                    "**L:** Эй, Кира.\n" +
+                    "**Kira:** Да?\n" +
+                    "**L:** Ты арестован. Ты Кира. Я думал так начать ко всем обращаться, но им оказался ты.\n\n" +
+                    $"**L:** Я поймал Киру... Причем совершенно случайно. Оказалось что он играл со мной в одну текстовую онлайн игру под ником {player.DiscordUsername} и пытался убить своих оппонентов с помощью какой-то тетрадки. Кто бы мог подумать. \n" +
+                    "А еще я уронил мороженное на тетрадь, она заляпалась и испортилась, теперь никто больше не будет умирать. Но не волнуйтесь, мороженное я слизал. \n" +
+                    "**Рюк:** Лайт, ну ты чего, совсем дурачок что ли? Зачем ты вообще играл в этот мусор? Нафига ты мне такой нужен. Запишу тебя в __свою__ тетрадь. \n" +
+                    "Kira -500 **очков**\n" +
+                    "Рюк +500 **очков**");
+            }
+        }
     }
 
 
@@ -7575,51 +7618,104 @@ public class CharacterPassives : IServiceSingleton
             return;
         }
 
-        // L3 combines the same legal evidence with roster rules. Assign the most constrained target first,
-        // then remove that character from the remaining public pool. This is inference, not a roster read.
-        var alreadyUsedNames = fillMissingOnly
-            ? player.Predict
-                .Where(prediction => targets.Any(target =>
-                    target.GetPlayerId() == prediction.PlayerId))
-                .Select(prediction => prediction.CharacterName)
-                .ToHashSet(StringComparer.Ordinal)
-            : new HashSet<string>(StringComparer.Ordinal);
-        var available = candidates
-            .Where(candidate => !alreadyUsedNames.Contains(candidate.Name))
-            .ToList();
-        if (available.Count < unresolvedTargets.Count)
-            available = candidates.ToList();
+        // L3/Legacy+ combine the same legal evidence with confidence-weighted roster reservations.
+        // Exact reveals remain hard constraints. A guessed identity instead discourages reuse in proportion
+        // to confidence, so a weak prior cannot remove a likely identity from every later row.
+        var rosterReservations = new Dictionary<string, int>(StringComparer.Ordinal);
+        if (fillMissingOnly)
+        {
+            foreach (var prediction in player.Predict.Where(prediction => targets.Any(target =>
+                         target.GetPlayerId() == prediction.PlayerId)))
+            {
+                var evidence = BotInformation.PredictionFor(player, prediction.PlayerId);
+                if (evidence is { IsExactReveal: true })
+                    continue;
+                var confidence = evidence?.Confidence ?? 10;
+                AddFairRosterReservation(rosterReservations, prediction.CharacterName, confidence);
+            }
+        }
+
         var pending = unresolvedTargets.ToList();
-        while (pending.Count > 0 && available.Count > 0)
+        while (pending.Count > 0 && candidates.Count > 0)
         {
             var targetChoices = pending.Select(target =>
             {
-                var ranked = available
+                var raw = candidates
+                    .Where(candidate => !Kira.IsKiraGuess(candidate.Name)
+                                        || !rosterReservations.ContainsKey(candidate.Name))
                     .Select(candidate => (Candidate: candidate, Score: FairPredictionScore(
                         player, target, candidate, game, true, context.LastRoundPersonal,
                         context.CurrentPersonal, context.VisibleHistory)))
-                    .OrderByDescending(choice => choice.Score)
                     .ToList();
-                var margin = ranked[0].Score - (ranked.Count > 1 ? ranked[1].Score : 0);
-                return (Target: target, Ranked: ranked, Margin: margin);
-            }).OrderByDescending(choice => choice.Margin)
-              .ThenByDescending(choice => choice.Ranked[0].Score)
+                var ranked = raw
+                    .Select(choice => (choice.Candidate, RawScore: choice.Score,
+                        WeightedScore: choice.Score - FairRosterReservationPenalty(
+                            rosterReservations.GetValueOrDefault(choice.Candidate.Name))))
+                    .OrderByDescending(choice => choice.WeightedScore)
+                    .ThenByDescending(choice => choice.RawScore)
+                    .ToList();
+                if (ranked.Count == 0)
+                    return (Target: target, Ranked: ranked, Confidence: -1, Margin: int.MinValue);
+
+                var best = ranked[0];
+                var bestOtherRawScore = raw
+                    .Where(choice => choice.Candidate.Name != best.Candidate.Name)
+                    .Select(choice => choice.Score)
+                    .DefaultIfEmpty(0)
+                    .Max();
+                var confidence = FairPredictionConfidence(
+                    best.RawScore,
+                    bestOtherRawScore,
+                    FairPredictionPrior(best.Candidate));
+                var margin = best.WeightedScore
+                             - (ranked.Count > 1 ? ranked[1].WeightedScore : 0);
+                return (Target: target, Ranked: ranked, Confidence: confidence, Margin: margin);
+            }).Where(choice => choice.Ranked.Count > 0)
+              .OrderByDescending(choice => choice.Confidence)
+              .ThenByDescending(choice => choice.Margin)
+              .ThenByDescending(choice => choice.Ranked[0].WeightedScore)
               .ThenBy(choice => choice.Target.Status.GetPlaceAtLeaderBoard())
-              .First();
+              .FirstOrDefault();
+
+            if (targetChoices.Ranked == null || targetChoices.Ranked.Count == 0)
+                break;
 
             var best = targetChoices.Ranked[0];
-            var confidence = Math.Clamp(35 + best.Score / 3 + targetChoices.Margin / 2, 35, 92);
             BotInformation.ReplacePrediction(
                 player,
                 targetChoices.Target.GetPlayerId(),
                 best.Candidate.Name,
-                confidence,
-                "accumulated public evidence plus all-different roster inference",
+                targetChoices.Confidence,
+                "accumulated public evidence plus confidence-weighted roster inference",
                 game.RoundNo);
 
             pending.Remove(targetChoices.Target);
-            available.RemoveAll(candidate => candidate.Name == best.Candidate.Name);
+            AddFairRosterReservation(rosterReservations, best.Candidate.Name, targetChoices.Confidence);
         }
+    }
+
+    private static int FairPredictionConfidence(int rawScore, int bestOtherRawScore, int prior)
+    {
+        var evidenceAbovePrior = Math.Max(0, rawScore - prior);
+        var positiveMargin = Math.Max(0, rawScore - bestOtherRawScore);
+        return Math.Clamp(10 + evidenceAbovePrior / 2 + positiveMargin, 10, 95);
+    }
+
+    private static int FairRosterReservationPenalty(int confidence)
+    {
+        var bounded = Math.Clamp(confidence, 0, 100);
+        return FairPredictionMaxRosterReservationPenalty * bounded * bounded / 10_000;
+    }
+
+    private static void AddFairRosterReservation(
+        Dictionary<string, int> reservations,
+        string characterName,
+        int confidence)
+    {
+        var oldConfidence = reservations.GetValueOrDefault(characterName);
+        var bounded = Math.Clamp(confidence, 0, 100);
+        // Probabilistic union: repeated weak guesses accumulate gradually without behaving like one reveal.
+        reservations[characterName] = 100 - (100 - oldConfidence) * (100 - bounded) / 100;
     }
 
     private static (string VisibleHistory, string LastRoundPersonal, string CurrentPersonal)
@@ -8042,7 +8138,7 @@ public class CharacterPassives : IServiceSingleton
                 // treats Madara as already resolved, then reasserted in finally over every earned override.
                 Madara.EnforcePostRoundSevenBotPrediction(player, game);
                 var hasOrdinaryStrictBotPredictionSheet = player.PlayerType == 404
-                    && game.GameMode != "Aram"
+                    && !game.IsAramMode
                     && !player.GameCharacter.DoomRollMode
                     && !Madara.IsMadara(player)
                     && !player.GameCharacter.Passive.Any(passive =>
@@ -8085,7 +8181,6 @@ public class CharacterPassives : IServiceSingleton
                 if (player.PlayerType == 404)
                 {
                     HandleFairBotPredict(player, game, effAiDifficulty);
-                    player.Status.ConfirmedPredict = true;
                     continue;
                 }
 
@@ -8408,9 +8503,9 @@ public class CharacterPassives : IServiceSingleton
                 BotInformation.EnforceSingleKiraPrediction(player);
                 if (game.RoundNo == 8
                     && player.PlayerType == 404
-                    && !player.Passives.IsDead
-                    && player.Status.ConfirmedPredict)
-                    Kira.RecordPredictionConfirmation(game, player);
+                    && !player.Passives.IsDead)
+                    Kira.TryFinalizePredictionConfirmation(
+                        game, player, Kira.PredictionConfirmationSource.StrictBot);
             }
     }
     //end predict bot
@@ -8756,6 +8851,39 @@ public class CharacterPassives : IServiceSingleton
             return null;
         }
 
+        // Any previously attacked enemy is a valid teacher. The old single-target pointer made a
+        // later target with no eligible Standalone passive erase otherwise valid learning sources.
+        var attackedIds = ziggurat.AttackedPlayerIds.Count > 0
+            ? ziggurat.AttackedPlayerIds
+            : new List<Guid> { player.Passives.GoblinLastAttackedPlayer };
+        var excludedPassiveNames = player.GameCharacter.Passive
+            .Select(passive => passive.PassiveName)
+            .Concat(ziggurat.LearnedPassives)
+            .Append("Еврей")
+            .ToHashSet(StringComparer.Ordinal);
+
+        List<Passive> EligiblePassives(IEnumerable<Passive> passives) => passives
+            .Where(passive => passive.Standalone
+                              && !excludedPassiveNames.Contains(passive.PassiveName))
+            .GroupBy(passive => passive.PassiveName, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+
+        var standalonePassives = EligiblePassives(game.PlayersList
+            .Where(enemy => attackedIds.Contains(enemy.GetPlayerId()))
+            .SelectMany(enemy => enemy.GameCharacter.Passive));
+
+        // A construction is never allowed to consume its Worker/score cost without teaching a
+        // passive. If every attacked-enemy candidate is non-Standalone, forbidden, already owned,
+        // already learned or no longer present, continue the draw from the global Standalone pool.
+        if (standalonePassives.Count == 0)
+            standalonePassives = EligiblePassives(_charactersPull.GetAllPassives());
+        if (standalonePassives.Count == 0)
+            return null;
+
+        var learnedPassive =
+            standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
+
         player.Status.AddBonusPoints(-3, GoblinSwarm.ZigguratPassive);
         population.ZigguratWorkerDeductions++;
         game.Phrases.GoblinZigguratWorkerDeath.SendLog(player, false);
@@ -8771,35 +8899,12 @@ public class CharacterPassives : IServiceSingleton
         if (stillOnBuiltPosition && game.RoundNo == 10 && buildPosition == 1)
             ziggurat.TopPositionVisitedOnRoundTen = true;
 
-        // Any previously attacked enemy is a valid teacher. The old single-target pointer made a
-        // later target with no eligible Standalone passive erase otherwise valid learning sources.
-        var attackedIds = ziggurat.AttackedPlayerIds.Count > 0
-            ? ziggurat.AttackedPlayerIds
-            : new List<Guid> { player.Passives.GoblinLastAttackedPlayer };
-        var standalonePassives = game.PlayersList
-            .Where(enemy => attackedIds.Contains(enemy.GetPlayerId()))
-            .SelectMany(enemy => enemy.GameCharacter.Passive)
-            .Where(passive => passive.Standalone
-                              && passive.PassiveName != "Еврей"
-                              && !ziggurat.LearnedPassives.Contains(passive.PassiveName)
-                              && player.GameCharacter.Passive.All(existing =>
-                                  existing.PassiveName != passive.PassiveName))
-            .GroupBy(passive => passive.PassiveName)
-            .Select(group => group.First())
-            .ToList();
-
-        Passive learnedPassive = null;
-        if (standalonePassives.Count > 0)
-        {
-            learnedPassive =
-                standalonePassives[_rand.Random(0, standalonePassives.Count - 1)];
-            ziggurat.LearnedPassives.Add(learnedPassive.PassiveName);
-            var learnedCopy = learnedPassive.DeepCopy();
-            learnedCopy.Visible = true;
-            player.GameCharacter.Passive.Add(learnedCopy);
-            player.Status.AddInGamePersonalLogs(
-                $"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
-        }
+        ziggurat.LearnedPassives.Add(learnedPassive.PassiveName);
+        var learnedCopy = learnedPassive.DeepCopy();
+        learnedCopy.Visible = true;
+        player.GameCharacter.Passive.Add(learnedCopy);
+        player.Status.AddInGamePersonalLogs(
+            $"Отлично! Гоблины постарались как следует и научились производить: {learnedPassive.PassiveName}\n");
         game.Phrases.GoblinZigguratBuild.SendLog(player, false);
         player.Status.AddInGamePersonalLogs(
             $"Зиккурат построен на месте {buildPosition}! Позиция защищена.\n");

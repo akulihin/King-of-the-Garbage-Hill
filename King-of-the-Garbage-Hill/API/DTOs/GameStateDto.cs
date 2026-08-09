@@ -38,7 +38,6 @@ public class GameStateDto
     public int HalfLifeReleaseSerial { get; set; }
     public int AbyssSerial { get; set; }
     public int OmniManInvasionSerial { get; set; }
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int OmniManUndergroundTrainSerial { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string OmniManUndergroundTrainPhrase { get; set; }
@@ -132,6 +131,12 @@ public class PlayerDto
     /// <summary>Whether this player is Kira (uses Death Note instead of predictions).</summary>
     public bool IsKira { get; set; }
 
+    /// <summary>
+    /// Owner-only monotonic signal revealing that this seat is L after Kira's first real heart-attack death.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int LRevealSerial { get; set; }
+
     /// <summary>Whether this is the requesting player's private terminal-mode projection.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsTerminalMode { get; set; }
@@ -162,6 +167,9 @@ public class PlayerDto
     /// <summary>Owner-scoped marker for an opponent who revealed Homelander's identity.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool HomelanderIdentityRevealer { get; set; }
+    /// <summary>Viewer-scoped marker on Homelander while Скромность suppresses his Justice for this viewer.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool HomelanderEasyTarget { get; set; }
 
     /// <summary>Owner-scoped Подумай, Марк! marker for an opponent who failed the check.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -424,6 +432,9 @@ public class ActiveGameDto
     public bool IsFinished { get; set; }
     public int BotCount { get; set; }
     public bool CanJoin { get; set; }
+    public bool IsPreparation { get; set; }
+    public string PreparationStage { get; set; } = "";
+    public string DeadlineUtc { get; set; } = "";
 }
 
 public class CharacterInfoDto
@@ -943,6 +954,7 @@ public class ErenStateDto
     public int Losses { get; set; }
     public bool AttackTitanActive { get; set; }
     public int AttackTitanCooldown { get; set; }
+    public bool BlockUnavailableThisTurn { get; set; }
     public int AttackTitanSoundSerial { get; set; }
     public int TatakeSoundSerial { get; set; }
     public bool RumblingTriggered { get; set; }

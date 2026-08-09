@@ -8,6 +8,7 @@ import {
   type AdminLobbyState,
   type AdminLobbyDirectory,
   type AdminLobbyPresence,
+  type AlternativeLobbyState,
   type ActionResult,
   type GameEvent,
   type BlackjackTableState,
@@ -104,6 +105,7 @@ export const useGameStore = defineStore('game', () => {
   const adminLobbyState = ref<AdminLobbyState | null>(null)
   const adminLobbyDirectory = ref<AdminLobbyDirectory | null>(null)
   const adminLobbyPresence = ref<AdminLobbyPresence | null>(null)
+  const alternativeLobbyState = ref<AlternativeLobbyState | null>(null)
   const godReservation = ref(false)
   const characterList = ref<CharacterListEntry[]>([])
   const doomFortressState = ref<DoomFortressState | null>(null)
@@ -377,6 +379,10 @@ export const useGameStore = defineStore('game', () => {
         godReservation.value = data.reserved
       }
 
+      signalrService.onAlternativeLobbyState = (state) => {
+        alternativeLobbyState.value = state
+      }
+
       signalrService.onActionResult = (result) => {
         lastAction.value = result
         if (!result.success && isLevelUpAction(result.action)) {
@@ -532,6 +538,7 @@ export const useGameStore = defineStore('game', () => {
     adminLobbyState.value = null
     adminLobbyDirectory.value = null
     adminLobbyPresence.value = null
+    alternativeLobbyState.value = null
     godReservation.value = false
 
     gameState.value = null
@@ -623,6 +630,59 @@ export const useGameStore = defineStore('game', () => {
     await signalrService.createAdminLobby()
   }
 
+  async function createAlternativeLobby(mode: 'Team' | 'Aram' | 'TeamAram') {
+    await signalrService.createAlternativeLobby(mode)
+  }
+
+  async function joinAlternativeLobby(lobbyId: number) {
+    await signalrService.joinAlternativeLobby(lobbyId)
+  }
+
+  async function requestAlternativeLobbyState(lobbyId: number) {
+    await signalrService.requestAlternativeLobbyState(lobbyId)
+  }
+
+  async function alternativeLobbySetTeamSize(lobbyId: number, teamSize: 2 | 3) {
+    await signalrService.alternativeLobbySetTeamSize(lobbyId, teamSize)
+  }
+
+  async function alternativeLobbySetAiDifficulty(lobbyId: number, difficulty: number) {
+    await signalrService.alternativeLobbySetAiDifficulty(lobbyId, difficulty)
+  }
+
+  async function alternativeLobbyMove(lobbyId: number, targetSlotIndex: number) {
+    await signalrService.alternativeLobbyMove(lobbyId, targetSlotIndex)
+  }
+
+  async function alternativeLobbySetTeamReady(lobbyId: number, ready: boolean) {
+    await signalrService.alternativeLobbySetTeamReady(lobbyId, ready)
+  }
+
+  async function alternativeLobbySelectCharacter(lobbyId: number, characterName: string) {
+    await signalrService.alternativeLobbySelectCharacter(lobbyId, characterName)
+  }
+
+  async function alternativeLobbyUnlockPassive(lobbyId: number, slotIndex: number) {
+    await signalrService.alternativeLobbyUnlockPassive(lobbyId, slotIndex)
+  }
+
+  async function alternativeLobbySelectPassive(
+    lobbyId: number,
+    slotIndex: number,
+    passiveName: string,
+  ) {
+    await signalrService.alternativeLobbySelectPassive(lobbyId, slotIndex, passiveName)
+  }
+
+  async function alternativeLobbySetAramReady(lobbyId: number, ready: boolean) {
+    await signalrService.alternativeLobbySetAramReady(lobbyId, ready)
+  }
+
+  async function leaveAlternativeLobby(lobbyId: number) {
+    await signalrService.leaveAlternativeLobby(lobbyId)
+    alternativeLobbyState.value = null
+  }
+
   async function requestAdminLobbyState() {
     await signalrService.requestAdminLobbyState()
   }
@@ -641,6 +701,13 @@ export const useGameStore = defineStore('game', () => {
 
   async function adminLobbyAddBot(slotIndex: number, aiDifficulty: number) {
     await signalrService.adminLobbyAddBot(slotIndex, aiDifficulty)
+  }
+
+  async function adminLobbySetMode(
+    mode: 'Normal' | 'Team' | 'Aram' | 'TeamAram',
+    teamSize: 2 | 3,
+  ) {
+    await signalrService.adminLobbySetMode(mode, teamSize)
   }
 
   async function adminLobbySetCharacter(slotIndex: number, characterName: string) {
@@ -1164,6 +1231,7 @@ export const useGameStore = defineStore('game', () => {
     adminLobbyState,
     adminLobbyDirectory,
     adminLobbyPresence,
+    alternativeLobbyState,
     godReservation,
     // Computed
     myPlayer,
@@ -1201,11 +1269,24 @@ export const useGameStore = defineStore('game', () => {
     leaveGame,
     refreshLobby,
     createAdminLobby,
+    createAlternativeLobby,
+    joinAlternativeLobby,
+    requestAlternativeLobbyState,
+    alternativeLobbySetTeamSize,
+    alternativeLobbySetAiDifficulty,
+    alternativeLobbyMove,
+    alternativeLobbySetTeamReady,
+    alternativeLobbySelectCharacter,
+    alternativeLobbyUnlockPassive,
+    alternativeLobbySelectPassive,
+    alternativeLobbySetAramReady,
+    leaveAlternativeLobby,
     requestAdminLobbyState,
     requestAdminLobbyDirectory,
     requestAdminLobbyPresence,
     adminLobbyInvitePlayer,
     adminLobbyAddBot,
+    adminLobbySetMode,
     adminLobbySetCharacter,
     adminLobbyRemoveSlot,
     adminLobbyStart,

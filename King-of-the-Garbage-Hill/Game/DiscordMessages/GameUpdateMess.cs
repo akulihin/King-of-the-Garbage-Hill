@@ -935,6 +935,9 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             }
 
 
+        if (!isWeb && Homelander.IsEasyTargetFor(game, me, other))
+            customString += " 🎯";
+
         //predict — web handles these natively (character unmask + prediction UI)
         if (!isWeb)
         {
@@ -1899,7 +1902,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             components.WithButton(new ButtonBuilder(
                 "Проснуться", "gordon-wake", ButtonStyle.Primary));
 
-        if (!game.IsRanked && game.GameMode != "Aram" && player.GameCharacter.Tier > 3)
+        if (!game.IsRanked && !game.IsAramMode && player.GameCharacter.Tier > 3)
         {
             components.WithButton(GetAutoMoveButton(player, game));
         }
@@ -1920,7 +1923,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
             if (player.Status.ConfirmedPredict && player.Status.ConfirmedSkip)
                 components.WithButton(GetMoralToPointsButton(player, game), 2);
 
-        if (game.GameMode != "Aram" && !player.GameCharacter.DoomRollMode && !Madara.IsMadara(player))
+        if (!game.IsAramMode && !player.GameCharacter.DoomRollMode && !Madara.IsMadara(player))
         {
             if (player.GameCharacter.Passive.All(x => x.PassiveName != "AdminPlayerType"))
             {
@@ -2188,6 +2191,7 @@ public sealed class GameUpdateMess : ModuleBase<SocketCommandContext>, IServiceS
                             || !GordonFreeman.CanAnnounceHalfLife3(player, game));
 
         var playerIsReady = !Naruto.CanChooseBlock(player)
+                            || ErenYeager.IsBlockUnavailableThisTurn(player)
                             || player.Status.IsBlock || player.Status.IsSkip || player.Status.IsReady;
         //Возвращение из мертвых
         if (game.RoundNo > 10 && game.IsKratosEvent &&

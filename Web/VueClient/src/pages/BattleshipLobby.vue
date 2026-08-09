@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBattleshipStore } from 'src/store/battleship'
 import { useGameStore } from 'src/store/game'
-import { signalrService } from 'src/services/signalr'
+import {
+  signalrService,
+  type BattleshipBotVersion,
+  type BattleshipLobbyGame,
+} from 'src/services/signalr'
 import { useTip } from 'src/composables/useTip'
+import { message } from 'src/platform/localization'
 import 'src/components/battleship/battleship.css'
 import BsIcon from 'src/components/battleship/BsIcon.vue'
+import CreateGameDialog from 'src/components/battleship/CreateGameDialog.vue'
 import StatsPanel from 'src/components/battleship/StatsPanel.vue'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
@@ -18,6 +24,49 @@ const router = useRouter()
 let pollInterval: ReturnType<typeof setInterval> | null = null
 
 const games = computed(() => store.lobbyState?.games ?? [])
+const createOpen = ref(false)
+
+function resolvedBotVersion(version: BattleshipLobbyGame['botVersion']): BattleshipBotVersion {
+  return version === 2 || version === 3 ? version : 1
+}
+
+function playerDisplayName(
+  name: string,
+  isBot: boolean,
+  version: BattleshipLobbyGame['botVersion'],
+) {
+  if (isBot) {
+    return message('battleship.lobby.botDisplayName', {
+      version: resolvedBotVersion(version),
+    })
+  }
+  return name || message('battleship.lobby.waitingForPlayer')
+}
+
+function botTooltip(version: BattleshipLobbyGame['botVersion']) {
+  return message('battleship.lobby.botManagedTooltip', {
+    version: resolvedBotVersion(version),
+  })
+}
+
+function canJoinGame(game: BattleshipLobbyGame) {
+  return game.canJoin ?? (
+    game.vsBot !== true
+    && game.player2IsBot
+    && game.phase === 'Lobby'
+  )
+}
+
+function openCreate() {
+  if (store.isCreating) return
+  store.errorMessage = null
+  createOpen.value = true
+}
+
+function closeCreate() {
+  if (store.isCreating) return
+  createOpen.value = false
+}
 
 function phaseBadgeClass(phase: string) {
   return 'phase-' + phase.toLowerCase()
@@ -44,6 +93,7 @@ onMounted(() => {
 
   signalrService.onBattleshipGameCreated = (data) => {
     store.isCreating = false
+    createOpen.value = false
     router.push(`/battleship/${data.gameId}`)
   }
 
@@ -59,9 +109,14 @@ onUnmounted(() => {
   store.cleanupCallbacks()
 })
 
-async function handleCreate() {
+async function handleCreate(vsBot: boolean, botVersion: BattleshipBotVersion) {
   if (store.isCreating) return
-  await store.createGame()
+  try {
+    await store.createGame(vsBot, botVersion)
+  }
+  catch {
+    // The store exposes the localized transport failure in this dialog.
+  }
 }
 
 async function handleJoin(gameId: string) {
@@ -81,7 +136,7 @@ async function handleJoin(gameId: string) {
       <button
         class="bs-btn bs-btn--primary"
         :disabled="store.isCreating"
-        @click="handleCreate"
+        @click="openCreate"
       >
         <BsIcon icon="plus" :size="15" />
         {{ store.isCreating ? 'Создание...' : 'Новая игра' }}
@@ -90,6 +145,10 @@ async function handleJoin(gameId: string) {
 
     <!-- W/L record, streak, first-win bonus -->
     <StatsPanel />
+
+    <div v-if="store.errorMessage && !createOpen" class="lobby-error" role="alert">
+      {{ store.errorMessage }}
+    </div>
 
     <!-- Empty state -->
     <div v-if="games.length === 0" class="empty-state">
@@ -106,12 +165,12 @@ async function handleJoin(gameId: string) {
         </div>
 
         <div class="game-players">
-          <span class="player-name" :class="{ 'is-bot': game.player1IsBot }" @mouseenter="game.player1IsBot ? showTip($event, 'Управляется компьютером') : undefined" @mousemove="moveTip" @mouseleave="hideTip">
-            {{ game.player1Name || '—' }}
+          <span class="player-name" :class="{ 'is-bot': game.player1IsBot }" @mouseenter="game.player1IsBot ? showTip($event, botTooltip(game.botVersion)) : undefined" @mousemove="moveTip" @mouseleave="hideTip">
+            {{ playerDisplayName(game.player1Name, game.player1IsBot, game.botVersion) }}
           </span>
           <span class="vs">vs</span>
-          <span class="player-name" :class="{ 'is-bot': game.player2IsBot }" @mouseenter="game.player2IsBot ? showTip($event, 'Управляется компьютером') : undefined" @mousemove="moveTip" @mouseleave="hideTip">
-            {{ game.player2Name || '—' }}
+          <span class="player-name" :class="{ 'is-bot': game.player2IsBot }" @mouseenter="game.player2IsBot ? showTip($event, botTooltip(game.botVersion)) : undefined" @mousemove="moveTip" @mouseleave="hideTip">
+            {{ playerDisplayName(game.player2Name, game.player2IsBot, game.botVersion) }}
           </span>
         </div>
 
@@ -119,7 +178,7 @@ async function handleJoin(gameId: string) {
           <span v-if="game.turnNumber > 0" class="turn-info bs-mono" @mouseenter="showTip($event, 'Текущий ход в матче')" @mousemove="moveTip" @mouseleave="hideTip">Ход {{ game.turnNumber }}</span>
           <span v-else />
           <button
-            v-if="game.player2IsBot && game.phase === 'Lobby'"
+            v-if="canJoinGame(game)"
             class="bs-btn bs-btn--primary btn-join"
             @click="handleJoin(game.gameId)"
           >
@@ -136,6 +195,14 @@ async function handleJoin(gameId: string) {
         </div>
       </div>
     </div>
+
+    <CreateGameDialog
+      v-if="createOpen"
+      :is-creating="store.isCreating"
+      :error-message="store.errorMessage"
+      @close="closeCreate"
+      @create="handleCreate"
+    />
 
     <!-- Tooltip -->
     <Teleport to="body">
@@ -281,5 +348,15 @@ async function handleJoin(gameId: string) {
 
 .btn-spectate {
   opacity: 0.85;
+}
+
+.lobby-error {
+  margin: 0.75rem 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--accent-red) 45%, var(--border-subtle));
+  border-radius: 10px;
+  color: var(--accent-red);
+  background: color-mix(in srgb, var(--accent-red) 9%, var(--bg-card));
+  font-size: 0.82rem;
 }
 </style>

@@ -1214,32 +1214,58 @@ public class CheckIfReady : IServiceSingleton
         foreach (var player in game.PlayersList.Where(player => !player.Passives.IsDead))
             player.GameCharacter.SetMoralBonus();
 
-        foreach (var player in players.Where(player => !player.IsBot()))
+        var messageUpdates = new List<(GamePlayerBridgeClass Player, string ExtraText)>();
+        lock (game)
+        {
+            // PlayerType, not Discord-message presence, is the ownership boundary: a temporarily
+            // disconnected human must still receive the round-eight explicit Confirm window.
+            foreach (var player in players.Where(player => player.PlayerType != 404))
+            {
+                try
+                {
+                    var extraText = "";
+                    if (game.RoundNo == 8 && !game.IsAramMode)
+                    {
+                        if (Madara.IsMadara(player))
+                        {
+                            Madara.SetUnableToAct(player);
+                        }
+                        else
+                        {
+                            player.Status.ConfirmedPredict = false;
+                            extraText = "Это последний раунд, когда можно сделать **предложение**!";
+                            if (player.Passives.IsDead
+                                || player.GameCharacter.DoomRollMode
+                                || UnknownBug.Is(player)
+                                || player.GameCharacter.Passive.Any(passive =>
+                                    passive.PassiveName is "Тетрадь смерти" or "Булькает" or "AdminPlayerType"))
+                                player.Status.ConfirmedPredict = true;
+                        }
+                    }
+
+                    if (game.RoundNo == 9)
+                        player.Status.ConfirmedPredict = true;
+
+                    messageUpdates.Add((player, extraText));
+                }
+                catch (Exception exception)
+                {
+                    _logs.Critical(exception.Message);
+                    _logs.Critical(exception.StackTrace);
+                }
+            }
+
+            // Open the action window before publishing controls. A fast Confirm click from the first
+            // refreshed client must see the same open state as the UI that invited it.
+            game.IsCheckIfReady = true;
+        }
+
+        foreach (var (player, extraText) in messageUpdates)
         {
             try
             {
-                var extraText = "";
-                if (game.RoundNo == 8 && game.GameMode != "Aram")
-                {
-                    if (Madara.IsMadara(player))
-                    {
-                        Madara.SetUnableToAct(player);
-                    }
-                    else
-                    {
-                        player.Status.ConfirmedPredict = false;
-                        extraText = "Это последний раунд, когда можно сделать **предложение**!";
-                        if (player.GameCharacter.Passive.Any(passive =>
-                                passive.PassiveName == "Тетрадь смерти"
-                                || passive.PassiveName == "Булькает"))
-                            player.Status.ConfirmedPredict = true;
-                    }
-                }
-
-                if (game.RoundNo == 9)
-                    player.Status.ConfirmedPredict = true;
-
-                await _upd.UpdateMessage(player, extraText);
+                if (!player.IsBot())
+                    await _upd.UpdateMessage(player, extraText);
             }
             catch (Exception exception)
             {
@@ -1247,8 +1273,6 @@ public class CheckIfReady : IServiceSingleton
                 _logs.Critical(exception.StackTrace);
             }
         }
-
-        game.IsCheckIfReady = true;
     }
 
     public async Task<string> API_PlayerIsReady(string body = "default value")
@@ -1326,8 +1350,6 @@ public class CheckIfReady : IServiceSingleton
                 }
 
                 var players = game.PlayersList;
-                var readyTargetCount = players.Count(x => !x.IsBot());
-                var readyCount = 0;
 
                 //ARAM
                 if (game.IsAramPickPhase)
@@ -1351,7 +1373,8 @@ public class CheckIfReady : IServiceSingleton
                             await _upd.UpdateMessage(player);
                         }
 
-                        _characterPassives.HandleEventsBeforeFirstRound(players);
+                        _characterPassives.HandleEventsBeforeFirstRound(
+                            players, ordinaryPredictionsEnabled: false);
                         for (var j = 0; j < players.Count; j++) players[j].Status.SetPlaceAtLeaderBoard(j + 1);
                     }
 
@@ -1484,10 +1507,6 @@ public class CheckIfReady : IServiceSingleton
                         await _upd.UpdateMessage(player);
                     }
 
-                    if (game.TimePassed.Elapsed.TotalSeconds < 50 && !player.Status.ConfirmedSkip
-                        && !(game.RoundNo == 8 && Madara.IsMadara(player))) continue;
-                    if (player.Status.IsReady && player.Status.ConfirmedPredict)
-                        readyCount++;
                 }
 
                 // Клоны Сусано: in a live game strict bots react only after the 30-second scene.
@@ -1500,17 +1519,35 @@ public class CheckIfReady : IServiceSingleton
                     continue;
 
 
-                if (readyCount != readyTargetCount &&
-                    !(game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond))
-                    continue;
+                bool turnDeadlineReached;
+                lock (game)
+                {
+                    if (!game.IsCheckIfReady)
+                        continue;
+
+                    var elapsedSeconds = game.TimePassed.Elapsed.TotalSeconds;
+                    turnDeadlineReached = elapsedSeconds >= game.TurnLengthInSecond;
+                    var currentHumanPlayers = players.Where(player => !player.IsBot()).ToList();
+                    var currentReadyCount = currentHumanPlayers.Count(player =>
+                        (elapsedSeconds >= 50
+                         || player.Status.ConfirmedSkip
+                         || (game.RoundNo == 8 && Madara.IsMadara(player)))
+                        && player.Status.IsReady
+                        && player.Status.ConfirmedPredict);
+                    if (currentReadyCount != currentHumanPlayers.Count && !turnDeadlineReached)
+                        continue;
+
+                    // Prediction writes and final Confirm use this same lock. Whichever side enters
+                    // first either completes while the window is open or observes the closed window.
+                    game.IsCheckIfReady = false;
+                }
 
                 if (game.RoundNo == 1
-                    && game.TimePassed.Elapsed.TotalSeconds >= game.TurnLengthInSecond)
+                    && turnDeadlineReached)
                     Cthulhu.EnsureUnchosenAdeptAutoPick(
                         game, _charactersPull, _secureRandom, _accounts);
 
                 //Calculating the game
-                game.IsCheckIfReady = false;
                 if (!game.IsKratosEvent)
                 {
                     Madara.PrepareIncomingAttackers(game);

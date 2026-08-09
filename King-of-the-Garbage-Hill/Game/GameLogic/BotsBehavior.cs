@@ -105,10 +105,9 @@ public class BotsBehavior : IServiceSingleton
             await HandleLvlUpBot(player, game);
         ScamRat.SpendCarryPointsForBot(player, game);
 
-        // The post-round-seven Madara prediction is authoritative over every ordinary bot inference.
-        // Naruto, Sakura and Itachi additionally have to submit their ordinary attack against him.
-        var mustAcceptMadaraChallenge = Madara.MustAcceptRoundEightBotChallenge(player, game);
-        Madara.EnforcePostRoundSevenBotPrediction(player, game);
+        // Global designer reactions are an overlay shared by every bot policy. Keep them outside the
+        // Legacy/Legacy+/V2/V3 dispatch so adding or changing an AI version cannot bypass them.
+        ApplyGlobalDesignerPredictionRules(player, game);
 
         // Forced skips are already complete actions. In particular, Шоковый щит must not let a
         // bot immediately replace the skip with its ordinary attack decision.
@@ -141,14 +140,15 @@ public class BotsBehavior : IServiceSingleton
         if (!Dumb(player, game) && player.GameCharacter.Passive.Any(x => x.PassiveName == "Тетрадь смерти"))
             HandleBotKira(player, game);
 
-        if (mustAcceptMadaraChallenge)
-        {
-            var madara = Madara.Find(game);
-            if (madara != null && await AttackPlayer(player, madara.Status.GetPlaceAtLeaderBoard()))
-                return;
-        }
-
         await HandleBotAttack(player, game);
+    }
+
+    private static void ApplyGlobalDesignerPredictionRules(GamePlayerBridgeClass bot, GameClass game)
+    {
+        // The post-round-seven Madara row and the shared Monster-safe prediction solver are global
+        // contracts, not features of an individual AI version. HandleBotPredict owns the ordinary
+        // sheet pass; this final override keeps the exact Madara row authoritative over that pass.
+        Madara.EnforcePostRoundSevenBotPrediction(bot, game);
     }
 
     private void EnsureBotPlaystyle(GamePlayerBridgeClass player, GameClass game)
@@ -1037,10 +1037,9 @@ public class BotsBehavior : IServiceSingleton
                 }
             }
 
-            // On round 10 every AI level must attack its own best Monster hypothesis. The ranking is
-            // viewer-scoped and never receives the real Monster/Eren seat from the server.
-            if (await TryForceRoundTenSuspectedMonsterAttack(bot, game, allTargets)) return;
-            if (await TryForceNechtoAttack(bot, game)) return;
+            // Global designer mandates run before every version-specific target, Block and character
+            // policy. New cross-roster forced reactions belong in this overlay, never in one AI branch.
+            if (await TryApplyGlobalDesignerActionRules(bot, game, allTargets)) return;
 
             // L0 (Dumb): pure-random attack/block, respecting real cannot-block / cannot-attack rules.
             if (Dumb(bot, game))
@@ -5429,19 +5428,57 @@ public class BotsBehavior : IServiceSingleton
         }
     }
 
-    private async Task<bool> TryForceRoundTenSuspectedMonsterAttack(
+    private async Task<bool> TryApplyGlobalDesignerActionRules(
+        GamePlayerBridgeClass bot,
+        GameClass game,
+        List<Nanobot> allTargets)
+    {
+        // These rules deliberately sit above AI version behavior. Preserve unable-to-act handling in
+        // HandleBotBehavior and target legality filtering in HandleBotAttack, then add every future
+        // cross-roster designer mandate here in its explicit priority order.
+        if (Madara.MustAcceptRoundEightBotChallenge(bot, game))
+        {
+            var madara = Madara.Find(game);
+            var target = madara == null
+                ? null
+                : allTargets.Find(candidate => candidate.GetPlayerId() == madara.GetPlayerId());
+            if (target != null && await AttackPlayer(bot, target.PlaceAtLeaderBoard()))
+                return true;
+        }
+
+        if (await TryForceRoundTenDesignerAttack(bot, game, allTargets))
+            return true;
+
+        return await TryForceNechtoAttack(bot, game);
+    }
+
+    private async Task<bool> TryForceRoundTenDesignerAttack(
         GamePlayerBridgeClass bot,
         GameClass game,
         List<Nanobot> allTargets)
     {
         // Forced skips and other unable-to-act states return before HandleBotAttack reaches this rule.
+        // Eren is the one explicit identity-based exception: every bot below a selectable Eren attacks
+        // him first. Otherwise the common Monster task remains viewer-scoped and receives no real
+        // Monster identity. Both rules precede Legacy, Legacy+, V2 and V3 behavior.
         if (bot.PlayerType != 404 || game.RoundNo != 10 || allTargets.Count == 0)
             return false;
 
-        var rankedTargetIds = _characterPassives.RankRoundTenMonsterSuspects(
-            bot,
-            game,
-            allTargets.Select(target => target.GetPlayerId()).ToList());
+        var botPlace = bot.Status.GetPlaceAtLeaderBoard();
+        var erenPriority = allTargets
+            .Where(target => target.Player.GameCharacter.Name == ErenYeager.CharacterName
+                             && target.PlaceAtLeaderBoard() < botPlace)
+            .OrderBy(target => target.PlaceAtLeaderBoard())
+            .Select(target => target.GetPlayerId())
+            .ToList();
+        var prioritized = erenPriority.ToHashSet();
+        var rankedTargetIds = erenPriority
+            .Concat(_characterPassives.RankRoundTenMonsterSuspects(
+                bot,
+                game,
+                allTargets.Select(target => target.GetPlayerId()).ToList())
+                .Where(targetId => !prioritized.Contains(targetId)))
+            .ToList();
         var attacked = false;
         foreach (var targetId in rankedTargetIds)
         {

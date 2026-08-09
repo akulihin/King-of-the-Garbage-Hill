@@ -601,7 +601,7 @@ public static class Madara
         GamePlayerBridgeClass bot, GameClass game)
     {
         if (game?.RoundNo <= 7 || bot?.PlayerType != 404 || bot.Passives.IsDead
-            || game.GameMode == "Aram" || IsMadara(bot)
+            || game.IsAramMode || IsMadara(bot)
             || bot.GameCharacter.DoomRollMode
             || bot.GameCharacter.Passive.Any(passive =>
                 passive.PassiveName is "Тетрадь смерти" or "AdminPlayerType" or "Булькает")) return;

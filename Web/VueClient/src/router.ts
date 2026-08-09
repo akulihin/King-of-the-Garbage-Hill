@@ -4,6 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 export type AppRouteNames =
   | 'lobby'
   | 'adminLobby'
+  | 'alternativeLobby'
   | 'game'
   | 'spectate'
   | 'replay'
@@ -32,6 +33,12 @@ export const routes: RouteRecordRaw[] = [
     name: 'adminLobby',
     path: '/admin-lobby',
     component: () => import('./pages/AdminLobby.vue'),
+  },
+  {
+    name: 'alternativeLobby',
+    path: '/alternative-lobby/:lobbyId',
+    component: () => import('./pages/AlternativeLobby.vue'),
+    props: true,
   },
   {
     name: 'game',

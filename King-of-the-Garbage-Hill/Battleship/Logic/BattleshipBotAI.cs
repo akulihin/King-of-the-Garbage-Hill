@@ -337,10 +337,11 @@ public static class BattleshipBotAI
                 {
                     WeaponType.EvilIncendiary => 0,
                     WeaponType.Incendiary => 1,
-                    WeaponType.Tetracatapult => 2,
-                    WeaponType.Ballista => 3,
-                    WeaponType.EvilGreekFire => 4,
-                    WeaponType.GreekFire => 5,
+                    WeaponType.Neptune => 2,
+                    WeaponType.Tetracatapult => 3,
+                    WeaponType.Ballista => 4,
+                    WeaponType.EvilGreekFire => 5,
+                    WeaponType.GreekFire => 6,
                     _ => 6,
                 })
                 .Select(value => value.weapon)
@@ -353,6 +354,7 @@ public static class BattleshipBotAI
                     {
                         WeaponType.EvilIncendiary => ShotType.EvilIncendiary,
                         WeaponType.Incendiary => ShotType.Incendiary,
+                        WeaponType.Neptune => ShotType.Neptune,
                         WeaponType.EvilGreekFire => ShotType.EvilGreekFire,
                         WeaponType.GreekFire => ShotType.GreekFire,
                         _ => ShotType.Ballista,
@@ -385,6 +387,9 @@ public static class BattleshipBotAI
                     return (type.ToString(), type.ToString());
             }
         }
+
+        if (hasTarget && FindWeapon(bot, WeaponType.Neptune, revealedByBot) != null)
+            return (WeaponType.Neptune.ToString(), ShotType.Neptune.ToString());
 
         // Tetracatapult: White Stone or Buckshot
         var tetraWeapons = BattleshipGameEngine.GetUsableWeapons(game, bot, WeaponType.Tetracatapult)
@@ -480,6 +485,20 @@ public static class BattleshipBotAI
         // Buckshot: use AoE targeting
         if (shotType == ShotType.Buckshot)
             return ChooseBuckshotTarget(opponent.Board, blockedRows);
+
+        if (shotType == ShotType.Neptune)
+        {
+            var neptuneTargets = opponent.Board.Grid.Cast<Cell>()
+                .Where(cell => !cell.HasElectricCharge &&
+                               !ownSummonCells.Contains((cell.Row, cell.Col)) &&
+                               (cell.SummonRef is { IsAlive: true } ||
+                                cell.ShipRef != null &&
+                                cell.ShipRef.GetOccupiedCells().Contains((cell.Row, cell.Col))))
+                .Select(cell => (row: cell.Row, col: cell.Col))
+                .ToList();
+            if (neptuneTargets.Count > 0)
+                return neptuneTargets[Rng.Next(neptuneTargets.Count)];
+        }
 
         // Target mode: if we have hit-but-not-sunk ships, pursue them
         var targetCells = FindTargetCells(opponent.Board);

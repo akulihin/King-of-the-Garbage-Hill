@@ -59,6 +59,24 @@ public static class ShipCatalog
         },
         new ShipDefinition
         {
+            Id = "neptune_carrier", Name = "Нептуновозчик", NameRu = "Нептуновозчик",
+            DeckCount = 3, Range = RangeClass.Tetra, Cost = 20, IsHome = true,
+            DeckHpOverrides = new() { 4, 6, 4 }, Speed = 1, Space = 1,
+            Regions = new() { Region.East }, Factions = new() { Faction.Empire },
+            DescriptionKey = "battleship.ship.neptuneCarrier.description",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate
+                {
+                    Type = WeaponType.Neptune,
+                    Ammo = 3,
+                    DeckIndex = 1,
+                    AimSpeed = 10,
+                }
+            },
+        },
+        new ShipDefinition
+        {
             Id = "tetranavis", Name = "Tetranavis", NameRu = "Тетранавис",
             DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true,
             DeckHpOverrides = new() { 2, 2, 4, 2 }, Speed = 1, Space = 1, Regions = new() { Region.Tetracor },
@@ -640,6 +658,7 @@ public static class ShipCatalog
         {
             WeaponType.Ballista => "ballista",
             WeaponType.Tetracatapult => "tetracatapult",
+            WeaponType.Neptune => "neptune",
             WeaponType.Mast => "mast",
             WeaponType.Boiler => "boiler",
             WeaponType.Incendiary => "incendiary",

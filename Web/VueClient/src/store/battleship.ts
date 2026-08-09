@@ -11,6 +11,7 @@ import {
   type BattleshipShotResult,
   type BattleshipStats,
   type BattleshipCell,
+  type BattleshipBotVersion,
   type BattleshipOrientation,
   type BattleshipWeaponLoadout,
 } from 'src/services/signalr'
@@ -29,6 +30,7 @@ import {
   playBattleshipWeaponSelect,
   playComboStack,
 } from 'src/services/sound'
+import { message } from 'src/platform/localization'
 
 /** Weapon entry shown in the weapon bar / consumed by keyboard shortcuts. */
 export interface BattleshipWeaponOption {
@@ -77,6 +79,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
   const shipCatalog = ref<BattleshipShipCatalogEntry[]>([])
   const lastShotResult = ref<BattleshipShotResult | null>(null)
   const errorMessage = ref<string | null>(null)
+  let errorMessageTimer: ReturnType<typeof setTimeout> | null = null
   const isCreating = ref(false)
 
   // Placement mode state
@@ -230,6 +233,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
       const shotType = w.shotType || weaponToShotType(w.type)
       const label = shotType === 'WhiteStone' ? 'Белый камень'
         : shotType === 'Buckshot' ? 'Дробь'
+          : shotType === 'Neptune' ? message('battleship.weapon.neptune.name')
           : shotType === 'Incendiary' ? 'Горючка'
             : shotType === 'EvilIncendiary' ? 'Злая горючка'
               : shotType === 'GreekFire' ? 'Греческий огонь'
@@ -551,8 +555,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
     }
 
     signalrService.onError = (error) => {
-      errorMessage.value = error
-      setTimeout(() => { errorMessage.value = null }, 4000)
+      isCreating.value = false
+      showError(error)
     }
   }
 
@@ -571,6 +575,15 @@ export const useBattleshipStore = defineStore('battleship', () => {
   }
 
   // -- Actions ----------------------------------------------------
+
+  function showError(error: string) {
+    if (errorMessageTimer) clearTimeout(errorMessageTimer)
+    errorMessage.value = error
+    errorMessageTimer = setTimeout(() => {
+      errorMessage.value = null
+      errorMessageTimer = null
+    }, 4000)
+  }
 
   async function refreshLobby() {
     await signalrService.requestBattleshipLobby()
@@ -593,9 +606,20 @@ export const useBattleshipStore = defineStore('battleship', () => {
     }
   }
 
-  async function createGame() {
+  async function createGame(
+    vsBot = true,
+    botVersion: BattleshipBotVersion = 2,
+  ) {
+    errorMessage.value = null
     isCreating.value = true
-    await signalrService.createBattleshipGame()
+    try {
+      await signalrService.createBattleshipGameWithOptions(vsBot, botVersion)
+    }
+    catch (error) {
+      isCreating.value = false
+      showError(message('battleship.error.createFailed'))
+      throw error
+    }
   }
 
   async function joinWebGame(id: string) {
@@ -679,6 +703,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
   function weaponToShotType(weaponType: string): string {
     switch (weaponType) {
       case 'Tetracatapult': return 'WhiteStone'
+      case 'Neptune': return 'Neptune'
       case 'Incendiary': return 'Incendiary'
       case 'EvilIncendiary': return 'EvilIncendiary'
       case 'GreekFire': return 'GreekFire'
