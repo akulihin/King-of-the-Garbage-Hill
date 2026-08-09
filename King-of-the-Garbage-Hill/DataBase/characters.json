@@ -1769,7 +1769,7 @@
     "Intelligence": 4,
     "Psyche": 8,
     "Speed": 8,
-    "Strength": 2,
+    "Strength": 0,
     "Avatar": "https://r2.ozvmusic.com/kotgh/art/avatars/game_v2.png",
     "Passive": [
       {
