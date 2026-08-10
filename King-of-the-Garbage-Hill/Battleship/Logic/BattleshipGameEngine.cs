@@ -77,7 +77,8 @@ public static class BattleshipGameEngine
         return GetControlledShips(game, player)
             .Where(s => !s.IsDestroyed)
             .SelectMany(s => s.Weapons.Select(w => (ship: s, weapon: w)))
-            .Where(x => (x.weapon.Type is WeaponType.Ballista or WeaponType.Tetracatapult or
+            .Where(x => (x.weapon.Type is WeaponType.Ballista or WeaponType.Cannon or
+                            WeaponType.Fortuna or WeaponType.Warming or WeaponType.Tetracatapult or
                             WeaponType.Neptune or
                             WeaponType.Incendiary or WeaponType.EvilIncendiary or
                             WeaponType.GreekFire or WeaponType.EvilGreekFire) &&
@@ -89,10 +90,12 @@ public static class BattleshipGameEngine
 
     private static bool HasWeaponAmmo(BattleshipGame game, BattleshipPlayer player, Weapon weapon)
     {
-        if (weapon.Type != WeaponType.Tetracatapult || !player.UseSharedTetracatapultAmmo)
-            return weapon.HasAmmo;
-        return weapon.ConfiguredShotType is { } shotType &&
-               GetSharedTetracatapultAmmo(game, player, shotType) > 0;
+        if (weapon.Type == WeaponType.Tetracatapult && player.UseSharedTetracatapultAmmo)
+            return weapon.ConfiguredShotType is { } shotType &&
+                   GetSharedTetracatapultAmmo(game, player, shotType) > 0;
+        if (TryGetSharedFlintShotType(weapon.Type, out var flintShotType))
+            return GetSharedFlintWeaponAmmo(game, player, flintShotType) > 0;
+        return weapon.HasAmmo;
     }
 
     public static void InitializeSharedTetracatapultAmmo(BattleshipGame game, BattleshipPlayer player)
@@ -152,6 +155,87 @@ public static class BattleshipGameEngine
         player.SharedTetracatapultAmmo[shotType.Value] = Math.Min(maximum, current + amount);
     }
 
+    /// <summary>
+    /// Initialize Captain Flint's finite weapon pools from all currently controlled,
+    /// operational armed decks. Warming weapons deliberately remain unlimited and unpooled.
+    /// </summary>
+    public static void InitializeSharedFlintWeaponAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player)
+    {
+        player.SharedFlintWeaponAmmo.Clear();
+        foreach (var shotType in new[] { ShotType.Cannon, ShotType.Fortuna })
+        {
+            var weaponType = GetFlintWeaponType(shotType);
+            var ammo = GetControlledShips(game, player)
+                .Where(ship => !ship.IsDestroyed &&
+                               !ship.Statuses.Contains(ShipStatusType.Capture))
+                .SelectMany(ship => ship.Weapons.Select(weapon => (ship, weapon)))
+                .Where(value => value.weapon.Type == weaponType &&
+                                IsWeaponOperational(value.ship, value.weapon))
+                .Sum(value => Math.Max(0, value.weapon.Ammo));
+            player.SharedFlintWeaponAmmo[shotType] = ammo;
+        }
+    }
+
+    public static int GetSharedFlintWeaponMaxAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType shotType)
+    {
+        var weaponType = GetFlintWeaponType(shotType);
+        if (weaponType is not (WeaponType.Cannon or WeaponType.Fortuna)) return 0;
+        return GetControlledShips(game, player)
+            .Where(ship => !ship.IsDestroyed &&
+                           !ship.Statuses.Contains(ShipStatusType.Capture))
+            .SelectMany(ship => ship.Weapons.Select(weapon => (ship, weapon)))
+            .Where(value => value.weapon.Type == weaponType &&
+                            IsWeaponOperational(value.ship, value.weapon))
+            .Sum(value => Math.Max(0, value.weapon.MaxAmmo));
+    }
+
+    public static int GetSharedFlintWeaponAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType shotType)
+    {
+        var maximum = GetSharedFlintWeaponMaxAmmo(game, player, shotType);
+        var current = player.SharedFlintWeaponAmmo.GetValueOrDefault(shotType);
+        current = Math.Clamp(current, 0, maximum);
+        player.SharedFlintWeaponAmmo[shotType] = current;
+        return current;
+    }
+
+    private static bool TryGetSharedFlintShotType(
+        WeaponType weaponType,
+        out ShotType shotType)
+    {
+        shotType = weaponType switch
+        {
+            WeaponType.Cannon => ShotType.Cannon,
+            WeaponType.Fortuna => ShotType.Fortuna,
+            _ => default,
+        };
+        return weaponType is WeaponType.Cannon or WeaponType.Fortuna;
+    }
+
+    private static WeaponType GetFlintWeaponType(ShotType shotType) => shotType switch
+    {
+        ShotType.Cannon => WeaponType.Cannon,
+        ShotType.Fortuna => WeaponType.Fortuna,
+        ShotType.Warming => WeaponType.Warming,
+        _ => default,
+    };
+
+    private static void ConsumeSharedFlintWeaponAmmo(
+        BattleshipGame game,
+        BattleshipPlayer player,
+        ShotType shotType)
+    {
+        var current = GetSharedFlintWeaponAmmo(game, player, shotType);
+        if (current > 0) player.SharedFlintWeaponAmmo[shotType] = current - 1;
+    }
+
     public static void ConsumeSelectedWeaponAmmo(BattleshipGame game, BattleshipPlayer player)
     {
         var weapon = player.SelectedWeapon;
@@ -161,6 +245,11 @@ public static class BattleshipGameEngine
         {
             var current = GetSharedTetracatapultAmmo(game, player, shotType);
             if (current > 0) player.SharedTetracatapultAmmo[shotType] = current - 1;
+            return;
+        }
+        if (weapon != null && TryGetSharedFlintShotType(weapon.Type, out var flintShotType))
+        {
+            ConsumeSharedFlintWeaponAmmo(game, player, flintShotType);
             return;
         }
         weapon?.UseAmmo();
@@ -174,7 +263,8 @@ public static class BattleshipGameEngine
                 x.weapon.AimSpeed <= player.RevealedCellCount);
         if (HasUsableBallista(game, player)) return true;
         return GetUsableWeapons(game, player).Any(x =>
-            (x.weapon.Type is WeaponType.Tetracatapult or WeaponType.Neptune or WeaponType.Incendiary or
+            (x.weapon.Type is WeaponType.Cannon or WeaponType.Fortuna or WeaponType.Warming or
+                WeaponType.Tetracatapult or WeaponType.Neptune or WeaponType.Incendiary or
                 WeaponType.EvilIncendiary or WeaponType.GreekFire or WeaponType.EvilGreekFire) &&
             x.weapon.AimSpeed <= player.RevealedCellCount);
     }
@@ -193,14 +283,18 @@ public static class BattleshipGameEngine
             yield return ship;
 
         // Converted Close ships leave the source board. Their hull metadata remains in Fleet
-        // only so a living deployed boarding unit can retain its operational Ballista.
-        // Once that unit dies it disappears from this controlled-source set immediately.
+        // while pending deployment or represented by a living boarding unit, preserving weapon
+        // pools through the mandatory deployment sequence. Once lost/discarded, the source
+        // disappears from this controlled-source set immediately.
         if (game.Phase == BsGamePhase.Boarding)
         {
             var activeBoardingSourceIds = player.Summons
                 .Where(s => s.IsAlive && s.IsBoardingShip && s.SourceShipId != null)
                 .Select(s => s.SourceShipId)
                 .ToHashSet();
+            activeBoardingSourceIds.UnionWith(player.PendingSummons
+                .Where(s => s.IsBoarding && s.SourceShipId != null)
+                .Select(s => s.SourceShipId));
             foreach (var ship in player.Fleet.Where(s =>
                          activeBoardingSourceIds.Contains(s.Id) &&
                          !s.Statuses.Contains(ShipStatusType.Capture)))
@@ -492,8 +586,14 @@ public static class BattleshipGameEngine
         }
 
         var damage = GetDamage(shooter);
+        var deckWasAlive = !deck.IsDestroyed;
         deck.CurrentHp -= damage;
         if (deck.CurrentHp < 0) deck.CurrentHp = 0;
+
+        var executedDeck = GetCannonExecutionTarget(
+            shooter.SelectedShotType, deckWasAlive, deck, ship.Decks);
+        if (executedDeck != null)
+            executedDeck.CurrentHp = 0;
 
         if (ship.IsDestroyed)
             return FinalizeNeptune(FinishCapturedShipDestruction(
@@ -548,25 +648,55 @@ public static class BattleshipGameEngine
     /// <summary>
     /// Shoot own board to damage an enemy summon or boarding hull.
     /// </summary>
+    public static bool HasEnemyPhantomParrot(
+        BattleshipGame game,
+        BattleshipPlayer boardOwner)
+    {
+        var opponent = game?.GetOpponent(boardOwner?.DiscordId);
+        return opponent?.Summons.Any(summon => summon is
+        {
+            IsAlive: true,
+            Type: SummonType.Parrot,
+            IsPhantom: true,
+            ParrotMoveArmed: true,
+        }) == true;
+    }
+
     public static ShotResult ProcessOwnBoardShot(BattleshipGame game, BattleshipPlayer shooter, int row, int col)
     {
         var cell = shooter.Board.GetCell(row, col);
         if (cell == null)
             return new ShotResult { Miss = true, Message = "Клетка за пределами поля." };
 
-        // Must have an enemy summon on this cell
-        if (cell.SummonRef == null || !cell.SummonRef.IsAlive || cell.SummonRef.OwnerId == shooter.DiscordId)
+        var enemySummon = cell.SummonRef is { IsAlive: true } summon &&
+                          summon.OwnerId != shooter.DiscordId
+            ? summon
+            : null;
+        var predictiveParrotShot = HasEnemyPhantomParrot(game, shooter);
+        if (enemySummon == null && !predictiveParrotShot)
             return new ShotResult { Miss = true, Row = row, Col = col, TurnContinues = false,
                 Message = "На этой клетке нет вражеского призыва." };
 
-        var summon = cell.SummonRef;
         game.ShotCount++;
-        var stunRecipient = summon.IsBoardingShip
-            ? game.GetPlayer(summon.OwnerId)
+        var stunRecipient = enemySummon?.IsBoardingShip == true
+            ? game.GetPlayer(enemySummon.OwnerId)
             : shooter;
         ApplyWhiteStoneStun(game, shooter, stunRecipient);
         ConsumeSelectedWeaponAmmo(game, shooter);
-        return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
+        if (enemySummon != null)
+            return ProcessSummonHit(game, shooter, shooter.Board, cell, row, col);
+
+        cell.IsMiss = true;
+        game.AddLog($"{shooter.Username} промахнулся ({(char)('A' + col)}{row + 1})");
+        return new ShotResult
+        {
+            Miss = true,
+            Row = row,
+            Col = col,
+            TurnContinues = false,
+            ForcesTurnEnd = true,
+            Message = "Мимо!",
+        };
     }
 
     /// <summary>
@@ -1192,6 +1322,7 @@ public static class BattleshipGameEngine
                     $"Белый камень разрушил модуль {deck.Module} на {sourceName}!");
             }
 
+            var deckWasAlive = !deck.IsDestroyed;
             deck.CurrentHp = Math.Max(0, deck.CurrentHp - GetDamage(shooter));
             var deckDestroyed = deck.IsDestroyed;
             if (deckDestroyed)
@@ -1202,6 +1333,29 @@ public static class BattleshipGameEngine
             else
             {
                 cell.WasScratched = true;
+            }
+
+            var executedDeck = GetCannonExecutionTarget(
+                shooter.SelectedShotType, deckWasAlive, deck, summon.BoardingDecks);
+            if (executedDeck != null)
+            {
+                var executedPosition = GetLiveBoardingDeckCells(summon)
+                    .FirstOrDefault(value => value.deck == executedDeck);
+                if (executedPosition.deck != null)
+                {
+                    var executedCell = board.GetCell(executedPosition.row, executedPosition.col);
+                    if (executedCell != null)
+                    {
+                        executedCell.IsHit = true;
+                        executedCell.IsMiss = false;
+                        executedCell.WasScratched = false;
+                        MarkSummonDeath(
+                            board, executedPosition.row, executedPosition.col, summon);
+                        if (executedCell.SummonRef == summon)
+                            executedCell.SummonRef = null;
+                    }
+                }
+                executedDeck.CurrentHp = 0;
             }
 
             summon.IsAlive = summon.BoardingDecks.Any(value => !value.IsDestroyed);
@@ -1267,7 +1421,8 @@ public static class BattleshipGameEngine
         // Ordinary summon kill penalty: rows 0-2 = penalty, unless just spawned.
         var turnContinues = false;
         var penalty = false;
-        if (!summon.IsBoardingShip && summon.OwnerId != shooter.DiscordId &&
+        if (!summon.IsBoardingShip && summon.Type != SummonType.Parrot &&
+            summon.OwnerId != shooter.DiscordId &&
             shooter.SelectedShotType is not (ShotType.GreekFire or ShotType.EvilGreekFire) &&
             row <= 2)
         {
@@ -1284,7 +1439,9 @@ public static class BattleshipGameEngine
         return new ShotResult
         {
             Hit = true, Row = row, Col = col, TurnContinues = turnContinues,
-            Destroyed = true, PenaltyApplied = penalty, Message = penalty
+            Destroyed = true,
+            ForcesTurnEnd = summon.Type == SummonType.Parrot,
+            PenaltyApplied = penalty, Message = penalty
                 ? "Призыв уничтожен! Штраф: пропуск хода."
                 : "Призванное существо уничтожено!"
         };
@@ -1421,6 +1578,7 @@ public static class BattleshipGameEngine
         }
 
         // Apply damage
+        var deckWasAlive = !deck.IsDestroyed;
         deck.CurrentHp -= damage;
 
         // Check explode_on_hit — triggers on ANY hit, not just death
@@ -1438,6 +1596,11 @@ public static class BattleshipGameEngine
                 Message = $"{ship.Name} взорвался!", AffectedShipName = ship.Name
             };
         }
+
+        var executedDeck = GetCannonExecutionTarget(
+            shooter.SelectedShotType, deckWasAlive, deck, ship.Decks);
+        if (executedDeck != null)
+            executedDeck.CurrentHp = 0;
 
         if (deck.CurrentHp <= 0)
         {
@@ -1499,6 +1662,9 @@ public static class BattleshipGameEngine
     {
         var baseDamage = shooter.SelectedShotType switch
         {
+            ShotType.Cannon => 3,
+            ShotType.Fortuna => 4,
+            ShotType.Warming => 2,
             ShotType.WhiteStone => 8,     // 4x standard
             ShotType.Buckshot => 1,        // 0.5x standard
             ShotType.Neptune => 1,
@@ -1506,6 +1672,20 @@ public static class BattleshipGameEngine
             _ => 2                         // standard ballista
         };
         return baseDamage;
+    }
+
+    private static Deck GetCannonExecutionTarget(
+        ShotType shotType,
+        bool struckDeckWasAlive,
+        Deck struckDeck,
+        IEnumerable<Deck> decks)
+    {
+        if (!struckDeckWasAlive || !struckDeck.IsDestroyed ||
+            shotType is not (ShotType.Cannon or ShotType.Fortuna or ShotType.Warming))
+            return null;
+
+        var livingDecks = decks.Where(deck => !deck.IsDestroyed).ToList();
+        return livingDecks.Count == 1 ? livingDecks[0] : null;
     }
 
     /// <summary>
@@ -2140,6 +2320,12 @@ public static class BattleshipGameEngine
     {
         var p1 = game.Player1;
         var p2 = game.Player2;
+        // Captain Flint always receives the opening shot after arming the Parrot.
+        if (p1.Faction == Faction.CaptainFlint && p2.Faction != Faction.CaptainFlint)
+            return p1.DiscordId;
+        if (p2.Faction == Faction.CaptainFlint && p1.Faction != Faction.CaptainFlint)
+            return p2.DiscordId;
+
         // 1. More unspent coins → goes first
         if (p1.CoinsRemaining != p2.CoinsRemaining)
             return p1.CoinsRemaining > p2.CoinsRemaining ? p1.DiscordId : p2.DiscordId;
@@ -2351,7 +2537,7 @@ public static class BattleshipGameEngine
                 player.PendingSummons.Add(new PendingSummonDeploy
                 {
                     Type = SummonType.Ram,
-                    Speed = ship.Speed,
+                    Speed = ship.Abilities.Contains("flint_boarding_speed_4") ? 4 : ship.Speed,
                     CollisionDamage = 4,
                     RevealRadius = ship.Space,
                     IsBoarding = true,
@@ -2626,10 +2812,22 @@ public static class BattleshipGameEngine
     {
         if (board == null || !CanFitSummonHullInBounds(summon, row, col, direction)) return false;
         var occupied = GetLiveSummonOccupiedCells(summon, row, col, direction);
+        var reservedParrotVisualCells = board.Grid.Cast<Cell>()
+            .Select(cell => cell.SummonRef)
+            .Where(candidate => candidate is
+            {
+                IsAlive: true,
+                Type: SummonType.Parrot,
+                ParrotMoveArmed: true,
+            } && candidate != summon)
+            .Distinct()
+            .Select(candidate => (candidate.VisualRow, candidate.VisualCol))
+            .ToHashSet();
         return occupied.All(position =>
                {
                    var occupant = board.GetCell(position.row, position.col)?.SummonRef;
-                   return occupant is not { IsAlive: true } || occupant == summon;
+                   return (occupant is not { IsAlive: true } || occupant == summon) &&
+                          !reservedParrotVisualCells.Contains(position);
                });
     }
 
@@ -2656,11 +2854,67 @@ public static class BattleshipGameEngine
         return true;
     }
 
+    /// <summary>
+    /// Atomically relocate a summon on the opponent's physical board. This mutates only the
+    /// authoritative hitbox; presentation coordinates are controlled separately by Parrot.
+    /// </summary>
+    public static bool TryRelocateSummonOnBoard(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        Summon summon,
+        int row,
+        int col,
+        Direction direction)
+    {
+        if (game == null || owner == null || summon is not { IsAlive: true }) return false;
+        var boardOwner = game.GetOpponent(owner.DiscordId);
+        return boardOwner != null && TryPlaceSummonOnBoard(
+            boardOwner.Board, summon, row, col, direction);
+    }
+
+    /// <summary>
+    /// Arm one Parrot move: keep its visual at the departure cell and move its physical
+    /// hitbox one cell ahead immediately so the opponent must shoot the destination.
+    /// </summary>
+    public static bool TrySetParrotDestination(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        Summon summon,
+        Direction direction)
+    {
+        if (summon is not { IsAlive: true, Type: SummonType.Parrot } ||
+            summon.ParrotMoveArmed)
+            return false;
+
+        var departureRow = summon.Row;
+        var departureCol = summon.Col;
+        var (destinationRow, destinationCol) = GetNextPosition(
+            departureRow, departureCol, direction);
+        if (!TryRelocateSummonOnBoard(
+                game, owner, summon, destinationRow, destinationCol, direction))
+            return false;
+
+        summon.VisualRow = departureRow;
+        summon.VisualCol = departureCol;
+        summon.ParrotMoveArmed = true;
+        return true;
+    }
+
     /// <summary>Resolve the living physical deck of a converted boarding hull at a board cell.</summary>
     public static Deck GetLiveBoardingDeckAtCell(Summon summon, int row, int col)
     {
         return GetLiveBoardingDeckCells(summon)
             .FirstOrDefault(value => value.row == row && value.col == col).deck;
+    }
+
+    /// <summary>Resolve the current physical coordinate of one living boarding deck.</summary>
+    public static (int row, int col)? GetLiveBoardingDeckCell(
+        Summon summon,
+        int deckIndex)
+    {
+        var position = GetLiveBoardingDeckCells(summon)
+            .FirstOrDefault(value => value.deck.Index == deckIndex);
+        return position.deck == null ? null : (position.row, position.col);
     }
 
     private static bool BoardingHasAbility(Summon summon, string ability) =>
@@ -2765,6 +3019,102 @@ public static class BattleshipGameEngine
         }
     }
 
+    private static void ResolveFortunaBoardingVolley(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        BattleshipPlayer boardOwner,
+        Summon summon)
+    {
+        if (!summon.IsAlive || !BoardingHasAbility(summon, "flint_fortuna_volley"))
+            return;
+
+        var sourceShip = owner.Fleet.FirstOrDefault(ship => ship.Id == summon.SourceShipId);
+        if (sourceShip == null) return;
+        var sourceDecks = GetLiveBoardingDeckCells(summon)
+            .Where(source => sourceShip.Weapons.Any(weapon =>
+                weapon.Type == WeaponType.Fortuna &&
+                weapon.DeckIndex == source.deck.Index &&
+                IsWeaponOperational(sourceShip, weapon)))
+            .ToList();
+        var lateralDirections = summon.MoveDirection is Direction.Up or Direction.Down
+            ? new[] { (row: 0, col: -1), (row: 0, col: 1) }
+            : new[] { (row: -1, col: 0), (row: 1, col: 0) };
+        var targets = new List<(
+            Ship ship,
+            Deck deck,
+            int row,
+            int col,
+            int sourceRow,
+            int sourceCol,
+            int sourceDeckIndex)>();
+        var seenDecks = new HashSet<(string shipId, int deckIndex)>();
+
+        foreach (var source in sourceDecks)
+        foreach (var lateral in lateralDirections)
+        for (var distance = 1; distance <= 3; distance++)
+        {
+            var row = source.row + lateral.row * distance;
+            var col = source.col + lateral.col * distance;
+            var cell = boardOwner.Board.GetCell(row, col);
+            var targetShip = cell?.ShipRef;
+            if (targetShip == null || targetShip.IsDestroyed) continue;
+            var targetDeckIndex = GetDeckIndexAtCell(targetShip, row, col);
+            if (targetDeckIndex < 0) continue;
+            var targetDeck = targetShip.Decks[targetDeckIndex];
+            if (targetDeck.IsDestroyed || !seenDecks.Add((targetShip.Id, targetDeck.Index)))
+                continue;
+            targets.Add((
+                targetShip,
+                targetDeck,
+                row,
+                col,
+                source.row,
+                source.col,
+                source.deck.Index));
+        }
+
+        foreach (var target in targets.OrderBy(target => target.row).ThenBy(target => target.col))
+        {
+            if (!summon.IsAlive ||
+                GetSharedFlintWeaponAmmo(game, owner, ShotType.Fortuna) <= 0) break;
+            if (target.ship.IsDestroyed || target.deck.IsDestroyed) continue;
+
+            var sourceWeapon = sourceShip?.Weapons.FirstOrDefault(weapon =>
+                weapon.Type == WeaponType.Fortuna &&
+                weapon.DeckIndex == target.sourceDeckIndex &&
+                IsWeaponOperational(sourceShip, weapon));
+            if (sourceWeapon == null) break;
+
+            ConsumeSharedFlintWeaponAmmo(game, owner, ShotType.Fortuna);
+            var previousWeapon = owner.SelectedWeapon;
+            var previousShotType = owner.SelectedShotType;
+            owner.SelectedWeapon = sourceWeapon;
+            owner.SelectedShotType = ShotType.Fortuna;
+            RevealCell(boardOwner.Board, boardOwner.Board.GetCell(target.row, target.col), owner);
+            var result = ProcessShipHit(
+                game,
+                owner,
+                boardOwner,
+                boardOwner.Board.GetCell(target.row, target.col),
+                target.row,
+                target.col);
+            owner.SelectedWeapon = previousWeapon;
+            owner.SelectedShotType = previousShotType;
+
+            result.TurnContinues = false;
+            result.SourceShipId = summon.SourceShipId;
+            result.SourceDeckIndex = sourceWeapon.DeckIndex;
+            result.SourceRow = target.sourceRow;
+            result.SourceCol = target.sourceCol;
+            result.SourceBoardPlayerId = boardOwner.DiscordId;
+            result.ProjectileType = "Cannon";
+            result.TargetPlayerId = boardOwner.DiscordId;
+            result.IsAutomaticShot = true;
+            result.ActorPlayerId = owner.DiscordId;
+            game.PendingAutomaticShotEvents.Enqueue(result);
+        }
+    }
+
     private static SummonEntryOutcome ResolveSummonEntry(
         BattleshipGame game,
         BattleshipPlayer owner,
@@ -2838,6 +3188,12 @@ public static class BattleshipGameEngine
         // deliberately never iterates summons, so allied boats/boarding hulls are untouched.
         ProcessBoardingDrakkarFreezeAura(game, owner, boardOwner, summon);
 
+        // Fortune fires once on deployment and after each resolved movement step. These
+        // automatic impacts consume its shared pool but are not player shot actions.
+        ResolveFortunaBoardingVolley(game, owner, boardOwner, summon);
+        if (!summon.IsAlive)
+            return SummonEntryOutcome.Dead;
+
         var collisions = GetLiveSummonOccupiedCells(summon)
             .Select(position =>
             {
@@ -2853,10 +3209,14 @@ public static class BattleshipGameEngine
             .Select(group => group.First())
             .ToList();
 
+        var stopAfterCaptainCollision = false;
         foreach (var collision in collisions)
         {
             HandleSummonCollision(
                 game, summon, collision.ship, boardOwner, collision.row, collision.col);
+            if (summon.IsBoardingShip &&
+                BoardingHasAbility(summon, "flint_boarding_devastate_any"))
+                stopAfterCaptainCollision = true;
             if (summon.Type == SummonType.CursedBoat)
                 summon.WaitingForDirectionChoice = true;
             if (!summon.IsAlive)
@@ -2872,7 +3232,6 @@ public static class BattleshipGameEngine
                 return SummonEntryOutcome.Dead;
             }
         }
-
         if (GetLiveSummonOccupiedCells(summon).Any(position =>
                 IsInPoisonConeFromAnotherSource(
                     game, boardOwner, summon, position.row, position.col)))
@@ -2881,6 +3240,9 @@ public static class BattleshipGameEngine
             AddPoisonSummonMastWarning(game, owner);
             return SummonEntryOutcome.Dead;
         }
+
+        if (stopAfterCaptainCollision)
+            return SummonEntryOutcome.Stop;
 
         if (!summon.IsBoardingShip &&
             summon.Type is SummonType.Ram or SummonType.PirateBoat)
@@ -3068,7 +3430,8 @@ public static class BattleshipGameEngine
                     {
                         var justMaterializedIds = state.JustMaterializedSummonIds.ToHashSet();
                         state.MovingSummonIds = player.Summons
-                            .Where(summon => summon.IsAlive && !summon.IsGhost &&
+                            .Where(summon => summon.IsAlive && summon.Type != SummonType.Parrot &&
+                                             !summon.IsGhost &&
                                              !justMaterializedIds.Contains(summon.Id) &&
                                              !summon.WaitingForTurnBack &&
                                              !summon.WaitingForDirectionChoice &&
@@ -3238,6 +3601,36 @@ public static class BattleshipGameEngine
         return true;
     }
 
+    /// <summary>
+    /// Complete an armed Parrot move at the authoritative Row/Col, reveal Space 1, and remove
+    /// the boat when that destination contains a living enemy deck.
+    /// </summary>
+    /// <returns>True when Parrot survives the arrival and may choose another direction.</returns>
+    public static bool ResolveParrotArrival(
+        BattleshipGame game,
+        BattleshipPlayer owner,
+        Summon summon)
+    {
+        if (game == null || owner == null ||
+            summon is not { IsAlive: true, Type: SummonType.Parrot })
+            return false;
+
+        var boardOwner = game.GetOpponent(owner.DiscordId);
+        if (boardOwner == null) return false;
+
+        RevealArea(boardOwner.Board, summon.Row, summon.Col, summon.RevealRadius, owner);
+
+        var arrivalCell = boardOwner.Board.GetCell(summon.Row, summon.Col);
+        if (arrivalCell?.ShipRef == null ||
+            !HasAliveDeckAt(arrivalCell.ShipRef, summon.Row, summon.Col))
+            return true;
+
+        MarkSummonDeath(boardOwner.Board, summon.Row, summon.Col, summon);
+        summon.IsAlive = false;
+        ClearSummonFromBoard(boardOwner.Board, summon);
+        return false;
+    }
+
     private static SummonMarker CreateSummonMarker(Summon summon) => new()
     {
         SummonId = summon.Id,
@@ -3307,6 +3700,7 @@ public static class BattleshipGameEngine
                 if (summon.IsBoardingShip)
                 {
                     if (targetShip.Decks.Count <= 2 ||
+                        BoardingHasAbility(summon, "flint_boarding_devastate_any") ||
                         BoardingHasAbility(summon, "spawn_cursed_boat"))
                     {
                         var destroyedLivingDeck = targetShip.Decks.Any(deck => !deck.IsDestroyed);
@@ -4141,9 +4535,12 @@ public static class BattleshipGameEngine
         var directions = ship.Orientation is Orientation.Horizontal or Orientation.HorizontalReverse
             ? new[] { Direction.Left, Direction.Right }
             : new[] { Direction.Up, Direction.Down };
+        var distances = ship.Abilities.Contains("manual_move_exact_4")
+            ? new[] { 4 }
+            : new[] { 1, 2 };
         var options = new List<ManualMoveOption>();
         foreach (var direction in directions)
-        foreach (var distance in new[] { 1, 2 })
+        foreach (var distance in distances)
         {
             var (newRow, newCol) = ManualMoveAnchor(ship, direction, distance);
             if (!CanManualMoveShip(player, ship, newRow, newCol)) continue;
@@ -4244,7 +4641,9 @@ public static class BattleshipGameEngine
         Direction direction,
         int distance)
     {
-        if (distance < 1 || distance > 2) return false;
+        if (ship == null) return false;
+        var requiresFourCellMove = ship.Abilities.Contains("manual_move_exact_4");
+        if (requiresFourCellMove ? distance != 4 : distance is < 1 or > 2) return false;
         if (ship.Orientation is Orientation.Horizontal or Orientation.HorizontalReverse &&
             direction is not (Direction.Left or Direction.Right))
             return false;

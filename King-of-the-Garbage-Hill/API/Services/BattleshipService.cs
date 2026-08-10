@@ -401,6 +401,7 @@ public class BattleshipService
                 return (false, "Неизвестная фракция.");
             player.Faction = selectedFaction;
             player.CoinsRemaining = FleetValidator.GetBudget(selectedFaction);
+            player.MaxSummonSlots = selectedFaction == Faction.CaptainFlint ? 0 : 4;
             player.IsReady = true;
             game.LastActivity = DateTime.UtcNow;
 
@@ -454,6 +455,10 @@ public class BattleshipService
             }
             NumberDuplicateShips(player.Fleet);
 
+            if (player.Faction == Faction.CaptainFlint &&
+                player.Fleet.Count(ship => IsFlintCaptain(ship.DefinitionId)) != 1)
+                return (false, "Выберите один капитанский корабль: «Удача» или «Свобода».");
+
             player.IsReady = true;
             game.LastActivity = DateTime.UtcNow;
 
@@ -484,6 +489,8 @@ public class BattleshipService
             var ship = player.Fleet.Find(s => s.Id == shipId);
             if (ship == null)
                 return (false, "Корабль не найден.");
+            if (player.Faction == Faction.CaptainFlint && !IsFlintCaptain(ship.DefinitionId))
+                return (false, "Во флоте Капитана Финта вручную размещается только капитанский корабль.");
 
             if (!Enum.TryParse<Orientation>(orientationStr, true, out var orientation))
                 return (false, "Неверная ориентация.");
@@ -506,6 +513,18 @@ public class BattleshipService
 
             PlaceShipOnBoard(player, ship, row, col, orientation);
 
+            if (player.Faction == Faction.CaptainFlint)
+            {
+                var (autoPlaced, autoError) = AutoPlaceFlintFleet(player, ship);
+                if (!autoPlaced)
+                    return (false, autoError);
+
+                BattleshipGameEngine.InitializeSharedFlintWeaponAmmo(game, player);
+                player.IsReady = true;
+                CheckPhaseTransition(game);
+                TrySettleGameEnd(game);
+            }
+
             game.LastActivity = DateTime.UtcNow;
             return (true, null);
         }
@@ -524,6 +543,8 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            if (player.Faction == Faction.CaptainFlint)
+                return (false, "Флот Капитана Финта расставляется автоматически после выбора капитанского корабля.");
             if (player.IsReady)
                 return (false, "Размещение уже подтверждено.");
 
@@ -557,6 +578,8 @@ public class BattleshipService
             var player = game.GetPlayer(discordId);
             if (player == null)
                 return (false, "Вы не в этой игре.");
+            if (player.Faction == Faction.CaptainFlint)
+                return (false, "Расстановка флота Капитана Финта подтверждается автоматически.");
             if (player.IsReady)
                 return (false, "Расстановка уже подтверждена.");
 
@@ -610,6 +633,8 @@ public class BattleshipService
                 return (false, "Расстановку уже нельзя изменить.");
             var player = game.GetPlayer(discordId);
             if (player == null) return (false, "Вы не в этой игре.");
+            if (player.Faction == Faction.CaptainFlint)
+                return (false, "Автоматическую расстановку флота Капитана Финта нельзя отменить.");
             var opponent = game.GetOpponent(discordId);
             if (!player.IsReady) return (false, "Расстановка ещё не подтверждена.");
             if (opponent?.IsReady == true)
@@ -674,6 +699,7 @@ public class BattleshipService
             var firstResolutionLogIndex = game.GameLog.Count;
             var targetBoardOwner = game.GetOpponent(shooter.DiscordId);
             var shotCountBefore = game.ShotCount;
+            var visualSource = CaptureShotAnimationSource(game, shooter);
 
             // Process shot (buckshot uses 2x2 AoE)
             ShotResult result;
@@ -682,7 +708,7 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, shooter, row, col);
 
-            DescribeShot(game, shooter, result, ownBoard: false);
+            DescribeShot(game, shooter, result, ownBoard: false, visualSource: visualSource);
             result.TurnContinues = RegisterResolvedPlayerShot(
                 game, shooter, shotCountBefore, result, allowSecondShot: true);
             ResetExpendedSelection(game, shooter);
@@ -751,7 +777,9 @@ public class BattleshipService
                 (ShotType.GreekFire or ShotType.EvilGreekFire or ShotType.Neptune))
             {
                 var cell = shooter.Board.GetCell(row, col);
-                if (cell?.SummonRef is not { IsAlive: true } enemySummon || enemySummon.OwnerId == shooter.DiscordId)
+                if ((cell?.SummonRef is not { IsAlive: true } enemySummon ||
+                     enemySummon.OwnerId == shooter.DiscordId) &&
+                    !BattleshipGameEngine.HasEnemyPhantomParrot(game, shooter))
                     return (null, "На этой клетке нет вражеского призыва.");
             }
 
@@ -762,6 +790,7 @@ public class BattleshipService
             var isGreekFire = shooter.SelectedShotType is ShotType.GreekFire or ShotType.EvilGreekFire;
             var isNeptune = shooter.SelectedShotType == ShotType.Neptune;
             var shotCountBefore = game.ShotCount;
+            var visualSource = CaptureShotAnimationSource(game, shooter);
             ShotResult result;
             if (captured)
             {
@@ -782,7 +811,7 @@ public class BattleshipService
                 result = BattleshipGameEngine.ProcessOwnBoardShot(game, shooter, row, col);
             }
 
-            DescribeShot(game, shooter, result, ownBoard: true);
+            DescribeShot(game, shooter, result, ownBoard: true, visualSource: visualSource);
             var resolvedTurnContinues = RegisterResolvedPlayerShot(
                 game,
                 shooter,
@@ -863,6 +892,9 @@ public class BattleshipService
         {
             ShotType.WhiteStone or ShotType.Buckshot => WeaponType.Tetracatapult,
             ShotType.Neptune => WeaponType.Neptune,
+            ShotType.Cannon => WeaponType.Cannon,
+            ShotType.Fortuna => WeaponType.Fortuna,
+            ShotType.Warming => WeaponType.Warming,
             ShotType.Incendiary => WeaponType.Incendiary,
             ShotType.EvilIncendiary => WeaponType.EvilIncendiary,
             ShotType.GreekFire => WeaponType.GreekFire,
@@ -886,6 +918,21 @@ public class BattleshipService
 
     private static void ResetExpendedSelection(BattleshipGame game, BattleshipPlayer player)
     {
+        if (player.Faction == Faction.CaptainFlint)
+        {
+            var selectedType = player.SelectedShotType switch
+            {
+                ShotType.Cannon => WeaponType.Cannon,
+                ShotType.Fortuna => WeaponType.Fortuna,
+                ShotType.Warming => WeaponType.Warming,
+                _ => (WeaponType?)null,
+            };
+            if (selectedType == null ||
+                !BattleshipGameEngine.GetUsableWeapons(game, player, selectedType).Any())
+                SelectDefaultFlintWeapon(game, player);
+            return;
+        }
+
         var firedIncendiary =
             player.SelectedShotType is ShotType.Incendiary or ShotType.EvilIncendiary;
         if (firedIncendiary && BattleshipGameEngine.HasUsableBallista(game, player) ||
@@ -898,16 +945,59 @@ public class BattleshipService
         }
     }
 
+    private static void SelectDefaultFlintWeapon(BattleshipGame game, BattleshipPlayer player)
+    {
+        foreach (var weaponType in new[]
+                 {
+                     WeaponType.Cannon,
+                     WeaponType.Fortuna,
+                     WeaponType.Warming,
+                 })
+        {
+            var weapon = BattleshipGameEngine.GetUsableWeapons(game, player, weaponType)
+                .Select(value => value.weapon)
+                .FirstOrDefault();
+            if (weapon == null) continue;
+            player.SelectedShotType = WeaponTypeToShotType(weaponType);
+            player.SelectedWeapon = weapon;
+            return;
+        }
+
+        player.SelectedWeapon = null;
+    }
+
+    private static void NormalizeFlintWeaponSelections(BattleshipGame game)
+    {
+        foreach (var player in game.GetPlayers().Where(player =>
+                     player.Faction == Faction.CaptainFlint))
+            ResetExpendedSelection(game, player);
+    }
+
+    private static (Ship ship, Weapon weapon, int row, int col, string boardOwnerId)?
+        CaptureShotAnimationSource(BattleshipGame game, BattleshipPlayer shooter)
+    {
+        var visualWeaponType = shooter.SelectedShotType switch
+        {
+            ShotType.Ballista => WeaponType.Ballista,
+            ShotType.Cannon => WeaponType.Cannon,
+            ShotType.Fortuna => WeaponType.Fortuna,
+            ShotType.Warming => WeaponType.Warming,
+            _ => (WeaponType?)null,
+        };
+        return visualWeaponType.HasValue
+            ? SelectNextSharedWeaponAnimationSource(game, shooter, visualWeaponType.Value)
+            : null;
+    }
+
     private static void DescribeShot(
         BattleshipGame game,
         BattleshipPlayer shooter,
         ShotResult result,
-        bool ownBoard)
+        bool ownBoard,
+        (Ship ship, Weapon weapon, int row, int col, string boardOwnerId)? visualSource)
     {
         if (result == null) return;
-        var visualSource = shooter.SelectedShotType == ShotType.Ballista
-            ? SelectNextBallistaAnimationSource(game, shooter)
-            : null;
+        result.ActorPlayerId = shooter.DiscordId;
         result.SourceShipId = visualSource?.weapon.ShipId ?? shooter.SelectedWeapon?.ShipId;
         result.SourceDeckIndex = visualSource?.weapon.DeckIndex ?? shooter.SelectedWeapon?.DeckIndex ?? -1;
         result.SourceRow = visualSource?.row ?? -1;
@@ -921,6 +1011,7 @@ public class BattleshipService
             ShotType.Neptune => "Electric",
             ShotType.Incendiary or ShotType.EvilIncendiary or
                 ShotType.GreekFire or ShotType.EvilGreekFire => "Fire",
+            ShotType.Cannon or ShotType.Fortuna or ShotType.Warming => "Cannon",
             _ => "Arrow",
         };
         result.TargetPlayerId = ownBoard
@@ -1124,40 +1215,54 @@ public class BattleshipService
     }
 
     private static (Ship ship, Weapon weapon, int row, int col, string boardOwnerId)?
-        SelectNextBallistaAnimationSource(
+        SelectNextSharedWeaponAnimationSource(
         BattleshipGame game,
-        BattleshipPlayer shooter)
+        BattleshipPlayer shooter,
+        WeaponType weaponType)
     {
-        var usable = BattleshipGameEngine.GetUsableWeapons(game, shooter, WeaponType.Ballista).ToList();
+        var usable = BattleshipGameEngine.GetUsableWeapons(game, shooter, weaponType).ToList();
         var sources = new List<(Ship ship, Weapon weapon, int row, int col, string boardOwnerId)>();
 
         if (game.Phase == BsGamePhase.Boarding)
         {
-            // Only the Mid-less side fires from Close ships it actually sent to boarding.
-            // The retained side continues to animate from its operational Mid line.
             var boardingByShip = shooter.Summons
                 .Where(s => s.IsAlive && s.IsBoardingShip && s.SourceShipId != null)
                 .GroupBy(s => s.SourceShipId)
                 .ToDictionary(group => group.Key, group => group.First());
-            foreach (var source in usable.Where(x => x.ship.Range == RangeClass.Close))
+            foreach (var source in usable.Where(value =>
+                         weaponType != WeaponType.Ballista || value.ship.Range == RangeClass.Close))
             {
                 if (boardingByShip.TryGetValue(source.ship.Id, out var boarding))
                 {
-                    sources.Add((source.ship, source.weapon, boarding.Row, boarding.Col,
-                        game.GetOpponent(shooter.DiscordId)?.DiscordId));
+                    var position = BattleshipGameEngine.GetLiveBoardingDeckCell(
+                        boarding, source.weapon.DeckIndex);
+                    if (position.HasValue)
+                        sources.Add((source.ship, source.weapon,
+                            position.Value.row, position.Value.col,
+                            game.GetOpponent(shooter.DiscordId)?.DiscordId));
                     continue;
                 }
                 if (shooter.Board.PlacedShips.Contains(source.ship))
-                    sources.Add((source.ship, source.weapon, source.ship.Row, source.ship.Col,
-                        shooter.DiscordId));
+                {
+                    var position = GetWeaponDeckCell(source.ship, source.weapon);
+                    if (position.HasValue)
+                        sources.Add((source.ship, source.weapon,
+                            position.Value.row, position.Value.col, shooter.DiscordId));
+                }
             }
         }
 
         if (sources.Count == 0)
         {
-            sources.AddRange(usable
-                .Where(x => x.ship.Range == RangeClass.Mid)
-                .Select(x => (x.ship, x.weapon, x.ship.Row, x.ship.Col, shooter.DiscordId)));
+            foreach (var source in usable.Where(x => weaponType == WeaponType.Ballista
+                         ? x.ship.Range == RangeClass.Mid
+                         : shooter.Board.PlacedShips.Contains(x.ship)))
+            {
+                var position = GetWeaponDeckCell(source.ship, source.weapon);
+                if (position.HasValue)
+                    sources.Add((source.ship, source.weapon,
+                        position.Value.row, position.Value.col, shooter.DiscordId));
+            }
         }
 
         sources = sources
@@ -1170,6 +1275,14 @@ public class BattleshipService
         var index = Math.Abs(shooter.NextBallistaAnimationIndex) % sources.Count;
         shooter.NextBallistaAnimationIndex = (index + 1) % sources.Count;
         return sources[index];
+    }
+
+    private static (int row, int col)? GetWeaponDeckCell(Ship ship, Weapon weapon)
+    {
+        var deck = ship?.Decks.FirstOrDefault(value => value.Index == weapon?.DeckIndex);
+        return deck == null
+            ? null
+            : ship.GetDeckCell(deck, ship.Row, ship.Col, ship.Orientation);
     }
 
     private static void ApplyComboShotDelay(
@@ -1381,7 +1494,7 @@ public class BattleshipService
             player.StunShotExpiry >= game.ShotCount ||
             HasPendingMatryoshkaDeployments(game) ||
             HasPendingBoardingDeployments(game) ||
-            HasPendingCursedBoatDirection(game))
+            (HasPendingCursedBoatDirection(game) || HasPendingParrotDirection(game)))
             return null;
 
         var group = player.Board.PlacedShips
@@ -1507,6 +1620,7 @@ public class BattleshipService
             return HasLegalMandatoryBoardingDeployment(game, player);
         if (
             HasPendingCursedBoatDirection(game) ||
+            HasPendingParrotDirection(game) ||
             GetPendingAssembly(game, player) != null ||
             GetPendingManeuver(game, player) != null)
             return false;
@@ -1567,6 +1681,7 @@ public class BattleshipService
         if (player == null ||
             game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
             HasPendingCursedBoatDirection(game) ||
+            HasPendingParrotDirection(game) ||
             game.CurrentTurnPlayerId != player.DiscordId ||
             player.HasShotThisTurn ||
             player.HasPenalty ||
@@ -1620,6 +1735,7 @@ public class BattleshipService
             player.StunShotExpiry >= game.ShotCount ||
             HasWaitingRamReturn(player) ||
             HasPendingCursedBoatDirection(game) ||
+            HasPendingParrotDirection(game) ||
             HasPendingMatryoshkaDeployments(game) ||
             HasPendingBoardingDeployments(game) ||
             GetPendingAssembly(game, player) != null ||
@@ -1871,8 +1987,66 @@ public class BattleshipService
     private static bool HasPendingCursedBoatDirection(BattleshipGame game) =>
         game.GetPlayers().Any(player => GetPendingCursedBoatDirection(game, player) != null);
 
+    private static PendingParrotDirectionDto GetPendingParrotDirection(
+        BattleshipGame game,
+        BattleshipPlayer player)
+    {
+        if (game == null || player == null || game.CurrentTurnPlayerId != player.DiscordId ||
+            game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
+            HasPendingMatryoshkaDeployments(game))
+            return null;
+
+        var parrot = player.Summons
+            .Where(summon => summon is
+            {
+                IsAlive: true,
+                Type: SummonType.Parrot,
+                WaitingForDirectionChoice: true,
+            })
+            .OrderBy(summon => summon.Id, StringComparer.Ordinal)
+            .FirstOrDefault();
+        var targetBoard = game.GetOpponent(player.DiscordId)?.Board;
+        if (parrot == null || targetBoard == null) return null;
+
+        var directions = new[]
+        {
+            (Direction.Up, -1, 0),
+            (Direction.Down, 1, 0),
+            (Direction.Left, 0, -1),
+            (Direction.Right, 0, 1),
+        };
+        var pending = new PendingParrotDirectionDto
+        {
+            SummonId = parrot.Id,
+            Row = parrot.VisualRow,
+            Col = parrot.VisualCol,
+            Options = directions
+                .Select(value => new ParrotDirectionOptionDto
+                {
+                    Direction = value.Item1.ToString(),
+                    Row = parrot.Row + value.Item2,
+                    Col = parrot.Col + value.Item3,
+                })
+                .Where(option =>
+                    option.Row is >= 0 and < 10 && option.Col is >= 0 and < 10 &&
+                    Enum.TryParse<Direction>(option.Direction, out var direction) &&
+                    BattleshipGameEngine.CanPlaceSummonOnBoard(
+                        targetBoard, parrot, option.Row, option.Col, direction))
+                .ToList(),
+        };
+        // A rare Boarding congestion can surround the Parrot with allied summons. Do not
+        // deadlock Flint: keep the boat at its real/visual cell and retry the mandatory
+        // direction choice on a later Flint turn after those hulls have moved.
+        return pending.Options.Count > 0 ? pending : null;
+    }
+
+    private static bool HasPendingParrotDirection(BattleshipGame game) =>
+        game.GetPlayers().Any(player => GetPendingParrotDirection(game, player) != null);
+
     private static string GetCursedBoatDirectionLockError(BattleshipGame game) =>
-        HasPendingCursedBoatDirection(game)
+        HasPendingParrotDirection(game)
+            ? "Сначала выберите направление движения Попугайчика."
+            : HasPendingCursedBoatDirection(game)
             ? "Сначала выберите подсвеченную клетку для нового курса Проклятой лодки."
             : null;
 
@@ -1902,6 +2076,7 @@ public class BattleshipService
                 QueueMatryoshkaReplacements(currentGame);
                 return HasPendingMatryoshkaDeployments(currentGame);
             });
+            NormalizeFlintWeaponSelections(game);
             if (!movementCompleted)
             {
                 game.MatryoshkaResolutionPaused = true;
@@ -2041,6 +2216,9 @@ public class BattleshipService
         {
             WeaponType.Tetracatapult => ShotType.Buckshot,
             WeaponType.Neptune => ShotType.Neptune,
+            WeaponType.Cannon => ShotType.Cannon,
+            WeaponType.Fortuna => ShotType.Fortuna,
+            WeaponType.Warming => ShotType.Warming,
             WeaponType.Incendiary => ShotType.Incendiary,
             WeaponType.EvilIncendiary => ShotType.EvilIncendiary,
             WeaponType.GreekFire => ShotType.GreekFire,
@@ -2094,7 +2272,8 @@ public class BattleshipService
             // Shared Tetracatapult ammo is still fired by one concrete living module. Honoring
             // its id keeps range legality and VFX source coupled to the selected tactical shot.
             var exactWeaponSelection = weaponId != null;
-            var selectedWeapon = wt == WeaponType.Ballista
+            var selectedWeapon = wt is WeaponType.Ballista or WeaponType.Cannon or
+                WeaponType.Fortuna or WeaponType.Warming
                 ? usable.Select(x => x.weapon).FirstOrDefault()
                 : exactWeaponSelection
                     ? usable.Select(x => x.weapon).FirstOrDefault(w => w.Id == weaponId)
@@ -2613,6 +2792,7 @@ public class BattleshipService
     {
         CheckAndApplyFleetDestructionWin(game);
         TryTriggerBoarding(game);
+        NormalizeFlintWeaponSelections(game);
         if (!game.IsFinished &&
             !HasPendingMatryoshkaDeployments(game) &&
             game.Phase == BsGamePhase.Boarding)
@@ -2671,8 +2851,11 @@ public class BattleshipService
             if (ship.HasManeuvered)
                 return (false, "Этот корабль уже использовал манёвр.");
 
-            if (distance < 1 || distance > 2)
-                return (false, "Можно переместиться на 1 или 2 клетки.");
+            var isFreedomManeuver = ship.DefinitionId == "flint_freedom";
+            if (isFreedomManeuver ? distance != 4 : distance < 1 || distance > 2)
+                return (false, isFreedomManeuver
+                    ? "«Свобода» перемещается ровно на 4 клетки."
+                    : "Можно переместиться на 1 или 2 клетки.");
 
             if (!Enum.TryParse<Direction>(directionStr, true, out var direction))
                 return (false, "Неверное направление.");
@@ -2740,6 +2923,58 @@ public class BattleshipService
             game.LastActivity = DateTime.UtcNow;
             game.AddLog($"Проклятый корабль меняет курс!");
             TrySettleGameEnd(game);
+            return (true, null);
+        }
+    }
+
+    public (bool success, string error) SetParrotDirection(
+        string gameId,
+        string discordId,
+        string summonId,
+        string directionStr)
+    {
+        if (!_games.TryGetValue(gameId, out var game))
+            return (false, "Игра не найдена.");
+
+        lock (game)
+        {
+            if (game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding))
+                return (false, "Сейчас нельзя выбирать направление Попугайчика.");
+            if (game.CurrentTurnPlayerId != discordId)
+                return (false, "Направление Попугайчика выбирается в свой ход.");
+            if (HasPendingMatryoshkaDeployments(game))
+                return (false, "Сначала разместите следующий корпус Матрёшки.");
+            if (HasPendingBoardingDeployments(game))
+                return (false, "Сначала выпустите все обязательные единицы абордажа.");
+
+            var player = game.GetPlayer(discordId);
+            var opponent = game.GetOpponent(discordId);
+            if (player == null || opponent == null)
+                return (false, "Вы не в этой игре.");
+            if (!Enum.TryParse<Direction>(directionStr, true, out var direction))
+                return (false, "Неверное направление.");
+
+            var pending = GetPendingParrotDirection(game, player);
+            var option = pending?.Options.FirstOrDefault(value =>
+                value.Direction.Equals(direction.ToString(), StringComparison.OrdinalIgnoreCase));
+            if (pending?.SummonId != summonId || option == null)
+                return (false, "Это направление сейчас недоступно.");
+
+            var parrot = player.Summons.FirstOrDefault(summon =>
+                summon.Id == summonId && summon is { IsAlive: true, Type: SummonType.Parrot });
+            if (parrot == null)
+                return (false, "Попугайчик не найден.");
+
+            parrot.VisualRow = parrot.Row;
+            parrot.VisualCol = parrot.Col;
+            if (!BattleshipGameEngine.TryPlaceSummonOnBoard(
+                    opponent.Board, parrot, option.Row, option.Col, direction))
+                return (false, "Выбранная клетка уже занята другим призывом.");
+
+            parrot.WaitingForDirectionChoice = false;
+            parrot.ParrotMoveArmed = true;
+            parrot.IsPhantom = false;
+            game.LastActivity = DateTime.UtcNow;
             return (true, null);
         }
     }
@@ -2827,6 +3062,17 @@ public class BattleshipService
         {
             var events = game.PendingTurnSkipEvents.ToList();
             game.PendingTurnSkipEvents.Clear();
+            return events;
+        }
+    }
+
+    public List<ShotResult> TakePendingAutomaticShotEvents(string gameId)
+    {
+        if (!_games.TryGetValue(gameId, out var game)) return new();
+        lock (game)
+        {
+            var events = game.PendingAutomaticShotEvents.ToList();
+            game.PendingAutomaticShotEvents.Clear();
             return events;
         }
     }
@@ -2925,15 +3171,76 @@ public class BattleshipService
                     game.AddLogFor(player.DiscordId, $"Размещение нужно исправить: {error}");
                     return;
                 }
+                foreach (var player in game.GetPlayers())
+                {
+                    BattleshipGameEngine.InitializeSharedTetracatapultAmmo(game, player);
+                    BattleshipGameEngine.InitializeSharedFlintWeaponAmmo(game, player);
+                    player.SelectedShotType = player.Faction == Faction.CaptainFlint
+                        ? ShotType.Cannon
+                        : ShotType.Ballista;
+                    player.SelectedWeapon = null;
+                }
                 game.Phase = BsGamePhase.Combat;
                 game.CombatStarted = true; // from here on, leaving/forfeiting counts as a loss
                 game.TurnNumber = 1;
-                game.CurrentTurnPlayerId = BattleshipGameEngine.DetermineFirstTurn(game);
+                var flintPlayers = game.GetPlayers()
+                    .Where(player => player.Faction == Faction.CaptainFlint)
+                    .ToList();
+                game.CurrentTurnPlayerId = flintPlayers.Count > 0
+                    ? flintPlayers[0].DiscordId
+                    : BattleshipGameEngine.DetermineFirstTurn(game);
+                SpawnFlintParrot(game, game.GetPlayer(game.CurrentTurnPlayerId));
                 game.AddLog($"Бой начинается! Первый ход: {game.GetPlayer(game.CurrentTurnPlayerId)?.Username}");
                 TryTriggerBoarding(game);
 
                 break;
         }
+    }
+
+    private static void SpawnFlintParrot(BattleshipGame game, BattleshipPlayer owner)
+    {
+        if (owner?.Faction != Faction.CaptainFlint || owner.FlintParrotSpawned) return;
+        owner.FlintParrotSpawned = true;
+        var opponent = game.GetOpponent(owner.DiscordId);
+        if (opponent == null) return;
+
+        var freeColumns = Enumerable.Range(0, 10)
+            .Where(col =>
+            {
+                var cell = opponent.Board.GetCell(0, col);
+                return cell is { ShipRef: null } && cell.SummonRef is not { IsAlive: true };
+            })
+            .OrderBy(_ => Rng.Next())
+            .ToList();
+        foreach (var col in freeColumns)
+        {
+            var parrot = new Summon
+            {
+                Type = SummonType.Parrot,
+                Row = 0,
+                Col = col,
+                VisualRow = 0,
+                VisualCol = col,
+                Speed = 1,
+                RevealRadius = 1,
+                OwnerId = owner.DiscordId,
+                MoveDirection = Direction.Down,
+                SpawnedAtShot = game.ShotCount,
+                WaitingForDirectionChoice = true,
+            };
+            owner.Summons.Add(parrot);
+            if (!BattleshipGameEngine.RegisterSummonOnTargetBoard(game, owner, parrot))
+            {
+                owner.Summons.Remove(parrot);
+                continue;
+            }
+
+            BattleshipGameEngine.RevealArea(opponent.Board, parrot.Row, parrot.Col, 1, owner);
+            game.AddLog($"{owner.Username} выпускает Попугайчика!");
+            return;
+        }
+
+        game.AddLogFor(owner.DiscordId, "Попугайчику не нашлось свободной клетки в первой строке.");
     }
 
     private void HandleBotFleetSelection(BattleshipGame game)
@@ -2986,6 +3293,30 @@ public class BattleshipService
             foreach (var ship in group)
                 ship.Name = $"{ship.Name} {index++}";
         }
+    }
+
+    private static bool IsFlintCaptain(string definitionId) =>
+        definitionId is "flint_fortune" or "flint_freedom";
+
+    private static (bool success, string error) AutoPlaceFlintFleet(
+        BattleshipPlayer player,
+        Ship captain)
+    {
+        foreach (var placed in player.Board.PlacedShips
+                     .Where(ship => ship != captain)
+                     .ToList())
+            RemoveShipFromBoard(player, placed);
+        if (BattleshipBotAI.TryPlaceRemainingFleet(player))
+        {
+            var (valid, _) = PlacementValidator.ValidateAllPlaced(player.Fleet, player.Board);
+            if (valid) return (true, null);
+        }
+
+        foreach (var placed in player.Board.PlacedShips
+                     .Where(ship => ship != captain)
+                     .ToList())
+            RemoveShipFromBoard(player, placed);
+        return (false, "Не удалось автоматически разместить флот. Попробуйте другую позицию капитанского корабля.");
     }
 
     private void HandleBotPlacement(BattleshipGame game)
@@ -3536,6 +3867,7 @@ public class BattleshipService
             }
             var firstResolutionLogIndex = game.GameLog.Count;
             var shotCountBefore = game.ShotCount;
+            var visualSource = CaptureShotAnimationSource(game, bot);
 
             ShotResult result;
             if (captured)
@@ -3557,7 +3889,7 @@ public class BattleshipService
             else
                 result = BattleshipGameEngine.ProcessShot(game, bot, targetRow, targetCol);
 
-            DescribeShot(game, bot, result, ownBoard);
+            DescribeShot(game, bot, result, ownBoard, visualSource);
             result.TurnContinues = RegisterResolvedPlayerShot(
                 game,
                 bot,
@@ -3603,7 +3935,9 @@ public class BattleshipService
     {
         if (game.IsFinished || game.Phase is not (BsGamePhase.Combat or BsGamePhase.Boarding) ||
             HasPendingMatryoshkaDeployments(game) || HasPendingBoardingDeployments(game) ||
-            HasPendingCursedBoatDirection(game) || !HasPendingAdvancedBotResponse(game))
+            HasPendingCursedBoatDirection(game) ||
+            HasPendingParrotDirection(game) ||
+            !HasPendingAdvancedBotResponse(game))
             return null;
         var active = game.GetPlayer(game.CurrentTurnPlayerId);
         if (active?.IsBot != false)
@@ -3736,6 +4070,45 @@ public class BattleshipService
         game.CurrentTurnPlayerId = game.CurrentTurnPlayerId == game.Player1.DiscordId
             ? game.Player2.DiscordId
             : game.Player1.DiscordId;
+        var starting = game.GetPlayer(game.CurrentTurnPlayerId);
+        SpawnFlintParrot(game, starting);
+        ResolveParrotTurnBoundary(game, current, starting);
+    }
+
+    private static void ResolveParrotTurnBoundary(
+        BattleshipGame game,
+        BattleshipPlayer endingPlayer,
+        BattleshipPlayer startingPlayer)
+    {
+        if (endingPlayer?.Faction == Faction.CaptainFlint)
+        {
+            foreach (var parrot in endingPlayer.Summons.Where(summon => summon is
+                     {
+                         IsAlive: true,
+                         Type: SummonType.Parrot,
+                         ParrotMoveArmed: true,
+                     }).ToList())
+            {
+                parrot.IsPhantom = true;
+            }
+        }
+
+        if (startingPlayer?.Faction != Faction.CaptainFlint) return;
+        foreach (var parrot in startingPlayer.Summons.Where(summon => summon is
+                 {
+                     IsAlive: true,
+                     Type: SummonType.Parrot,
+                     ParrotMoveArmed: true,
+                 }).ToList())
+        {
+            if (!BattleshipGameEngine.ResolveParrotArrival(game, startingPlayer, parrot))
+                continue;
+            parrot.VisualRow = parrot.Row;
+            parrot.VisualCol = parrot.Col;
+            parrot.IsPhantom = false;
+            parrot.ParrotMoveArmed = false;
+            parrot.WaitingForDirectionChoice = true;
+        }
     }
 
     private static void AdvanceTurn(BattleshipGame game)
@@ -3943,6 +4316,9 @@ public class BattleshipService
             PendingCursedBoatDirection = isMe && !HasPendingBoardingDeployments(game)
                 ? GetPendingCursedBoatDirection(game, player)
                 : null,
+            PendingParrotDirection = isMe && !HasPendingBoardingDeployments(game)
+                ? GetPendingParrotDirection(game, player)
+                : null,
             ShotDelayRemainingMs = Math.Max(0,
                 (int)Math.Ceiling((player.NextShotAllowedAtUtc - DateTime.UtcNow).TotalMilliseconds)),
             ShotDelayDurationMs = player.CurrentShotDelayMs,
@@ -3958,8 +4334,8 @@ public class BattleshipService
             {
                 Id = s.Id,
                 Type = s.Type.ToString(),
-                Row = s.Row,
-                Col = s.Col,
+                Row = s.Type == SummonType.Parrot ? s.VisualRow : s.Row,
+                Col = s.Type == SummonType.Parrot ? s.VisualCol : s.Col,
                 Speed = s.Speed,
                 IsAlive = s.IsAlive,
                 MoveDirection = s.MoveDirection.ToString(),
@@ -3969,6 +4345,7 @@ public class BattleshipService
                 SourceShipName = s.SourceShipName,
                 SourceShipDeckCount = s.SourceShipDeckCount,
                 IsGhost = s.IsGhost,
+                IsPhantom = s.IsPhantom,
             }).ToList(),
             PendingSummons = isMe ? player.PendingSummons.Select(p => new PendingSummonDto
             {
@@ -3993,6 +4370,7 @@ public class BattleshipService
                 !HasPendingBoardingDeployments(game) &&
                 GetPendingAssembly(game, player) == null &&
                 GetPendingCursedBoatDirection(game, player) == null &&
+                GetPendingParrotDirection(game, player) == null &&
                 GetPendingManeuver(game, player) == null &&
                 !BattleshipGameEngine.HasAnyLegalShot(game, player),
         };
@@ -4071,8 +4449,55 @@ public class BattleshipService
             }));
         }
 
+        foreach (var weaponType in new[] { WeaponType.Cannon, WeaponType.Fortuna })
+        {
+            var group = usable.Where(value => value.weapon.Type == weaponType).ToList();
+            if (group.Count == 0) continue;
+            var first = group[0];
+            var shotType = WeaponTypeToShotType(weaponType);
+            var sources = group.Select(value => value.ship.Name)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            result.Add(new AvailableWeaponDto
+            {
+                Id = first.weapon.Id,
+                ShipId = first.ship.Id,
+                ShipName = string.Join(" + ", sources),
+                Type = weaponType.ToString(),
+                ShotType = shotType.ToString(),
+                Ammo = BattleshipGameEngine.GetSharedFlintWeaponAmmo(game, player, shotType),
+                MaxAmmo = BattleshipGameEngine.GetSharedFlintWeaponMaxAmmo(game, player, shotType),
+                DeckIndex = first.weapon.DeckIndex,
+                IsShared = true,
+                Sources = sources,
+            });
+        }
+
+        var warmingWeapons = usable.Where(value => value.weapon.Type == WeaponType.Warming).ToList();
+        if (warmingWeapons.Count > 0)
+        {
+            var first = warmingWeapons[0];
+            var sources = warmingWeapons.Select(value => value.ship.Name)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            result.Add(new AvailableWeaponDto
+            {
+                Id = first.weapon.Id,
+                ShipId = first.ship.Id,
+                ShipName = string.Join(" + ", sources),
+                Type = WeaponType.Warming.ToString(),
+                ShotType = ShotType.Warming.ToString(),
+                Ammo = -1,
+                MaxAmmo = -1,
+                DeckIndex = first.weapon.DeckIndex,
+                IsShared = true,
+                Sources = sources,
+            });
+        }
+
         result.AddRange(usable.Where(value => value.weapon.Type is not
-                (WeaponType.Ballista or WeaponType.Tetracatapult))
+                (WeaponType.Ballista or WeaponType.Tetracatapult or WeaponType.Cannon or
+                    WeaponType.Fortuna or WeaponType.Warming))
             .Select(value => new AvailableWeaponDto
             {
                 Id = value.weapon.Id,
@@ -4146,16 +4571,52 @@ public class BattleshipService
         }).ToList() ?? new();
     }
 
+    /// <summary>
+    /// The Parrot's physical coordinate is moved as soon as Flint chooses a course so the
+    /// opponent can fire at the destination. Public DTOs keep drawing it at VisualRow/VisualCol
+    /// until that opponent's turn is over; this helper is the hidden-information boundary.
+    /// </summary>
+    private static Dictionary<(int row, int col), Summon> GetDisplayedSummons(Board board)
+    {
+        var result = new Dictionary<(int row, int col), Summon>();
+        var parrots = new Dictionary<string, Summon>(StringComparer.Ordinal);
+        for (var row = 0; row < 10; row++)
+        for (var col = 0; col < 10; col++)
+        {
+            var summon = board.Grid[row, col].SummonRef;
+            if (summon is not { IsAlive: true }) continue;
+            if (summon.Type == SummonType.Parrot)
+            {
+                parrots.TryAdd(summon.Id, summon);
+                continue;
+            }
+            result[(row, col)] = summon;
+        }
+
+        foreach (var parrot in parrots.Values)
+        {
+            if (parrot.VisualRow is < 0 or >= 10 || parrot.VisualCol is < 0 or >= 10)
+                continue;
+            // The movement validator reserves this visual cell while the Parrot's real
+            // hitbox is ahead. TryAdd is a defensive privacy fallback for legacy/in-flight
+            // states: never hide a real summon if one already occupies the displayed cell.
+            result.TryAdd((parrot.VisualRow, parrot.VisualCol), parrot);
+        }
+        return result;
+    }
+
     private static BoardDto MapBoard(Board board, bool showShips)
     {
         var cells = new List<CellDto>();
+        var displayedSummons = GetDisplayedSummons(board);
         for (var r = 0; r < 10; r++)
         for (var c = 0; c < 10; c++)
         {
             var cell = board.Grid[r, c];
+            displayedSummons.TryGetValue((r, c), out var displayedSummon);
             var liveDeck = GetDeckAtCell(cell);
             var matryoshkaWreck = cell.IsMatryoshkaWreck && cell.ShipRef == null;
-            var boardingDeck = cell.SummonRef is { IsAlive: true, IsBoardingShip: true } boardingSummon
+            var boardingDeck = displayedSummon is { IsAlive: true, IsBoardingShip: true } boardingSummon
                 ? BattleshipGameEngine.GetLiveBoardingDeckAtCell(boardingSummon, r, c)
                 : null;
             var deckIsDamaged = liveDeck != null && liveDeck.CurrentHp < liveDeck.MaxHp;
@@ -4184,18 +4645,19 @@ public class BattleshipService
                 ShipId = showShips
                     ? cell.ShipRef?.Id ?? cell.Wreck?.SourceShipId
                     : null,
-                HasSummon = cell.SummonRef != null && cell.SummonRef.IsAlive,
-                SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
-                SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
-                SummonName = cell.SummonRef is { IsAlive: true }
-                    ? cell.SummonRef.SourceShipName
+                HasSummon = displayedSummon is { IsAlive: true },
+                SummonOwnerId = displayedSummon?.OwnerId,
+                SummonType = displayedSummon?.Type.ToString(),
+                SummonName = displayedSummon is { IsAlive: true }
+                    ? displayedSummon.SourceShipName
                     : null,
-                IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
-                IsGhostSummon = cell.SummonRef is { IsAlive: true, IsGhost: true },
-                SummonMoveDirection = cell.SummonRef is { IsAlive: true }
-                    ? cell.SummonRef.MoveDirection.ToString()
+                IsBoardingSummon = displayedSummon is { IsAlive: true, IsBoardingShip: true },
+                IsGhostSummon = displayedSummon is { IsAlive: true, IsGhost: true },
+                IsPhantomSummon = displayedSummon is { IsAlive: true, IsPhantom: true },
+                SummonMoveDirection = displayedSummon is { IsAlive: true }
+                    ? displayedSummon.MoveDirection.ToString()
                     : null,
-                BoardingShipDeckCount = cell.SummonRef is { IsAlive: true, IsBoardingShip: true }
+                BoardingShipDeckCount = displayedSummon is { IsAlive: true, IsBoardingShip: true }
                     ? 1
                     : 0,
                 IsScratched = deckIsScratched || boardingDeckIsScratched ||
@@ -4233,11 +4695,13 @@ public class BattleshipService
     private static BoardDto MapFogBoard(Board board, bool includeSunkShipNames)
     {
         var cells = new List<CellDto>();
+        var displayedSummons = GetDisplayedSummons(board);
         for (var r = 0; r < 10; r++)
         for (var c = 0; c < 10; c++)
         {
             var cell = board.Grid[r, c];
-            var boardingDeck = cell.SummonRef is { IsAlive: true, IsBoardingShip: true } boardingSummon
+            displayedSummons.TryGetValue((r, c), out var displayedSummon);
+            var boardingDeck = displayedSummon is { IsAlive: true, IsBoardingShip: true } boardingSummon
                 ? BattleshipGameEngine.GetLiveBoardingDeckAtCell(boardingSummon, r, c)
                 : null;
             var hiddenMovedShip = cell.ShipRef is
@@ -4256,18 +4720,19 @@ public class BattleshipService
                 HasShip = cell.WasShipHit || cell.WasRevealedShip ||
                           (cell.IsRevealed && cell.ShipRef != null && !hiddenMovedShip),
                 ShipId = null,
-                HasSummon = cell.SummonRef != null && cell.SummonRef.IsAlive,
-                SummonOwnerId = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.OwnerId : null,
-                SummonType = cell.SummonRef is { IsAlive: true } ? cell.SummonRef.Type.ToString() : null,
-                SummonName = cell.SummonRef is { IsAlive: true }
-                    ? cell.SummonRef.SourceShipName
+                HasSummon = displayedSummon is { IsAlive: true },
+                SummonOwnerId = displayedSummon?.OwnerId,
+                SummonType = displayedSummon?.Type.ToString(),
+                SummonName = displayedSummon is { IsAlive: true }
+                    ? displayedSummon.SourceShipName
                     : null,
-                IsBoardingSummon = cell.SummonRef is { IsAlive: true, IsBoardingShip: true },
-                IsGhostSummon = cell.SummonRef is { IsAlive: true, IsGhost: true },
-                SummonMoveDirection = cell.SummonRef is { IsAlive: true }
-                    ? cell.SummonRef.MoveDirection.ToString()
+                IsBoardingSummon = displayedSummon is { IsAlive: true, IsBoardingShip: true },
+                IsGhostSummon = displayedSummon is { IsAlive: true, IsGhost: true },
+                IsPhantomSummon = displayedSummon is { IsAlive: true, IsPhantom: true },
+                SummonMoveDirection = displayedSummon is { IsAlive: true }
+                    ? displayedSummon.MoveDirection.ToString()
                     : null,
-                BoardingShipDeckCount = cell.SummonRef is { IsAlive: true, IsBoardingShip: true }
+                BoardingShipDeckCount = displayedSummon is { IsAlive: true, IsBoardingShip: true }
                     ? 1
                     : 0,
                 IsScratched = cell.WasScratched ||
@@ -4430,6 +4895,7 @@ public class BattleshipPlayerDto
     public PendingManeuverDto PendingManeuver { get; set; }
     public List<VoluntaryManeuverDto> VoluntaryManeuvers { get; set; } = new();
     public PendingCursedBoatDirectionDto PendingCursedBoatDirection { get; set; }
+    public PendingParrotDirectionDto PendingParrotDirection { get; set; }
     public int ShotDelayRemainingMs { get; set; }
     public int ShotDelayDurationMs { get; set; }
     public int SummonCooldownRemaining { get; set; }
@@ -4473,6 +4939,7 @@ public class CellDto
     public string SummonName { get; set; }
     public bool IsBoardingSummon { get; set; }
     public bool IsGhostSummon { get; set; }
+    public bool IsPhantomSummon { get; set; }
     public string SummonMoveDirection { get; set; }
     public int BoardingShipDeckCount { get; set; }
     public bool IsScratched { get; set; }
@@ -4572,6 +5039,21 @@ public class CursedBoatDirectionOptionDto
     public int Col { get; set; }
 }
 
+public class PendingParrotDirectionDto
+{
+    public string SummonId { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+    public List<ParrotDirectionOptionDto> Options { get; set; } = new();
+}
+
+public class ParrotDirectionOptionDto
+{
+    public string Direction { get; set; }
+    public int Row { get; set; }
+    public int Col { get; set; }
+}
+
 public class AvailableWeaponDto
 {
     public string Id { get; set; }
@@ -4654,6 +5136,7 @@ public class SummonDto
     public string SourceShipName { get; set; }
     public int SourceShipDeckCount { get; set; }
     public bool IsGhost { get; set; }
+    public bool IsPhantom { get; set; }
 }
 
 public class PendingSummonDto

@@ -10,6 +10,7 @@ import { useTip } from 'src/composables/useTip'
 import BoardGrid from '../BoardGrid.vue'
 import BsIcon from '../BsIcon.vue'
 import ConfirmDialog from '../ConfirmDialog.vue'
+import FlintPlacementPhase from './FlintPlacementPhase.vue'
 import { message } from 'src/platform/localization'
 import {
   anchorForDeck,
@@ -25,6 +26,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 const myFleet = computed(() => store.myFleet)
 const myPlayer = computed(() => store.myPlayer)
+const isCaptainFlint = computed(() => myPlayer.value?.faction === 'CaptainFlint')
 const enemyPlayer = computed(() => store.enemyPlayer)
 const placementLocked = computed(() => myPlayer.value?.isReady ?? false)
 const canCancelConfirmation = computed(() =>
@@ -296,7 +298,8 @@ onBeforeUnmount(() => window.removeEventListener('pointerup', cancelDrag))
 </script>
 
 <template>
-  <div class="phase-content">
+  <FlintPlacementPhase v-if="isCaptainFlint" />
+  <div v-else class="phase-content">
     <div v-if="placementLocked" class="bs-banner bs-banner--gold placement-waiting">
       Расстановка подтверждена. Ожидаем подтверждения противника.
     </div>

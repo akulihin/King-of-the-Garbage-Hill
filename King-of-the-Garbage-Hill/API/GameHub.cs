@@ -1912,10 +1912,14 @@ public class GameHub : Hub
         if (!success)
         {
             await Clients.Caller.SendAsync("ActionResult", new { action = "battleshipPlaceShip", success = false, error });
+            // Captain Flint auto-fill can fail after the captain itself was validly moved.
+            // Refresh every view so that recoverable placement remains visually authoritative.
+            await PushBattleshipStateToAll(gameId);
             return;
         }
 
-        await PushBattleshipStateToPlayer(gameId, discordId.ToString());
+        await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
     }
 
     public async Task BattleshipRemoveShip(string gameId, string shipId)
@@ -2173,6 +2177,28 @@ public class GameHub : Hub
         QueueBattleshipBotPump(gameId);
     }
 
+    public async Task BattleshipSetParrotDirection(string gameId, string summonId, string direction)
+    {
+        var discordId = GetDiscordId();
+        if (discordId == 0) { await SendNotAuthenticated(); return; }
+
+        var (success, error) = _battleshipService.SetParrotDirection(
+            gameId, discordId.ToString(), summonId, direction);
+        if (!success)
+        {
+            await Clients.Caller.SendAsync("ActionResult", new
+            {
+                action = "battleshipSetParrotDirection",
+                success = false,
+                error,
+            });
+            return;
+        }
+
+        await PushBattleshipStateToAll(gameId);
+        QueueBattleshipBotPump(gameId);
+    }
+
     public async Task BattleshipForfeit(string gameId)
     {
         var discordId = GetDiscordId();
@@ -2210,6 +2236,8 @@ public class GameHub : Hub
     {
         foreach (var skipEvent in _battleshipService.TakePendingTurnSkipEvents(gameId))
             await SendBattleshipShotEvent(gameId, skipEvent);
+        foreach (var automaticShot in _battleshipService.TakePendingAutomaticShotEvents(gameId))
+            await SendBattleshipShotEvent(gameId, automaticShot);
 
         // Send personalized state to each player, collecting their connection IDs
         var playerIds = _battleshipService.GetPlayerIds(gameId);
@@ -2265,10 +2293,11 @@ public class GameHub : Hub
             var showDetails = _battleshipService.CanPlayerSeeShotDetails(gameId, playerId, result);
             await _hubContext.Clients.Clients(connections).SendAsync(
                 "BattleshipEvent",
-                CreateBattleshipShotEvent(result, showDetails));
+                CreateBattleshipShotEvent(result, showDetails, playerId));
         }
 
-        var spectatorEvent = CreateBattleshipShotEvent(result, showDetails: true);
+        var spectatorEvent = CreateBattleshipShotEvent(
+            result, showDetails: true, viewerPlayerId: null);
         if (playerConnectionIds.Count > 0)
             await _hubContext.Clients.GroupExcept($"bs-{gameId}", playerConnectionIds)
                 .SendAsync("BattleshipEvent", spectatorEvent);
@@ -2279,14 +2308,19 @@ public class GameHub : Hub
 
     private static object CreateBattleshipShotEvent(
         Battleship.Models.ShotResult result,
-        bool showDetails)
+        bool showDetails,
+        string viewerPlayerId)
     {
+        var showSource = viewerPlayerId == null ||
+                         viewerPlayerId == result.ActorPlayerId ||
+                         viewerPlayerId == result.SourceBoardPlayerId;
         return new
         {
             eventType = "ShotResult",
             data = new
             {
                 result.WasSkipped,
+                result.IsAutomaticShot,
                 result.SkippedPlayerId,
                 result.SkipReason,
                 result.Hit,
@@ -2304,10 +2338,10 @@ public class GameHub : Hub
                 result.ShotDelayMs,
                 Message = showDetails || result.WasSkipped ? result.Message : string.Empty,
                 AffectedShipName = showDetails ? result.AffectedShipName : null,
-                result.SourceShipId,
-                result.SourceDeckIndex,
-                result.SourceRow,
-                result.SourceCol,
+                SourceShipId = showSource ? result.SourceShipId : null,
+                SourceDeckIndex = showSource ? result.SourceDeckIndex : -1,
+                SourceRow = showSource ? result.SourceRow : -1,
+                SourceCol = showSource ? result.SourceCol : -1,
                 result.SourceBoardPlayerId,
                 result.ProjectileType,
                 result.TargetPlayerId,

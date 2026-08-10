@@ -214,13 +214,18 @@ Standalone Battleship has its own in-memory match and bot path:
 ```
 BattleshipService.ConcurrentDictionary<string, BattleshipGame>
    ├─ open human seat or closed V1/V2/V3 bot lobby ─▶ atomic lobby/game locks
+   ├─ setup ─▶ Empire/Alliance budget builder
+   │             └─ Captain Flint captain choice ─▶ fixed-fleet auto-placement
    ├─ command under match lock ─────────────────────▶ BattleshipGameEngine
+   │                                                    └─ Cannon/Parrot/Boarding resolution
    ├─ MapFog-equivalent projection ─▶ BattleshipBotObservationFactory
    │                                      └─ public-memory snapshot ─▶ BattleshipAdvancedBotAI V2/V3
    └─ viewer-specific board DTO ─▶ GameHub ─▶ useBattleshipStore ─▶ Battleship pages/components
 ```
 
-V1 remains the legacy policy. V2/V3 select and place varied Empire-only fleets, but may model and fight either faction. Their combat policy never receives the opponent `Board`, `Ship` or `Player`: the sole physical-board boundary emits value-only fog observations plus public remembered evidence, and exact own-board state remains available for defensive shots, summons and manoeuvres. Human-continuation response cursors let one advanced bot reaction resolve before the next human attack without inferring a window from UI delay (`BattleshipService`; `BattleshipBotObservationFactory`; `BattleshipAdvancedBotAI`; full contract in [WEB-BACKEND.md](WEB-BACKEND.md)).
+Captain Flint is a third server-authoritative setup branch rather than an alternate budget template. The player locks Luck or Freedom and places only that captain in rows 1–8; under the match lock the service either places the complete five-hull remainder or removes every failed support attempt and leaves only the captain, unready for repositioning. Runtime state remains in the Battleship core model: live-deck-derived Cannon pools, one-successful-use Freedom movement, Fortune automatic-volley cursor and the Parrot's separate public visual origin/direction versus private logical target. DTO mapping is the privacy boundary: an opponent sees the Parrot cue/blur but no occupied destination until the movement realizes, while the engine resolves shots against the hidden logical cell. First-player selection gives a sole Flint priority, with Player 1 resolving a dual-Flint tie; `FlintParrotSpawned` then lazily creates each owner's independent Parrot only when that owner's first turn begins, preventing the second boat from entering the target model early. A zero-option Parrot has no mandatory DTO/barrier and remains stationary until a later eligibility check. Captain Boarding hulls reuse the full multi-deck summon snapshot but override collision survival/speed, so there is still only one physical hull/death/victory identity (`FleetValidator.BuildCaptainFlintFleet`; `BattleshipPlayer.FlintParrotSpawned`; `BattleshipService.AutoPlaceFlintFleet` / `SpawnFlintParrot` / `GetPendingParrotDirection` / `ResolveParrotTurnBoundary`; `BattleshipGameEngine.DetermineFirstTurn` / `GetCannonExecutionTarget` / `ResolveFortunaBoardingVolley` / `ResolveParrotArrival`; Battleship models; full contract in [WEB-BACKEND.md](WEB-BACKEND.md) §4/§10 and [BattleshipGDD.md](../BattleshipGDD.md)).
+
+V1 remains the legacy policy. V2/V3 select and place varied Empire-only fleets, but may model and fight any faction. Their combat policy never receives the opponent `Board`, `Ship` or `Player`: the sole physical-board boundary emits value-only fog observations plus public remembered evidence, and exact own-board state remains available for defensive shots, summons and manoeuvres. Human-continuation response cursors let one advanced bot reaction resolve before the next human attack without inferring a window from UI delay (`BattleshipService`; `BattleshipBotObservationFactory`; `BattleshipAdvancedBotAI`; full contract in [WEB-BACKEND.md](WEB-BACKEND.md)).
 
 Standalone network Clash follows a separate state path:
 
@@ -315,6 +320,9 @@ Jon Snow exercises the cross-pipeline score/position/death form: `CharacterClass
 | `API/Services/GameStateMapper.cs` | web DTO mapping |
 | `API/Services/BlackjackService.cs` | shared Shinigami table plus one-shot Ranked Elo debit/recovery settlement |
 | `Battleship/King-of-the-Garbage-Hill.Games.Battleship.csproj` | compiler-enforced Battleship core assembly; owns only `Logic/` and `Models/` |
+| `Battleship/Logic/ShipCatalog.cs`, `FleetValidator.cs` | authoritative faction catalogs/templates and placement validation; Captain Flint bypasses budget/template purchase and `BuildCaptainFlintFleet` generates its fixed post-captain fleet |
+| `Battleship/Logic/BattleshipGameEngine.cs` | Battleship combat, summon/Boarding movement, Cannon execution/Fortune volleys, first-player selection and Parrot lifecycle |
+| `Battleship/Models/BattleshipModels.cs` | match/player/ship/weapon/summon state, including Flint captain choice, deck-derived ammunition and split Parrot visual/logical state |
 | `Battleship/Logic/BattleshipAdvancedBotAI.cs` | varied Empire fleet/placement policy and V2/V3 tactical decisions over sanitized observations |
 | `Battleship/Logic/BattleshipBotObservationFactory.cs` | sole enemy-board boundary for advanced bots; mirrors human fog and maintains public evidence memory |
 | `API/Services/BattleshipService.cs` | Battleship lobby ownership, match locking, engine orchestration, bot pump and per-viewer DTO mapping |

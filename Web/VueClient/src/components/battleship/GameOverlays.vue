@@ -22,8 +22,9 @@ const isEnemyTurnSkip = computed(() => {
 // ── Turn transition sweep ───────────────────────────────
 const turnTransitionActive = ref(false)
 
-watch(isMyTurn, (val) => {
-  if (val && !store.turnSkipNotice && (phase.value === 'Combat' || phase.value === 'Boarding')) {
+watch([isMyTurn, () => store.parrotTransitionActive], ([mine, parrotTransition], [wasMine, wasParrotTransition]) => {
+  if (mine && !parrotTransition && (!wasMine || wasParrotTransition)
+    && !store.turnSkipNotice && (phase.value === 'Combat' || phase.value === 'Boarding')) {
     turnTransitionActive.value = true
     setTimeout(() => { turnTransitionActive.value = false }, 800)
   }

@@ -1415,7 +1415,7 @@ const hasEnemyBadges = computed(() => enemyDebuffBadges.value.length > 0)
 .tug-fill-v {
   width: 100%;
   border-radius: 3px;
-  transition: height 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+  transition: height var(--fight-weighing-duration, 0.4s) cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
   position: relative;
 }
 

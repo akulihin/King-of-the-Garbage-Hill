@@ -13,10 +13,21 @@ public static class FleetValidator
 {
     public const int EmpireBudget = 40;
     public const int AllianceBudget = 50;
+    public const int CaptainFlintBudget = 0;
     public const int MaxRegions = 3;
 
-    public static int GetBudget(Faction faction) =>
-        faction == Faction.Alliance ? AllianceBudget : EmpireBudget;
+    public static readonly HashSet<string> CaptainFlintFlagshipIds = new()
+    {
+        "flint_fortune",
+        "flint_freedom",
+    };
+
+    public static int GetBudget(Faction faction) => faction switch
+    {
+        Faction.Alliance => AllianceBudget,
+        Faction.CaptainFlint => CaptainFlintBudget,
+        _ => EmpireBudget,
+    };
 
     /// <summary>Template: deck-count → number of ships required.</summary>
     public static readonly Dictionary<int, int> Template = new() { { 1, 4 }, { 2, 3 }, { 3, 2 }, { 4, 1 } };
@@ -30,6 +41,8 @@ public static class FleetValidator
         Faction faction = Faction.Empire)
     {
         if (selections == null) selections = new List<FleetSelection>();
+        if (faction == Faction.CaptainFlint)
+            return ValidateCaptainFlintFleet(selections);
 
         var totalCost = 0;
         var regions = new HashSet<Region>();
@@ -136,6 +149,14 @@ public static class FleetValidator
         List<FleetSelection> purchases,
         Faction faction = Faction.Empire)
     {
+        if (faction == Faction.CaptainFlint)
+        {
+            var flagshipId = (purchases ?? new List<FleetSelection>())
+                .Select(selection => selection.DefinitionId)
+                .FirstOrDefault(CaptainFlintFlagshipIds.Contains) ?? "flint_fortune";
+            return BuildCaptainFlintFleet(flagshipId);
+        }
+
         var result = new List<FleetSelection>();
 
         // Separate free-ship upgrade entries from actual purchases
@@ -216,6 +237,9 @@ public static class FleetValidator
     /// </summary>
     public static List<FleetSelection> GetDefaultFleet(Faction faction = Faction.Empire)
     {
+        if (faction == Faction.CaptainFlint)
+            return BuildCaptainFlintFleet("flint_fortune");
+
         var flagshipId = faction == Faction.Alliance ? "alliance_flagship" : "tetranavis";
         var flagshipName = ShipCatalog.GetById(flagshipId)?.Name ?? flagshipId;
         return new List<FleetSelection>
@@ -230,6 +254,71 @@ public static class FleetValidator
             new() { DefinitionId = "triple", ShipName = "Triple", Cost = 0 },
             new() { DefinitionId = "triple", ShipName = "Triple", Cost = 0 },
             new() { DefinitionId = flagshipId, ShipName = flagshipName, Cost = 0 },
+        };
+    }
+
+    private static (bool valid, string error) ValidateCaptainFlintFleet(
+        List<FleetSelection> selections)
+    {
+        if (selections.Count is not (1 or 6))
+            return (false, "Для флота Капитана Финта нужно выбрать один капитанский корабль.");
+
+        foreach (var selection in selections)
+        {
+            var definition = ShipCatalog.GetById(selection.DefinitionId);
+            if (definition == null)
+                return (false, $"Неизвестный корабль: {selection.DefinitionId}");
+            if (!definition.Factions.Contains(Faction.CaptainFlint))
+                return (false, $"{definition.NameRu ?? definition.Name} недоступен для флота Капитана Финта.");
+            if (selection.Upgrades is { Count: > 0 })
+                return (false, "Фиксированный флот Капитана Финта не использует апгрейды.");
+        }
+
+        var selectedFlagships = selections
+            .Where(selection => CaptainFlintFlagshipIds.Contains(selection.DefinitionId))
+            .ToList();
+        if (selectedFlagships.Count != 1)
+            return (false, "Выберите ровно один капитанский корабль: Удачу или Свободу.");
+
+        if (selections.Count == 1)
+            return (true, null);
+
+        var expected = BuildCaptainFlintFleet(selectedFlagships[0].DefinitionId)
+            .GroupBy(selection => selection.DefinitionId)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var actual = selections
+            .GroupBy(selection => selection.DefinitionId)
+            .ToDictionary(group => group.Key, group => group.Count());
+        return expected.Count == actual.Count && expected.All(pair =>
+                actual.GetValueOrDefault(pair.Key) == pair.Value)
+            ? (true, null)
+            : (false, "Состав фиксированного флота Капитана Финта изменён.");
+    }
+
+    private static List<FleetSelection> BuildCaptainFlintFleet(string flagshipId)
+    {
+        if (!CaptainFlintFlagshipIds.Contains(flagshipId))
+            flagshipId = "flint_fortune";
+
+        FleetSelection Selection(string definitionId)
+        {
+            var definition = ShipCatalog.GetById(definitionId);
+            return new FleetSelection
+            {
+                DefinitionId = definitionId,
+                ShipName = definition?.Name ?? definitionId,
+                Cost = 0,
+            };
+        }
+
+        return new List<FleetSelection>
+        {
+            Selection(flagshipId),
+            Selection("flint_melee_double"),
+            Selection("flint_melee_double"),
+            Selection("flint_cannon_double"),
+            Selection("flint_cannon_triple"),
+            Selection("fast_warming_ship"),
         };
     }
 

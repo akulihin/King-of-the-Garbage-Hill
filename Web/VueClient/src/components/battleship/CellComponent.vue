@@ -78,6 +78,10 @@ const cellClass = computed(() => {
   // showing the cell's own status (hit/miss/fire/…) underneath
   if (props.cell.hasSummon) classes.push('cell-has-summon')
   if (props.cell.isGhostSummon) classes.push('cell-ghost-summon')
+  if (props.cell.isPhantomSummon) {
+    classes.push('cell-phantom-summon')
+    classes.push(`phantom-direction-${(props.cell.summonMoveDirection ?? 'Down').toLowerCase()}`)
+  }
   if (props.cell.isBoardingSummon) {
     classes.push('cell-boarding-ship')
     classes.push(`boarding-direction-${(props.cell.summonMoveDirection ?? 'Down').toLowerCase()}`)
@@ -175,6 +179,9 @@ const deckSymbolNames: Record<string, string> = {
   mast: 'Мачта',
   boiler: 'Котельная',
   incendiary: 'Горючка',
+  cannon: message('battleship.weapon.cannon.name'),
+  fortuna: message('battleship.weapon.fortuna.name'),
+  warming: message('battleship.weapon.warming.name'),
   armor: 'Усиленная броня',
 }
 
@@ -191,6 +198,10 @@ const summonDeathHtml = computed(() => (props.cell?.summonDeaths ?? []).map((mar
   html: renderIcon(summonIconKey(marker.type, marker.isBoardingShip), 9),
 })))
 const frozenDeathBadgeHtml = renderIcon('frozen', 7)
+const parrotMotionHtml = computed(() => props.anim === 'anim-parrot-death'
+  || props.anim?.startsWith('anim-parrot-flight-')
+  ? renderIcon('parrot', 16)
+  : '')
 
 defineEmits<{
   (e: 'tipShow', ev: MouseEvent, text: string): void
@@ -216,8 +227,12 @@ const cellTooltip = computed(() => {
     if (props.cell.isGhostSummon) {
       base = `${message('battleship.summon.ghost')} | ${base}`
     }
+    if (props.cell.isPhantomSummon) {
+      base = `${message('battleship.summon.parrot.phantom')} | ${base}`
+    }
     // ТЗ #1: material non-boarding enemy creature in the penalty zone (rows 1-3 of the own board)
-    if (!props.isEnemy && !props.cell.isGhostSummon
+    if (!props.isEnemy && !props.cell.isGhostSummon && !props.cell.isPhantomSummon
+      && props.cell.summonType !== 'Parrot'
       && !props.cell.isBoardingSummon && props.cell.row <= 2) {
       base = `Штраф за убийство суммона в этой зоне (кроме убийства сразу после появления) | ${base}`
     }
@@ -284,6 +299,11 @@ const cellTooltip = computed(() => {
       class="cell-icon"
       :class="{ 'cell-icon--boarding': cell?.isBoardingSummon }"
       v-html="cellIconHtml"
+    ></span>
+    <span
+      v-if="parrotMotionHtml"
+      class="parrot-motion-icon"
+      v-html="parrotMotionHtml"
     ></span>
     <span
       v-if="electricChargeHtml"
@@ -433,6 +453,61 @@ const cellTooltip = computed(() => {
   opacity: 0.46;
   filter: saturate(0.35) drop-shadow(0 0 5px #c4f1ff);
   animation: ghost-summon-pulse 1.15s ease-in-out infinite alternate;
+}
+
+.cell-phantom-summon {
+  overflow: visible;
+}
+.cell-phantom-summon::after {
+  content: '';
+  position: absolute;
+  width: 70%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.8));
+  filter: blur(1px);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.cell-phantom-summon .cell-icon {
+  opacity: 0.62;
+  filter: blur(1.4px) saturate(1.4) drop-shadow(0 0 7px rgba(74, 222, 128, 0.85));
+  animation: parrot-phantom-right 0.34s ease-in-out infinite alternate;
+}
+.phantom-direction-right::after { top: 50%; right: 52%; }
+.phantom-direction-left::after {
+  top: 50%;
+  left: 52%;
+  transform: rotate(180deg);
+}
+.phantom-direction-down::after {
+  left: 15%;
+  bottom: 52%;
+  transform: rotate(90deg);
+}
+.phantom-direction-up::after {
+  left: 15%;
+  top: 52%;
+  transform: rotate(-90deg);
+}
+.phantom-direction-left .cell-icon { animation-name: parrot-phantom-left; }
+.phantom-direction-up .cell-icon { animation-name: parrot-phantom-up; }
+.phantom-direction-down .cell-icon { animation-name: parrot-phantom-down; }
+@keyframes parrot-phantom-right {
+  from { transform: translateX(-3px) scaleX(1.22); }
+  to { transform: translateX(3px) scaleX(0.88); }
+}
+@keyframes parrot-phantom-left {
+  from { transform: translateX(3px) scaleX(-1.22); }
+  to { transform: translateX(-3px) scaleX(-0.88); }
+}
+@keyframes parrot-phantom-up {
+  from { transform: translateY(3px) rotate(-90deg) scaleX(1.22); }
+  to { transform: translateY(-3px) rotate(-90deg) scaleX(0.88); }
+}
+@keyframes parrot-phantom-down {
+  from { transform: translateY(-3px) rotate(90deg) scaleX(1.22); }
+  to { transform: translateY(3px) rotate(90deg) scaleX(0.88); }
 }
 @keyframes ghost-summon-pulse {
   from { transform: scale(0.88); opacity: 0.35; }
@@ -739,7 +814,10 @@ const cellTooltip = computed(() => {
 .deck-symbol--armor { color: #facc15; }
 .deck-symbol--catapult { color: #f8fafc; }
 .deck-symbol--boiler,
-.deck-symbol--incendiary { color: #fb923c; }
+.deck-symbol--incendiary,
+.deck-symbol--warming { color: #fb923c; }
+.deck-symbol--cannon { color: #cbd5e1; }
+.deck-symbol--fortuna { color: var(--accent-gold); }
 
 .summon-deaths {
   position: absolute;
@@ -849,6 +927,80 @@ const cellTooltip = computed(() => {
 .anim-summon-spawn {
   animation: cell-summon-spawn 1s ease-out forwards;
   z-index: 4;
+}
+.anim-parrot-arrive-right .cell-icon { animation: parrot-arrive-right 0.72s cubic-bezier(.2,.8,.2,1); }
+.anim-parrot-arrive-left .cell-icon { animation: parrot-arrive-left 0.72s cubic-bezier(.2,.8,.2,1); }
+.anim-parrot-arrive-down .cell-icon { animation: parrot-arrive-down 0.72s cubic-bezier(.2,.8,.2,1); }
+.anim-parrot-arrive-up .cell-icon { animation: parrot-arrive-up 0.72s cubic-bezier(.2,.8,.2,1); }
+.anim-parrot-pending .cell-icon { opacity: 0; }
+.anim-parrot-settle .cell-icon { animation: parrot-settle 0.36s ease-out; }
+[class*='anim-parrot-flight-'] { overflow: visible; }
+.parrot-motion-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  z-index: 8;
+  color: #4ade80;
+  pointer-events: none;
+  filter: drop-shadow(0 0 7px rgba(74, 222, 128, 0.9));
+}
+.anim-parrot-death .parrot-motion-icon {
+  animation: parrot-death 0.82s ease-out forwards;
+}
+[class*='anim-parrot-flight-'] .parrot-motion-icon {
+  animation-duration: 0.52s;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+[class*='anim-parrot-flight-'][class*='-long'] .parrot-motion-icon { animation-duration: 3.2s; }
+[class*='anim-parrot-flight-'][class*='-arrow'] .parrot-motion-icon { animation-duration: 0.43s; }
+[class*='anim-parrot-flight-right'] .parrot-motion-icon { animation-name: parrot-flight-right; }
+[class*='anim-parrot-flight-left'] .parrot-motion-icon { animation-name: parrot-flight-left; }
+[class*='anim-parrot-flight-up'] .parrot-motion-icon { animation-name: parrot-flight-up; }
+[class*='anim-parrot-flight-down'] .parrot-motion-icon { animation-name: parrot-flight-down; }
+@keyframes parrot-arrive-right {
+  from { transform: translateX(-115%) scaleX(1.5); opacity: 0.25; filter: blur(2px); }
+  to { transform: translateX(0) scaleX(1); opacity: 1; filter: blur(0); }
+}
+@keyframes parrot-arrive-left {
+  from { transform: translateX(115%) scaleX(1.5); opacity: 0.25; filter: blur(2px); }
+  to { transform: translateX(0) scaleX(1); opacity: 1; filter: blur(0); }
+}
+@keyframes parrot-arrive-down {
+  from { transform: translateY(-115%) scaleY(1.5); opacity: 0.25; filter: blur(2px); }
+  to { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+}
+@keyframes parrot-arrive-up {
+  from { transform: translateY(115%) scaleY(1.5); opacity: 0.25; filter: blur(2px); }
+  to { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0); }
+}
+@keyframes parrot-settle {
+  from { transform: scale(1.35); opacity: 0.4; filter: blur(2px); }
+  to { transform: scale(1); opacity: 1; filter: blur(0); }
+}
+@keyframes parrot-flight-right {
+  from { transform: translateX(0) scaleX(1.25); opacity: 0.62; filter: blur(1.4px); }
+  to { transform: translateX(calc(var(--cell-size, 32px) + 1px)) scaleX(0.9); opacity: 0.82; filter: blur(0.8px); }
+}
+@keyframes parrot-flight-left {
+  from { transform: translateX(0) scaleX(-1.25); opacity: 0.62; filter: blur(1.4px); }
+  to { transform: translateX(calc(0px - var(--cell-size, 32px) - 1px)) scaleX(-0.9); opacity: 0.82; filter: blur(0.8px); }
+}
+@keyframes parrot-flight-up {
+  from { transform: translateY(0) rotate(-90deg) scaleX(1.25); opacity: 0.62; filter: blur(1.4px); }
+  to { transform: translateY(calc(0px - var(--cell-size, 32px) - 1px)) rotate(-90deg) scaleX(0.9); opacity: 0.82; filter: blur(0.8px); }
+}
+@keyframes parrot-flight-down {
+  from { transform: translateY(0) rotate(90deg) scaleX(1.25); opacity: 0.62; filter: blur(1.4px); }
+  to { transform: translateY(calc(var(--cell-size, 32px) + 1px)) rotate(90deg) scaleX(0.9); opacity: 0.82; filter: blur(0.8px); }
+}
+@keyframes parrot-death {
+  0% { transform: scale(1.15) rotate(0); opacity: 1; }
+  35% { transform: scale(1.5) rotate(-18deg); color: #fef08a; opacity: 1; }
+  100% { transform: translateY(14px) scale(0.25) rotate(115deg); color: #ef4444; opacity: 0; filter: blur(2px); }
 }
 
 @keyframes cell-summon-spawn {
@@ -1020,6 +1172,15 @@ const cellTooltip = computed(() => {
 .trail-pirateboat::before {
   background: var(--accent-gold);
   opacity: 0.2;
+}
+.trail-parrot::before {
+  width: 9px;
+  height: 3px;
+  border-radius: 999px;
+  background: #4ade80;
+  opacity: 0.3;
+  filter: blur(0.5px);
+  box-shadow: 0 0 5px rgba(74, 222, 128, 0.55);
 }
 .trail-boarding::before {
   width: 8px;

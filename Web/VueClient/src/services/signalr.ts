@@ -1225,6 +1225,7 @@ export type BattleshipPlayerState = {
   pendingManeuver: BattleshipPendingManeuver | null
   voluntaryManeuvers?: BattleshipVoluntaryManeuver[]
   pendingCursedBoatDirection: BattleshipPendingCursedBoatDirection | null
+  pendingParrotDirection: BattleshipPendingParrotDirection | null
   pendingAssembly: BattleshipPendingAssembly | null
   shotDelayRemainingMs: number
   shotDelayDurationMs: number
@@ -1295,6 +1296,8 @@ export type BattleshipCursedBoatDirectionOption = {
   col: number
 }
 
+export type BattleshipPendingParrotDirection = BattleshipPendingCursedBoatDirection
+
 export type BattleshipPendingAssembly = {
   groupId: string
   options: BattleshipAssemblyOption[]
@@ -1354,6 +1357,7 @@ export type BattleshipCell = {
   summonName?: string | null
   isBoardingSummon?: boolean
   isGhostSummon?: boolean
+  isPhantomSummon?: boolean
   summonMoveDirection?: string | null
   boardingShipDeckCount?: number
   isScratched: boolean
@@ -1437,6 +1441,7 @@ export type BattleshipSummon = {
   sourceShipName?: string | null
   sourceShipDeckCount: number
   isGhost: boolean
+  isPhantom?: boolean
 }
 
 export type BattleshipFleetSelection = {
@@ -1478,6 +1483,7 @@ export type BattleshipUpgrade = {
 
 export type BattleshipShotResult = {
   wasSkipped: boolean
+  isAutomaticShot: boolean
   skippedPlayerId: string | null
   skipReason: 'Penalty' | 'Stun' | null
   hit: boolean
@@ -1500,7 +1506,7 @@ export type BattleshipShotResult = {
   sourceRow: number
   sourceCol: number
   sourceBoardPlayerId: string | null
-  projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | 'Electric' | null
+  projectileType: 'Arrow' | 'Stone' | 'Buckshot' | 'Fire' | 'Electric' | 'Cannon' | null
   targetPlayerId: string | null
 }
 
@@ -2444,6 +2450,10 @@ class SignalRService {
 
   async battleshipSetCursedBoatDirection(gameId: string, summonId: string, direction: string): Promise<void> {
     await this.connection?.invoke('BattleshipSetCursedBoatDirection', gameId, summonId, direction)
+  }
+
+  async battleshipSetParrotDirection(gameId: string, summonId: string, direction: string): Promise<void> {
+    await this.connection?.invoke('BattleshipSetParrotDirection', gameId, summonId, direction)
   }
 
   async battleshipAssembleShip(

@@ -66,6 +66,11 @@ import {
   LAST_CHANCES_GESTURE_COLORS,
   resolveLastChancesChargedAttack,
 } from './weapon-runtime'
+import {
+  LAST_CHANCES_HELD_WEAPON_VISUALS,
+  lastChancesHeldWeaponVisual,
+  type LastChancesHeldWeaponVisualDefinition,
+} from './weapon-visuals'
 import type {
   LastChancesAdaptiveTriggerProfileDefinition,
   LastChancesArenaEdge,
@@ -577,6 +582,15 @@ interface RuntimeSpearSpriteLayout {
   pivotRatio: number
 }
 
+interface RuntimeHeldWeaponPose {
+  center: LastChancesVector
+  axis: LastChancesVector
+  perpendicular: LastChancesVector
+  active: boolean
+  ready: boolean
+  twoHanded: boolean
+}
+
 interface RuntimeTapCombo {
   step: number
   expiresAtMs: number
@@ -977,6 +991,8 @@ export class LastChancesEngine {
   /** Hand and elapsed stamp of the last action that actually executed, for the stamina refunds. */
   private lastAttackHand: LastChancesHand | null = null
   private lastAttackAtMs = Number.NEGATIVE_INFINITY
+  /** Presentation guard persists across room cleanup; only a fresh attempt restores primary. */
+  private visualReadyHand: LastChancesHand | null = null
   private staminaRefusedAtMs: number | null = null
   private gamepadAdapter: LastChancesGamepadAdapter
   private controlSchemeValue: LastChancesControlScheme
@@ -1264,6 +1280,7 @@ export class LastChancesEngine {
   private spearImage: HTMLImageElement | null = null
   private longbowImage: HTMLImageElement | null = null
   private knifeSpiderV2Image: HTMLImageElement | null = null
+  private readonly heldWeaponImages = new Map<string, HTMLImageElement>()
   private readonly resizeObserver: ResizeObserver | null
 
   constructor(
@@ -1299,6 +1316,17 @@ export class LastChancesEngine {
         if (!this.destroyed) this.render()
       }
       this.knifeSpiderV2Image.src = '/99lc/spider-knife-v2.png'
+      this.heldWeaponImages.set('secondary-spider-knife', this.knifeSpiderV2Image)
+      for (const [weaponId, visual] of Object.entries(LAST_CHANCES_HELD_WEAPON_VISUALS)) {
+        if (weaponId === 'secondary-spider-knife') continue
+        const image = new Image()
+        image.decoding = 'async'
+        image.onload = () => {
+          if (!this.destroyed) this.render()
+        }
+        image.src = visual.assetPath
+        this.heldWeaponImages.set(weaponId, image)
+      }
     }
     this.callbacks = callbacks
     this.config = cloneLastChancesConfig(migratedConfig)
@@ -6503,6 +6531,7 @@ export class LastChancesEngine {
     )
     this.lastAttackHand = hand
     this.lastAttackAtMs = this.elapsedMs
+    this.visualReadyHand = hand
   }
 
   private advanceTapCombo(hand: LastChancesHand): number {
@@ -10115,6 +10144,7 @@ export class LastChancesEngine {
     this.attemptPath = []
     this.deathReason = null
     this.lastGesture = null
+    this.visualReadyHand = null
     this.postPrologueLoadout = null
     this.prologueLoadoutForced = false
     this.staminaCostStacks = 0
@@ -13967,6 +13997,1029 @@ export class LastChancesEngine {
     })
   }
 
+  /**
+   * Outfit silhouettes use the projected aim rather than the raw world angle. That keeps a coat,
+   * breastplate or scale row aligned with the same isometric direction as the held weapon without
+   * changing the player's world-space body or collision radius.
+   */
+  private playerScreenFacing(node: LastChancesPlanNode): LastChancesVector {
+    const origin = this.worldToScreen(this.player.position, node)
+    const ahead = this.worldToScreen({
+      x: this.player.position.x + this.player.aim.x * 100,
+      y: this.player.position.y + this.player.aim.y * 100,
+    }, node)
+    return normalize({ x: ahead.x - origin.x, y: ahead.y - origin.y })
+  }
+
+  /** Light cloth, wrapped limbs and a split trailing coat: narrow even while moving at full speed. */
+  private renderNinjaOutfit(radius: number): void {
+    const context = this.context
+    const speedRatio = clamp(
+      vectorLength(this.movementVelocity) / Math.max(1, this.effectivePlayerStats().moveSpeed),
+      0,
+      1,
+    )
+    const dashing = this.activeDash?.weaponId === 'ninja-clothes'
+    const tailSway = Math.sin(this.elapsedMs / 95) * radius * 0.11 * speedRatio
+      + (dashing ? radius * 0.22 : 0)
+    const cloth = context.createLinearGradient(-radius, -radius, radius, radius)
+    cloth.addColorStop(0, '#080b10')
+    cloth.addColorStop(0.48, '#202a33')
+    cloth.addColorStop(0.72, '#11171e')
+    cloth.addColorStop(1, '#05070a')
+
+    // Split coat tails lead the silhouette and react to movement without altering the ground body.
+    context.fillStyle = '#090d12'
+    context.strokeStyle = '#344653'
+    context.lineWidth = Math.max(1, radius * 0.075)
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.moveTo(-radius * 0.36, side * radius * 0.2)
+      context.quadraticCurveTo(
+        -radius * 0.8,
+        side * radius * 0.34 + tailSway * side,
+        -radius * (dashing ? 1.22 : 0.98),
+        side * radius * 0.5 + tailSway,
+      )
+      context.lineTo(-radius * 0.7, side * radius * 0.08)
+      context.closePath()
+      context.fill()
+      context.stroke()
+    }
+
+    // Layered torso and short shoulder mantle.
+    context.beginPath()
+    context.moveTo(radius * 0.36, -radius * 0.42)
+    context.quadraticCurveTo(radius * 0.05, -radius * 0.72, -radius * 0.34, -radius * 0.64)
+    context.lineTo(-radius * 0.82, -radius * 0.38)
+    context.lineTo(-radius * 0.88, radius * 0.38)
+    context.lineTo(-radius * 0.34, radius * 0.64)
+    context.quadraticCurveTo(radius * 0.05, radius * 0.72, radius * 0.36, radius * 0.42)
+    context.closePath()
+    context.fillStyle = cloth
+    context.fill()
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = Math.max(1.4, radius * 0.1)
+    context.stroke()
+
+    context.beginPath()
+    context.moveTo(-radius * 0.58, -radius * 0.47)
+    context.lineTo(radius * 0.23, -radius * 0.32)
+    context.lineTo(radius * 0.23, radius * 0.32)
+    context.lineTo(-radius * 0.58, radius * 0.47)
+    context.strokeStyle = '#45535d'
+    context.lineWidth = Math.max(0.8, radius * 0.055)
+    context.stroke()
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.moveTo(-radius * 0.22, side * radius * 0.48)
+      context.lineTo(radius * 0.28, side * radius * 0.5)
+      context.strokeStyle = '#121820'
+      context.lineWidth = Math.max(2, radius * 0.2)
+      context.stroke()
+      context.strokeStyle = '#61717b'
+      context.lineWidth = Math.max(0.8, radius * 0.055)
+      for (let wrap = 0; wrap < 3; wrap += 1) {
+        const x = -radius * 0.08 + wrap * radius * 0.15
+        context.beginPath()
+        context.moveTo(x, side * radius * 0.4)
+        context.lineTo(x + radius * 0.03, side * radius * 0.58)
+        context.stroke()
+      }
+    }
+
+    // Hood, mask and the only exposed highlight: a narrow eye slit facing local +X.
+    context.beginPath()
+    context.ellipse(radius * 0.43, 0, radius * 0.5, radius * 0.43, 0, 0, Math.PI * 2)
+    context.fillStyle = '#111820'
+    context.fill()
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = Math.max(1.2, radius * 0.085)
+    context.stroke()
+    context.beginPath()
+    context.moveTo(radius * 0.52, -radius * 0.3)
+    context.quadraticCurveTo(radius * 0.85, 0, radius * 0.52, radius * 0.3)
+    context.lineTo(radius * 0.42, radius * 0.2)
+    context.quadraticCurveTo(radius * 0.65, 0, radius * 0.42, -radius * 0.2)
+    context.closePath()
+    context.fillStyle = '#05070a'
+    context.fill()
+    context.strokeStyle = '#596d79'
+    context.lineWidth = Math.max(0.8, radius * 0.05)
+    context.stroke()
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.ellipse(
+        radius * 0.62,
+        side * radius * 0.105,
+        radius * 0.055,
+        radius * 0.035,
+        0,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = '#c9edf0'
+      context.fill()
+    }
+  }
+
+  /** Full plate seen from above: broad pauldrons, ridged cuirass, articulated faulds and helm. */
+  private renderKnightArmor(radius: number): void {
+    const context = this.context
+    const steel = context.createLinearGradient(-radius, -radius, radius, radius)
+    steel.addColorStop(0, '#313940')
+    steel.addColorStop(0.28, '#aab5ba')
+    steel.addColorStop(0.5, '#e0e5e5')
+    steel.addColorStop(0.68, '#6d797f')
+    steel.addColorStop(1, '#20272c')
+    const darkSteel = context.createLinearGradient(-radius, 0, radius, 0)
+    darkSteel.addColorStop(0, '#20262a')
+    darkSteel.addColorStop(0.5, '#77848a')
+    darkSteel.addColorStop(1, '#2b3338')
+
+    // Articulated waist plates remain behind the cuirass.
+    for (let plate = -2; plate <= 2; plate += 1) {
+      const offset = plate * radius * 0.2
+      context.beginPath()
+      context.moveTo(-radius * 0.32, offset - radius * 0.12)
+      context.lineTo(-radius * 0.98, offset - radius * 0.17)
+      context.lineTo(-radius * 1.02, offset + radius * 0.17)
+      context.lineTo(-radius * 0.32, offset + radius * 0.12)
+      context.closePath()
+      context.fillStyle = plate % 2 === 0 ? '#5e696e' : '#354047'
+      context.fill()
+      context.strokeStyle = '#c5a967'
+      context.lineWidth = Math.max(0.7, radius * 0.045)
+      context.stroke()
+    }
+
+    // Breastplate: wide enough to read as plate, but still bound to the same collision circle.
+    context.beginPath()
+    context.moveTo(radius * 0.38, -radius * 0.5)
+    context.quadraticCurveTo(0, -radius * 0.76, -radius * 0.55, -radius * 0.58)
+    context.lineTo(-radius * 0.77, 0)
+    context.lineTo(-radius * 0.55, radius * 0.58)
+    context.quadraticCurveTo(0, radius * 0.76, radius * 0.38, radius * 0.5)
+    context.lineTo(radius * 0.5, 0)
+    context.closePath()
+    context.fillStyle = steel
+    context.fill()
+    context.strokeStyle = this.config.renderer.playerAccent
+    context.lineWidth = Math.max(1.5, radius * 0.105)
+    context.stroke()
+
+    // Raised central ridge and lower plate seams catch the arena light.
+    context.beginPath()
+    context.moveTo(-radius * 0.58, 0)
+    context.quadraticCurveTo(-radius * 0.05, -radius * 0.08, radius * 0.4, 0)
+    context.strokeStyle = '#f1f0db'
+    context.lineWidth = Math.max(1, radius * 0.075)
+    context.stroke()
+    for (const x of [-0.45, -0.22, 0.02]) {
+      context.beginPath()
+      context.moveTo(radius * x, -radius * 0.54)
+      context.lineTo(radius * x, radius * 0.54)
+      context.strokeStyle = 'rgba(31, 40, 45, .72)'
+      context.lineWidth = Math.max(0.7, radius * 0.045)
+      context.stroke()
+    }
+
+    // Pauldrons overlap the torso; the rivets remain legible at the minimum player size.
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.ellipse(
+        radius * 0.12,
+        side * radius * 0.68,
+        radius * 0.42,
+        radius * 0.28,
+        0,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = darkSteel
+      context.fill()
+      context.strokeStyle = '#d4bd7f'
+      context.lineWidth = Math.max(1, radius * 0.065)
+      context.stroke()
+      for (const x of [-0.05, 0.16]) {
+        context.beginPath()
+        context.arc(
+          radius * x,
+          side * radius * 0.7,
+          Math.max(1, radius * 0.055),
+          0,
+          Math.PI * 2,
+        )
+        context.fillStyle = '#e6d49e'
+        context.fill()
+      }
+    }
+
+    // Closed sallet with a dark transverse visor and a bright nasal ridge.
+    context.beginPath()
+    context.ellipse(radius * 0.48, 0, radius * 0.5, radius * 0.43, 0, 0, Math.PI * 2)
+    context.fillStyle = steel
+    context.fill()
+    context.strokeStyle = '#d4bd7f'
+    context.lineWidth = Math.max(1.2, radius * 0.08)
+    context.stroke()
+    context.beginPath()
+    context.moveTo(radius * 0.48, -radius * 0.33)
+    context.lineTo(radius * 0.69, -radius * 0.24)
+    context.lineTo(radius * 0.69, radius * 0.24)
+    context.lineTo(radius * 0.48, radius * 0.33)
+    context.closePath()
+    context.fillStyle = '#151a1d'
+    context.fill()
+    context.beginPath()
+    context.moveTo(radius * 0.67, 0)
+    context.lineTo(radius * 0.9, 0)
+    context.strokeStyle = '#edf2ef'
+    context.lineWidth = Math.max(1, radius * 0.07)
+    context.stroke()
+  }
+
+  /** Snake-scale laminar armor: overlapping rows, bronze binding and a scaled coif. */
+  private renderOuroborosScaleArmor(radius: number): void {
+    const context = this.context
+    const leather = context.createLinearGradient(-radius, -radius, radius, radius)
+    leather.addColorStop(0, '#10160f')
+    leather.addColorStop(0.45, '#273822')
+    leather.addColorStop(0.72, '#182319')
+    leather.addColorStop(1, '#090d09')
+
+    context.beginPath()
+    context.moveTo(radius * 0.4, -radius * 0.5)
+    context.quadraticCurveTo(0, -radius * 0.76, -radius * 0.6, -radius * 0.54)
+    context.lineTo(-radius * 0.9, 0)
+    context.lineTo(-radius * 0.6, radius * 0.54)
+    context.quadraticCurveTo(0, radius * 0.76, radius * 0.4, radius * 0.5)
+    context.lineTo(radius * 0.48, 0)
+    context.closePath()
+    context.fillStyle = leather
+    context.fill()
+    context.strokeStyle = '#c7a85b'
+    context.lineWidth = Math.max(1.4, radius * 0.095)
+    context.stroke()
+
+    // Clip the lamellar rows to the torso so no decorative scale changes the body silhouette.
+    context.save()
+    context.clip()
+    for (let row = 0; row < 6; row += 1) {
+      const x = -radius * 0.62 + row * radius * 0.2
+      for (let column = -3; column <= 3; column += 1) {
+        const y = (column + (row % 2 === 0 ? 0 : 0.5)) * radius * 0.19
+        const scale = radius * 0.17
+        context.beginPath()
+        context.moveTo(x - scale * 0.55, y - scale * 0.68)
+        context.quadraticCurveTo(x + scale * 0.25, y - scale * 0.8, x + scale * 0.65, y)
+        context.quadraticCurveTo(x + scale * 0.15, y + scale * 0.72, x - scale * 0.55, y + scale * 0.68)
+        context.closePath()
+        context.fillStyle = (row + column) % 2 === 0 ? '#52713c' : '#344e2b'
+        context.fill()
+        context.strokeStyle = '#91a95e'
+        context.lineWidth = Math.max(0.55, radius * 0.035)
+        context.stroke()
+      }
+    }
+    context.restore()
+
+    // Bronze shoulder bindings and hanging side scales add the laminar construction read.
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.ellipse(
+        radius * 0.03,
+        side * radius * 0.66,
+        radius * 0.39,
+        radius * 0.23,
+        0,
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = '#2d4527'
+      context.fill()
+      context.strokeStyle = '#d1b663'
+      context.lineWidth = Math.max(1, radius * 0.065)
+      context.stroke()
+      for (let plate = 0; plate < 3; plate += 1) {
+        context.beginPath()
+        context.arc(
+          -radius * (0.25 + plate * 0.2),
+          side * radius * (0.57 + plate * 0.035),
+          radius * 0.1,
+          0,
+          Math.PI * 2,
+        )
+        context.fillStyle = plate % 2 === 0 ? '#52713c' : '#344e2b'
+        context.fill()
+        context.strokeStyle = '#b99a50'
+        context.lineWidth = Math.max(0.6, radius * 0.04)
+        context.stroke()
+      }
+    }
+
+    // The coif keeps the human profile but carries a subtle fang-shaped brow.
+    context.beginPath()
+    context.ellipse(radius * 0.46, 0, radius * 0.5, radius * 0.43, 0, 0, Math.PI * 2)
+    context.fillStyle = '#263b21'
+    context.fill()
+    context.strokeStyle = '#d1b663'
+    context.lineWidth = Math.max(1.2, radius * 0.08)
+    context.stroke()
+    for (const side of [-1, 1]) {
+      context.beginPath()
+      context.moveTo(radius * 0.47, side * radius * 0.25)
+      context.quadraticCurveTo(radius * 0.72, side * radius * 0.18, radius * 0.82, 0)
+      context.quadraticCurveTo(radius * 0.65, side * radius * 0.07, radius * 0.43, side * radius * 0.1)
+      context.closePath()
+      context.fillStyle = '#6f934d'
+      context.fill()
+    }
+    context.beginPath()
+    context.arc(radius * 0.7, 0, Math.max(1, radius * 0.06), 0, Math.PI * 2)
+    context.fillStyle = '#e15b45'
+    context.fill()
+  }
+
+  /** Draws a known outfit and leaves unknown/empty slots to the original generic player body. */
+  private renderPlayerOutfit(
+    node: LastChancesPlanNode,
+    point: LastChancesVector,
+    radius: number,
+  ): boolean {
+    const outfitId = this.activeOutfit()?.id
+    if (outfitId !== 'ninja-clothes'
+      && outfitId !== 'knight-armor'
+      && outfitId !== 'ouroboros-scale') return false
+
+    const facing = this.playerScreenFacing(node)
+    const context = this.context
+    context.save()
+    context.translate(point.x, point.y - radius)
+    context.rotate(Math.atan2(facing.y, facing.x))
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.shadowColor = this.config.renderer.playerAccent
+    context.shadowBlur = Math.max(5, radius * 0.28)
+    if (outfitId === 'ninja-clothes') this.renderNinjaOutfit(radius)
+    else if (outfitId === 'knight-armor') this.renderKnightArmor(radius)
+    else this.renderOuroborosScaleArmor(radius)
+    context.restore()
+    return true
+  }
+
+  /** Full-set recognition surrounds the worn armor instead of replacing and hiding its model. */
+  private renderOuroborosSetAura(x: number, y: number, radius: number): void {
+    const context = this.context
+    const pulse = 0.5 + Math.sin(this.elapsedMs / 360) * 0.5
+    const auraRadius = radius * (1.25 + pulse * 0.06)
+    const start = -0.28
+    const end = Math.PI * 1.72
+    context.save()
+    context.globalAlpha *= 0.62 + pulse * 0.18
+    context.lineCap = 'round'
+    context.shadowColor = '#9ed36a'
+    context.shadowBlur = radius * (0.5 + pulse * 0.25)
+    context.beginPath()
+    context.arc(x, y, auraRadius, start, end)
+    context.strokeStyle = '#6f9f4b'
+    context.lineWidth = Math.max(2.2, radius * 0.16)
+    context.stroke()
+    context.shadowBlur = 0
+    context.beginPath()
+    context.arc(x, y, auraRadius, start, end)
+    context.strokeStyle = '#d4b75d'
+    context.lineWidth = Math.max(0.8, radius * 0.045)
+    context.stroke()
+    for (let scale = 1; scale < 10; scale += 1) {
+      const angle = start + (end - start) * scale / 10
+      context.beginPath()
+      context.arc(
+        x + Math.cos(angle) * auraRadius,
+        y + Math.sin(angle) * auraRadius,
+        Math.max(0.8, radius * 0.045),
+        0,
+        Math.PI * 2,
+      )
+      context.fillStyle = '#d8c36e'
+      context.fill()
+    }
+    const headX = x + Math.cos(start) * auraRadius
+    const headY = y + Math.sin(start) * auraRadius
+    context.translate(headX, headY)
+    context.rotate(start + Math.PI / 2)
+    context.beginPath()
+    context.moveTo(radius * 0.22, 0)
+    context.lineTo(-radius * 0.14, -radius * 0.16)
+    context.lineTo(-radius * 0.18, radius * 0.16)
+    context.closePath()
+    context.fillStyle = '#91c060'
+    context.fill()
+    context.beginPath()
+    context.arc(radius * 0.01, -radius * 0.055, Math.max(0.8, radius * 0.035), 0, Math.PI * 2)
+    context.fillStyle = '#ed5f4c'
+    context.fill()
+    context.restore()
+  }
+
+  /** Runtime hands are action-set names: primary `left` is the hero's visible right hand. */
+  private heldWeaponVisualSide(hand: LastChancesHand): -1 | 1 {
+    return hand === 'left' ? 1 : -1
+  }
+
+  private heldWeaponReadyHand(): LastChancesHand | null {
+    if (this.visualReadyHand && this.weapons.has(this.visualReadyHand)) {
+      return this.visualReadyHand
+    }
+    if (this.weapons.has('left')) return 'left'
+    if (this.weapons.has('right')) return 'right'
+    return null
+  }
+
+  private hasHeldWeaponVisual(): boolean {
+    return [...this.weapons.values()].some(weapon => lastChancesHeldWeaponVisual(weapon.id) !== null)
+  }
+
+  private heldWeaponScreenDirection(
+    node: LastChancesPlanNode,
+    direction: LastChancesVector,
+  ): LastChancesVector {
+    const origin = this.worldToScreen(this.player.position, node)
+    const normalized = normalize(direction, this.player.aim)
+    const ahead = this.worldToScreen({
+      x: this.player.position.x + normalized.x * 100,
+      y: this.player.position.y + normalized.y * 100,
+    }, node)
+    return normalize({ x: ahead.x - origin.x, y: ahead.y - origin.y })
+  }
+
+  private heldWeaponHandIsActive(hand: LastChancesHand, weaponId: string): boolean {
+    return this.activeDash?.hand === hand && this.activeDash.weaponId === weaponId
+      || this.activeAreas.some(area => area.hand === hand && area.weaponId === weaponId)
+  }
+
+  private heldWeaponUsesTwoHands(
+    _hand: LastChancesHand,
+    weaponId: string,
+    visual: LastChancesHeldWeaponVisualDefinition,
+  ): boolean {
+    if (visual.grip === 'twoHanded') return true
+    if (visual.grip !== 'hybridSword' || weaponId !== 'hybrid-sword') return false
+    return this.activeLoadout?.primaryWeaponId === weaponId
+      && !this.activeLoadout.secondaryWeaponId
+  }
+
+  /**
+   * Resolves one visible pose from the same active area/dash that owns damage. Idle one-handed
+   * weapons use the last successfully executed action set: that hand rises to guard while the
+   * other drops toward the floor. A rejected input therefore never flickers the silhouette.
+   */
+  private heldWeaponPose(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+    hand: LastChancesHand,
+    weaponId: string,
+    visual: LastChancesHeldWeaponVisualDefinition,
+    twoHanded: boolean,
+    readyHand: LastChancesHand | null,
+  ): RuntimeHeldWeaponPose {
+    const bodyCenter = { x: playerPoint.x, y: playerPoint.y - playerRadius }
+    const bodyAxis = this.playerScreenFacing(node)
+    const bodyPerpendicular = { x: -bodyAxis.y, y: bodyAxis.x }
+    const side = this.heldWeaponVisualSide(hand)
+    const ownsGuard = twoHanded || hand === readyHand
+    const activeArea = ownsGuard
+      ? [...this.activeAreas]
+          .reverse()
+          .find(area => area.hand === hand && area.weaponId === weaponId)
+      : undefined
+    const activeDash = ownsGuard
+      && this.activeDash?.hand === hand && this.activeDash.weaponId === weaponId
+      ? this.activeDash
+      : null
+    const active = activeArea !== undefined || activeDash !== null
+    const ready = twoHanded || hand === readyHand
+    let worldDirection = normalize(this.player.aim)
+    let forwardRadii = ready ? visual.readyForwardRadii : -0.12
+    let liftRadii = 0
+
+    if (activeArea) {
+      const progress = clamp(
+        1 - activeArea.remainingMs / Math.max(1, activeArea.totalMs),
+        0,
+        1,
+      )
+      worldDirection = normalize(activeArea.direction, worldDirection)
+      const behavior = activeArea.attack.behavior ?? ''
+      const shape = activeArea.attack.collider?.shape
+        ?? (activeArea.kind === 'burst' ? 'circle' : 'sector')
+      if (behavior === 'axeParry' || behavior === 'katanaParry') {
+        const braceAngle = behavior === 'axeParry' ? Math.PI * 0.38 : Math.PI * 0.31
+        worldDirection = rotateVector(
+          worldDirection,
+          braceAngle * this.heldWeaponVisualSide(hand),
+        )
+        forwardRadii -= 0.1
+        liftRadii = 0.28
+      } else if (behavior === 'katanaOverhead' || behavior === 'swordOpening') {
+        const eased = 0.5 - Math.cos(progress * Math.PI) / 2
+        const windupAngle = -Math.PI * 0.58 * this.heldWeaponVisualSide(hand)
+        worldDirection = rotateVector(worldDirection, windupAngle * (1 - eased))
+        forwardRadii += Math.sin(progress * Math.PI) * 0.76
+        liftRadii = (1 - eased) * 0.82 + Math.sin(progress * Math.PI) * 0.52
+      } else if (shape === 'sweep') {
+        worldDirection = rotateVector(worldDirection, activeArea.sweepDegrees * Math.PI / 180)
+      } else if (shape === 'sector') {
+        const eased = 0.5 - Math.cos(progress * Math.PI) / 2
+        const arc = Math.min(170, Math.max(24, activeArea.attack.arcDegrees))
+        worldDirection = rotateVector(
+          worldDirection,
+          (-arc / 2 + arc * eased) * Math.PI / 180,
+        )
+      } else if (shape === 'circle' || activeArea.kind === 'burst') {
+        const spin = progress * Math.PI * 2 * this.heldWeaponVisualSide(hand)
+        worldDirection = rotateVector(worldDirection, spin)
+      }
+      if (shape === 'capsule'
+        && behavior !== 'katanaOverhead' && behavior !== 'swordOpening') {
+        forwardRadii += Math.sin(progress * Math.PI) * 0.9
+      } else if (behavior !== 'katanaOverhead' && behavior !== 'swordOpening') {
+        forwardRadii += Math.sin(progress * Math.PI) * 0.28
+      }
+      if (behavior === 'axeThrow') {
+        liftRadii = Math.sin(progress * Math.PI) * 1.15
+      } else if (behavior === 'spiderFlurry') {
+        worldDirection = rotateVector(
+          worldDirection,
+          Math.sin(this.elapsedMs / 42) * 0.42,
+        )
+        liftRadii = 0.25 + Math.sin(this.elapsedMs / 55) * 0.12
+      }
+    } else if (activeDash) {
+      const progress = clamp(
+        activeDash.elapsedMs / Math.max(1, activeDash.attack.durationMs),
+        0,
+        1,
+      )
+      worldDirection = normalize(activeDash.direction, worldDirection)
+      if (activeDash.attack.behavior === 'clawDash'
+        || activeDash.attack.behavior === 'katanaFlurry'
+        || activeDash.attack.behavior === 'katanaFlash') {
+        worldDirection = rotateVector(
+          worldDirection,
+          Math.sin(progress * Math.PI * 2) * 0.48,
+        )
+      }
+      forwardRadii += 0.72
+      liftRadii = Math.sin(progress * Math.PI) * 0.42
+    }
+
+    let axis = this.heldWeaponScreenDirection(node, worldDirection)
+    let perpendicular = { x: -axis.y, y: axis.x }
+    let center: LastChancesVector
+    if (!ready && !active) {
+      axis = normalize({
+        x: bodyAxis.x * 0.7,
+        y: bodyAxis.y * 0.28 + 0.84,
+      }, bodyAxis)
+      perpendicular = { x: -axis.y, y: axis.x }
+      center = {
+        x: bodyCenter.x + bodyPerpendicular.x * side * playerRadius * 0.64
+          - bodyAxis.x * playerRadius * 0.12,
+        y: bodyCenter.y + bodyPerpendicular.y * side * playerRadius * 0.64
+          - bodyAxis.y * playerRadius * 0.12
+          + visual.restDropRadii * playerRadius,
+      }
+    } else {
+      center = {
+        x: bodyCenter.x + axis.x * forwardRadii * playerRadius
+          + bodyPerpendicular.x * side * playerRadius * (twoHanded ? 0 : 0.5),
+        y: bodyCenter.y + axis.y * forwardRadii * playerRadius
+          + bodyPerpendicular.y * side * playerRadius * (twoHanded ? 0 : 0.5)
+          - liftRadii * playerRadius,
+      }
+    }
+    return { center, axis, perpendicular, active, ready, twoHanded }
+  }
+
+  private heldWeaponArmPalette(): { fill: string, stroke: string } {
+    const outfitId = this.activeOutfit()?.id
+    if (outfitId === 'knight-armor') return { fill: '#87949a', stroke: '#e0cf96' }
+    if (outfitId === 'ninja-clothes') return { fill: '#121a21', stroke: '#627783' }
+    if (outfitId === 'ouroboros-scale') return { fill: '#3e5d32', stroke: '#cfb45f' }
+    return { fill: this.config.renderer.player, stroke: this.config.renderer.playerAccent }
+  }
+
+  /** A linked curve shared by the whip in-hand and by its launched hook/bind tether. */
+  private drawFlexibleChainLinks(
+    length: number,
+    scale: number,
+    sag: number,
+    wave: number,
+    phase: number,
+    glow: string,
+  ): void {
+    if (length <= 1) return
+    const context = this.context
+    const pointAt = (progress: number): LastChancesVector => {
+      const envelope = Math.sin(progress * Math.PI)
+      return {
+        x: length * progress,
+        y: envelope * sag
+          + envelope * Math.sin(phase + progress * Math.PI * 2) * wave,
+      }
+    }
+    const samples = Math.max(12, Math.min(36, Math.ceil(length / Math.max(4, scale * 0.2))))
+
+    context.save()
+    context.lineCap = 'round'
+    context.lineJoin = 'round'
+    context.shadowColor = glow
+    context.shadowBlur = Math.max(4, scale * 0.34)
+    context.beginPath()
+    for (let sample = 0; sample <= samples; sample += 1) {
+      const point = pointAt(sample / samples)
+      if (sample === 0) context.moveTo(point.x, point.y)
+      else context.lineTo(point.x, point.y)
+    }
+    context.strokeStyle = '#171d20'
+    context.lineWidth = Math.max(2, scale * 0.13)
+    context.stroke()
+    context.shadowBlur = 0
+    context.strokeStyle = '#8f9ba0'
+    context.lineWidth = Math.max(0.8, scale * 0.038)
+    context.stroke()
+
+    const links = Math.max(5, Math.min(48, Math.round(length / Math.max(5, scale * 0.32))))
+    for (let link = 0; link <= links; link += 1) {
+      const progress = link / links
+      const point = pointAt(progress)
+      const before = pointAt(Math.max(0, progress - 0.012))
+      const after = pointAt(Math.min(1, progress + 0.012))
+      const tangent = Math.atan2(after.y - before.y, after.x - before.x)
+      context.save()
+      context.translate(point.x, point.y)
+      context.rotate(tangent + (link % 2 === 0 ? 0 : Math.PI / 2))
+      context.beginPath()
+      context.ellipse(0, 0, scale * 0.16, scale * 0.085, 0, 0, Math.PI * 2)
+      context.strokeStyle = '#242a2d'
+      context.lineWidth = Math.max(1.6, scale * 0.105)
+      context.stroke()
+      context.strokeStyle = link % 2 === 0 ? '#c8d0d2' : '#8a969b'
+      context.lineWidth = Math.max(0.7, scale * 0.045)
+      context.stroke()
+      context.restore()
+    }
+    context.restore()
+  }
+
+  private drawChainHandle(image: HTMLImageElement | undefined, radius: number): void {
+    const context = this.context
+    if (image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      context.drawImage(
+        image,
+        0,
+        image.naturalHeight * 0.36,
+        image.naturalWidth * 0.28,
+        image.naturalHeight * 0.28,
+        -radius * 0.57,
+        -radius * 0.36,
+        radius * 1.25,
+        radius * 0.72,
+      )
+      return
+    }
+    context.strokeStyle = '#2d211d'
+    context.lineWidth = Math.max(5, radius * 0.34)
+    context.beginPath()
+    context.moveTo(-radius * 0.48, 0)
+    context.lineTo(radius * 0.52, 0)
+    context.stroke()
+    context.strokeStyle = '#9dabb0'
+    context.lineWidth = Math.max(2, radius * 0.1)
+    for (const x of [-0.48, 0.52]) {
+      context.beginPath()
+      context.moveTo(radius * x, -radius * 0.25)
+      context.lineTo(radius * x, radius * 0.25)
+      context.stroke()
+    }
+  }
+
+  private drawChainHead(
+    image: HTMLImageElement | undefined,
+    tipX: number,
+    radius: number,
+  ): void {
+    const context = this.context
+    if (image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      context.drawImage(
+        image,
+        image.naturalWidth * 0.83,
+        image.naturalHeight * 0.33,
+        image.naturalWidth * 0.17,
+        image.naturalHeight * 0.34,
+        tipX - radius * 0.98,
+        -radius * 0.48,
+        radius * 0.98,
+        radius * 0.96,
+      )
+      return
+    }
+    context.beginPath()
+    context.moveTo(tipX, 0)
+    context.lineTo(tipX - radius * 0.72, -radius * 0.38)
+    context.lineTo(tipX - radius * 0.92, 0)
+    context.lineTo(tipX - radius * 0.72, radius * 0.38)
+    context.closePath()
+    context.fillStyle = '#aeb9bd'
+    context.fill()
+    context.strokeStyle = '#31383b'
+    context.lineWidth = Math.max(1, radius * 0.07)
+    context.stroke()
+  }
+
+  /** The whip keeps its authored forged handle/head but replaces the rigid bitmap links. */
+  private drawHeldChainSprite(
+    image: HTMLImageElement | undefined,
+    visual: LastChancesHeldWeaponVisualDefinition,
+    pose: RuntimeHeldWeaponPose,
+    playerRadius: number,
+  ): void {
+    const context = this.context
+    const angle = Math.atan2(pose.axis.y, pose.axis.x)
+    const launched = this.projectiles.some(projectile => (
+      projectile.source === 'player'
+      && projectile.weaponId === 'secondary-chain'
+      && ['chainHook', 'chainBind'].includes(projectile.attack?.behavior ?? '')
+    ))
+    const reach = visual.frontReachRadii * playerRadius * (pose.active ? 1.06 : 1)
+    context.save()
+    context.translate(pose.center.x, pose.center.y)
+    context.rotate(angle)
+    context.globalAlpha *= pose.ready || pose.active ? 1 : 0.82
+    context.shadowColor = visual.shadowColor
+    context.shadowBlur = playerRadius * (pose.active ? 0.58 : pose.ready ? 0.38 : 0.18)
+    this.drawChainHandle(image, playerRadius)
+    if (!launched) {
+      const linkStart = playerRadius * 0.53
+      const headBase = Math.max(linkStart, reach - playerRadius * 0.78)
+      context.save()
+      context.translate(linkStart, 0)
+      this.drawFlexibleChainLinks(
+        headBase - linkStart,
+        playerRadius,
+        playerRadius * (pose.ready ? 0.08 : 0.26),
+        playerRadius * (pose.active ? 0.42 : pose.ready ? 0.1 : 0.16),
+        pose.active ? this.elapsedMs / 68 : this.elapsedMs / 260,
+        visual.shadowColor,
+      )
+      context.restore()
+      this.drawChainHead(image, reach, playerRadius)
+    }
+    context.restore()
+  }
+
+  private drawHeldWeaponSprite(
+    image: HTMLImageElement | undefined,
+    visual: LastChancesHeldWeaponVisualDefinition,
+    pose: RuntimeHeldWeaponPose,
+    playerRadius: number,
+  ): void {
+    if (visual === LAST_CHANCES_HELD_WEAPON_VISUALS['secondary-chain']) {
+      this.drawHeldChainSprite(image, visual, pose, playerRadius)
+      return
+    }
+    const context = this.context
+    const angle = Math.atan2(pose.axis.y, pose.axis.x)
+    context.save()
+    context.translate(pose.center.x, pose.center.y)
+    context.shadowColor = visual.shadowColor
+    context.shadowBlur = playerRadius * (pose.active ? 0.58 : pose.ready ? 0.38 : 0.18)
+    context.globalAlpha *= pose.ready || pose.active ? 1 : 0.82
+    if (image?.complete && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      const pivotX = visual.pivot.x * image.naturalWidth
+      const pivotY = visual.pivot.y * image.naturalHeight
+      const tipX = visual.tip.x * image.naturalWidth
+      const tipY = visual.tip.y * image.naturalHeight
+      const sourceX = tipX - pivotX
+      const sourceY = tipY - pivotY
+      const sourceLength = Math.max(1, Math.hypot(sourceX, sourceY))
+      const sourceAngle = Math.atan2(sourceY, sourceX)
+      const desiredReach = visual.frontReachRadii * playerRadius * (pose.active ? 1.06 : 1)
+      const scale = desiredReach / sourceLength
+      context.rotate(angle - sourceAngle)
+      context.scale(scale, scale)
+      context.drawImage(image, -pivotX, -pivotY)
+    } else {
+      context.rotate(angle)
+      context.strokeStyle = visual.shadowColor
+      context.lineWidth = Math.max(3, playerRadius * 0.18)
+      context.lineCap = 'round'
+      context.beginPath()
+      context.moveTo(-playerRadius * 0.35, 0)
+      context.lineTo(playerRadius * visual.frontReachRadii, 0)
+      context.stroke()
+    }
+    context.restore()
+  }
+
+  private drawHeldWeaponArms(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+    hand: LastChancesHand,
+    visual: LastChancesHeldWeaponVisualDefinition,
+    pose: RuntimeHeldWeaponPose,
+    layer: 'farArms' | 'nearArms' | 'weapon',
+  ): void {
+    const context = this.context
+    const bodyCenter = { x: playerPoint.x, y: playerPoint.y - playerRadius }
+    const bodyAxis = this.playerScreenFacing(node)
+    const bodyPerpendicular = { x: -bodyAxis.y, y: bodyAxis.x }
+    const palette = this.heldWeaponArmPalette()
+    const gripSpacing = visual.gripSpacingRadii * playerRadius
+    const grips = pose.twoHanded
+      ? [
+          {
+            x: pose.center.x - pose.axis.x * gripSpacing,
+            y: pose.center.y - pose.axis.y * gripSpacing,
+          },
+          {
+            x: pose.center.x + pose.axis.x * gripSpacing,
+            y: pose.center.y + pose.axis.y * gripSpacing,
+          },
+        ]
+      : [pose.center]
+    const shoulders = pose.twoHanded
+      ? [-1, 1].map(side => ({
+          x: bodyCenter.x + bodyPerpendicular.x * side * playerRadius * 0.38
+            + bodyAxis.x * playerRadius * 0.05,
+          y: bodyCenter.y + bodyPerpendicular.y * side * playerRadius * 0.38
+            + bodyAxis.y * playerRadius * 0.05,
+        }))
+      : [{
+          x: bodyCenter.x
+            + bodyPerpendicular.x * this.heldWeaponVisualSide(hand) * playerRadius * 0.46,
+          y: bodyCenter.y
+            + bodyPerpendicular.y * this.heldWeaponVisualSide(hand) * playerRadius * 0.46,
+        }]
+
+    if (layer !== 'weapon') {
+      const nearIndex = shoulders.length === 1
+        ? shoulders[0].y >= bodyCenter.y ? 0 : -1
+        : shoulders.reduce((nearest, shoulder, index) => (
+            nearest < 0 || shoulder.y > shoulders[nearest].y ? index : nearest
+          ), -1)
+      const armIndices = shoulders
+        .map((_shoulder, index) => index)
+        .filter(index => (layer === 'nearArms' ? index === nearIndex : index !== nearIndex))
+      context.save()
+      context.lineCap = 'round'
+      context.strokeStyle = palette.stroke
+      context.lineWidth = Math.max(3, playerRadius * 0.27)
+      context.beginPath()
+      for (const index of armIndices) {
+        context.moveTo(shoulders[index].x, shoulders[index].y)
+        context.lineTo(grips[index].x, grips[index].y)
+      }
+      context.stroke()
+      context.strokeStyle = palette.fill
+      context.lineWidth = Math.max(1.5, playerRadius * 0.15)
+      context.stroke()
+      context.restore()
+      return
+    }
+
+    this.drawHeldWeaponSprite(
+      this.heldWeaponImages.get(this.weapons.get(hand)?.id ?? ''),
+      visual,
+      pose,
+      playerRadius,
+    )
+
+    if (!visual.suppressHandDisc) {
+      context.save()
+      context.fillStyle = palette.fill
+      context.strokeStyle = palette.stroke
+      context.lineWidth = Math.max(1, playerRadius * 0.065)
+      for (const grip of grips) {
+        context.beginPath()
+        context.arc(
+          grip.x,
+          grip.y,
+          Math.max(2.2, playerRadius * visual.handScale),
+          0,
+          Math.PI * 2,
+        )
+        context.fill()
+        context.stroke()
+      }
+      context.restore()
+    } else {
+      // The living weapon already occupies the pivot. A compact finger grip keeps the hold
+      // readable without covering the spider body with the ordinary palm-sized disc.
+      const angle = Math.atan2(pose.axis.y, pose.axis.x)
+      context.save()
+      context.lineCap = 'round'
+      for (const grip of grips) {
+        context.save()
+        context.translate(grip.x, grip.y)
+        context.rotate(angle)
+        context.fillStyle = palette.fill
+        context.strokeStyle = palette.stroke
+        context.lineWidth = Math.max(1, playerRadius * 0.055)
+        context.beginPath()
+        context.ellipse(
+          -playerRadius * 0.08,
+          0,
+          playerRadius * 0.15,
+          playerRadius * 0.1,
+          0,
+          0,
+          Math.PI * 2,
+        )
+        context.fill()
+        context.stroke()
+        for (const fingerOffset of [-0.1, 0, 0.1]) {
+          context.beginPath()
+          context.moveTo(playerRadius * fingerOffset, -playerRadius * 0.12)
+          context.lineTo(playerRadius * fingerOffset, playerRadius * 0.12)
+          context.stroke()
+        }
+        context.restore()
+      }
+      context.restore()
+    }
+  }
+
+  /** Draws one physical model per two-handed weapon and one model per occupied one-hand slot. */
+  private renderHeldWeapons(
+    node: LastChancesPlanNode,
+    playerPoint: LastChancesVector,
+    playerRadius: number,
+    layer: 'farArms' | 'nearArms' | 'weapon',
+  ): void {
+    const readyHand = this.heldWeaponReadyHand()
+    const candidates: Array<{
+      hand: LastChancesHand
+      weaponId: string
+      visual: LastChancesHeldWeaponVisualDefinition
+      twoHanded: boolean
+    }> = []
+    const drawnTwoHandedIds = new Set<string>()
+    for (const hand of LAST_CHANCES_HANDS) {
+      const weapon = this.weapons.get(hand)
+      if (!weapon) continue
+      const visual = lastChancesHeldWeaponVisual(weapon.id)
+      if (!visual) continue
+      const twoHanded = this.heldWeaponUsesTwoHands(hand, weapon.id, visual)
+      if (twoHanded && drawnTwoHandedIds.has(weapon.id)) continue
+      let poseHand = hand
+      if (twoHanded) {
+        drawnTwoHandedIds.add(weapon.id)
+        const matchingHands = LAST_CHANCES_HANDS.filter(candidate => (
+          this.weapons.get(candidate)?.id === weapon.id
+        ))
+        poseHand = readyHand && matchingHands.includes(readyHand)
+          ? readyHand
+          : [...this.activeAreas]
+              .reverse()
+              .find(area => area.weaponId === weapon.id && matchingHands.includes(area.hand))?.hand
+            ?? matchingHands.find(candidate => this.heldWeaponHandIsActive(candidate, weapon.id))
+            ?? matchingHands[0]
+            ?? hand
+      }
+      candidates.push({ hand: poseHand, weaponId: weapon.id, visual, twoHanded })
+    }
+    const posed = candidates.map(candidate => ({
+      ...candidate,
+      pose: this.heldWeaponPose(
+        node,
+        playerPoint,
+        playerRadius,
+        candidate.hand,
+        candidate.weaponId,
+        candidate.visual,
+        candidate.twoHanded,
+        readyHand,
+      ),
+    }))
+    // The lowered weapon is behind the active silhouette, keeping the ready hand readable.
+    posed.sort((left, right) => Number(left.pose.ready) - Number(right.pose.ready))
+    for (const candidate of posed) {
+      this.drawHeldWeaponArms(
+        node,
+        playerPoint,
+        playerRadius,
+        candidate.hand,
+        candidate.visual,
+        candidate.pose,
+        layer,
+      )
+    }
+  }
+
   private renderPlayer(node: LastChancesPlanNode): void {
     const context = this.context
     const groundPoint = this.worldToScreen(this.player.position, node)
@@ -13994,11 +15047,11 @@ export class LastChancesEngine {
       context.shadowColor = '#bffcff'
       context.shadowBlur = 16
     }
+    this.renderHeldWeapons(node, point, radius, 'farArms')
     const fullOuroborosSet = this.config.ouroborosSet
       && LAST_CHANCES_OUROBOROS_ITEMS.every(item => this.ouroborosEquipped[item])
-    if (fullOuroborosSet) {
-      this.renderOuroborosIcon(point.x, point.y - radius, radius)
-    } else {
+    if (fullOuroborosSet) this.renderOuroborosSetAura(point.x, point.y - radius, radius)
+    if (!this.renderPlayerOutfit(node, point, radius)) {
       context.beginPath()
       context.arc(point.x, point.y - radius, radius, 0, Math.PI * 2)
       context.fillStyle = this.config.renderer.player
@@ -14009,7 +15062,8 @@ export class LastChancesEngine {
       context.lineWidth = 3
       context.stroke()
     }
-    if (!this.primarySpearWeapon() && !this.primaryLongbowWeapon()) {
+    this.renderHeldWeapons(node, point, radius, 'nearArms')
+    if (!this.primarySpearWeapon() && !this.primaryLongbowWeapon() && !this.hasHeldWeaponVisual()) {
       const aimEnd = this.worldToScreen({
         x: this.player.position.x + this.player.aim.x * 74,
         y: this.player.position.y + this.player.aim.y * 74,
@@ -14063,6 +15117,14 @@ export class LastChancesEngine {
       context.fillStyle = '#efaaa2'
       context.fillText('УСТАЛОСТЬ', point.x, point.y - radius * 3)
     }
+    context.restore()
+    context.save()
+    if (this.player.invulnerableMs > 0) {
+      context.globalAlpha = 0.32
+      context.shadowColor = '#bffcff'
+      context.shadowBlur = 16
+    }
+    this.renderHeldWeapons(node, point, radius, 'weapon')
     context.restore()
     this.renderHeldSpear(node, point, radius)
     this.renderHeldLongbow(node, point, radius)
@@ -14288,9 +15350,99 @@ export class LastChancesEngine {
     context.restore()
   }
 
+  /** Keeps the living knife recognizable after the all-resource throw removes it from the hand. */
+  private renderSpiderKnifeProjectile(
+    projectile: RuntimeProjectile,
+    node: LastChancesPlanNode,
+    point: LastChancesVector,
+    radius: number,
+  ): boolean {
+    if (projectile.source !== 'player'
+      || projectile.weaponId !== 'secondary-spider-knife'
+      || projectile.attack?.behavior !== 'spiderThrow'
+      || !this.knifeSpiderV2Image?.complete
+      || this.knifeSpiderV2Image.naturalWidth <= 0) return false
+
+    const ahead = this.worldToScreen({
+      x: projectile.position.x + projectile.velocity.x,
+      y: projectile.position.y + projectile.velocity.y,
+    }, node)
+    const travel = Math.atan2(ahead.y - point.y, ahead.x - point.x)
+    const wriggle = Math.sin(this.elapsedMs / 58 + projectile.id * 1.7) * 0.11
+    const size = radius * 3.35
+    const context = this.context
+    context.save()
+    context.translate(point.x, point.y - radius * 0.62)
+    // The authored blade points toward local -Y, hence the quarter-turn into travel direction.
+    context.rotate(travel + Math.PI / 2 + wriggle)
+    context.shadowColor = projectile.color
+    context.shadowBlur = Math.max(12, radius * 0.9)
+    context.drawImage(this.knifeSpiderV2Image, -size / 2, -size / 2, size, size)
+    context.restore()
+    return true
+  }
+
+  /** Draws the launched hook/head and a live linked tether back to the visible support hand. */
+  private renderChainProjectile(
+    projectile: RuntimeProjectile,
+    node: LastChancesPlanNode,
+    point: LastChancesVector,
+    radius: number,
+  ): boolean {
+    if (projectile.source !== 'player'
+      || projectile.weaponId !== 'secondary-chain'
+      || !['chainHook', 'chainBind'].includes(projectile.attack?.behavior ?? '')) return false
+
+    const playerRadius = Math.max(8, this.config.player.radius * this.entityScale(node) * 1.55)
+    const ground = this.worldToScreen(this.player.position, node)
+    const bodyCenter = { x: ground.x, y: ground.y - playerRadius }
+    const bodyAxis = this.playerScreenFacing(node)
+    const bodyPerpendicular = { x: -bodyAxis.y, y: bodyAxis.x }
+    const heldAxis = this.heldWeaponScreenDirection(node, this.player.aim)
+    const side = this.heldWeaponVisualSide(projectile.hand ?? 'right')
+    const grip = {
+      x: bodyCenter.x + heldAxis.x * playerRadius * 0.38
+        + bodyPerpendicular.x * side * playerRadius * 0.5,
+      y: bodyCenter.y + heldAxis.y * playerRadius * 0.38
+        + bodyPerpendicular.y * side * playerRadius * 0.5,
+    }
+    const start = {
+      x: grip.x + heldAxis.x * playerRadius * 0.53,
+      y: grip.y + heldAxis.y * playerRadius * 0.53,
+    }
+    const end = { x: point.x, y: point.y - radius * 0.62 }
+    const delta = { x: end.x - start.x, y: end.y - start.y }
+    const length = Math.max(1, Math.hypot(delta.x, delta.y))
+    const angle = Math.atan2(delta.y, delta.x)
+    const downProjection = Math.cos(angle)
+    const sagDirection = Math.abs(downProjection) < 0.08 ? 1 : Math.sign(downProjection)
+    const headRadius = Math.max(playerRadius * 0.72, radius * 0.68)
+    const linkLength = Math.max(1, length - headRadius * 0.75)
+    const image = this.heldWeaponImages.get('secondary-chain')
+    const context = this.context
+    context.save()
+    context.translate(start.x, start.y)
+    context.rotate(angle)
+    context.shadowColor = projectile.color
+    context.shadowBlur = Math.max(8, playerRadius * 0.42)
+    this.drawFlexibleChainLinks(
+      linkLength,
+      playerRadius * 0.9,
+      sagDirection * Math.min(playerRadius * 0.9, length * 0.1),
+      Math.min(playerRadius * 0.24, length * 0.035),
+      this.elapsedMs / 92 + projectile.id,
+      projectile.color,
+    )
+    this.drawChainHead(image, length, headRadius)
+    context.restore()
+    return true
+  }
+
   private renderProjectile(projectile: RuntimeProjectile, node: LastChancesPlanNode): void {
     const point = this.worldToScreen(projectile.position, node)
     const radius = Math.max(3, projectile.radius * this.entityScale(node) * 1.6)
+    if (this.renderSpiderKnifeProjectile(projectile, node, point, radius)) return
+    if (this.renderChainProjectile(projectile, node, point, radius)) return
     if (projectile.persistentArrow) {
       this.drawBowArrow(
         point,

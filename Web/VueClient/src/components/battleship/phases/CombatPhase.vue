@@ -63,6 +63,10 @@ const pendingManeuver = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingManeuver ?? null))
 const pendingCursedBoatDirection = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingCursedBoatDirection ?? null))
+const pendingParrotDirection = computed(() =>
+  summonPriorityLockActive.value || store.parrotTransitionActive
+    ? null
+    : (myPlayer.value?.pendingParrotDirection ?? null))
 const pendingAssembly = computed(() =>
   summonPriorityLockActive.value ? null : (myPlayer.value?.pendingAssembly ?? null))
 const assemblyOrientation = ref<BattleshipOrientation>('Horizontal')
@@ -89,9 +93,18 @@ const cursedBoatShipCells = computed(() => pendingCursedBoatDirection.value
   : [])
 const cursedBoatTargetCells = computed(() =>
   pendingCursedBoatDirection.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
+const parrotShipCells = computed(() => pendingParrotDirection.value
+  ? [{ row: pendingParrotDirection.value.row, col: pendingParrotDirection.value.col }]
+  : [])
+const parrotTargetCells = computed(() =>
+  pendingParrotDirection.value?.options.map(option => ({ row: option.row, col: option.col })) ?? [])
+const directionShipCells = computed(() =>
+  pendingParrotDirection.value ? parrotShipCells.value : cursedBoatShipCells.value)
+const directionTargetCells = computed(() =>
+  pendingParrotDirection.value ? parrotTargetCells.value : cursedBoatTargetCells.value)
 const mandatoryInteractionActive = computed(() =>
-  matryoshkaResolutionPending.value || !!pendingManeuver.value
-  || !!pendingCursedBoatDirection.value || !!pendingAssembly.value)
+  store.parrotTransitionActive || matryoshkaResolutionPending.value || !!pendingManeuver.value
+  || !!pendingCursedBoatDirection.value || !!pendingParrotDirection.value || !!pendingAssembly.value)
 const matryoshkaChoices = computed(() => {
   const options = pendingMatryoshka.value?.options ?? []
   return options.map((option, optionIndex) => {
@@ -227,6 +240,7 @@ const hasBranderUpgrade = computed(() => {
 // ТЗ #11/#12: summon availability is gated by fleet regions (Таран⇒Запад, Разведчик⇒Восток,
 // Пират⇒Юг); Brander needs the boiler upgrade and is once per match (ТЗ #10)
 const availableSummons = computed<string[]>(() => {
+  if (myPlayer.value?.faction === 'CaptainFlint') return []
   const regions = new Set(myPlayer.value?.fleet?.filter(s => !capturedShipIds.value.has(s.id))
     .flatMap(s => s.regions ?? []) ?? [])
   const list: string[] = []
@@ -248,6 +262,12 @@ const hasEnemySummonOnMyBoard = computed(() => {
   const myId = store.gameState?.myPlayerId
   return store.myBoard?.cells.some(c => c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) ?? false
 })
+const hasEnemyPhantomParrot = computed(() => {
+  const myId = store.gameState?.myPlayerId
+  return store.myBoard?.cells.some(c =>
+    c.hasSummon && c.summonType === 'Parrot' && c.isPhantomSummon
+      && c.summonOwnerId && c.summonOwnerId !== myId) ?? false
+})
 
 const mandatoryBoardingRemaining = computed(() =>
   (myPlayer.value?.mandatoryBoardingSummonSlots ?? 0)
@@ -268,7 +288,8 @@ const penaltyZoneRows = computed<number[]>(() => {
   if (!hasEnemySummonOnMyBoard.value) return []
   const myId = store.gameState?.myPlayerId
   const hasInPenaltyZone = store.myBoard?.cells.some(c =>
-    c.hasSummon && !c.isGhostSummon && !c.isBoardingSummon
+    c.hasSummon && c.summonType !== 'Parrot' && !c.isGhostSummon
+      && !c.isPhantomSummon && !c.isBoardingSummon
       && c.summonOwnerId && c.summonOwnerId !== myId && c.row <= 2
   ) ?? false
   return hasInPenaltyZone ? [0, 1, 2] : []
@@ -452,6 +473,7 @@ const enemyHighlight = computed(() => {
 
 // ── Handlers ─────────────────────────────────────────────────
 async function handleEnemyCellClick(row: number, col: number) {
+  if (store.parrotTransitionActive) return
   if (matryoshkaResolutionPending.value || pendingManeuver.value
     || pendingAssembly.value || voluntaryManeuverActive.value) return
   if (pendingCursedBoatDirection.value) {
@@ -460,6 +482,14 @@ async function handleEnemyCellClick(row: number, col: number) {
     if (option)
       await store.setCursedBoatDirection(
         pendingCursedBoatDirection.value.summonId, option.direction)
+    return
+  }
+  if (pendingParrotDirection.value) {
+    const option = pendingParrotDirection.value.options
+      .find(value => value.row === row && value.col === col)
+    if (option)
+      await store.setParrotDirection(
+        pendingParrotDirection.value.summonId, option.direction)
     return
   }
   if (store.summonDeployMode) {
@@ -486,6 +516,7 @@ async function handleEnemyCellClick(row: number, col: number) {
 }
 
 async function handleMyBoardCellClick(row: number, col: number) {
+  if (store.parrotTransitionActive) return
   if (phase.value !== 'Combat' && phase.value !== 'Boarding') return
   const cell = store.myBoard?.cells.find(c => c.row === row && c.col === col)
   if (pendingMatryoshka.value) {
@@ -533,7 +564,7 @@ async function handleMyBoardCellClick(row: number, col: number) {
     }
     return
   }
-  if (pendingCursedBoatDirection.value) return
+  if (pendingCursedBoatDirection.value || pendingParrotDirection.value) return
   if (pendingManeuver.value) {
     if (!isMyTurn.value) return
     const option = pendingManeuver.value.options.find(value => value.row === row && value.col === col)
@@ -571,6 +602,10 @@ async function handleMyBoardCellClick(row: number, col: number) {
     await store.shootOwnBoard(row, col)
     return
   }
+  if (hasEnemyPhantomParrot.value) {
+    await store.shootOwnBoard(row, col)
+    return
+  }
   const myId = store.gameState?.myPlayerId
   if (!cell || !cell.hasSummon || !cell.summonOwnerId || cell.summonOwnerId === myId) return
   await store.shootOwnBoard(row, col)
@@ -595,6 +630,7 @@ function handleEnemyRightClick(row: number, col: number) {
 function factionLabel(faction: string | undefined): string {
   if (faction === 'Alliance') return 'Альянс'
   if (faction === 'Empire') return 'Империя'
+  if (faction === 'CaptainFlint') return message('battleship.faction.captainFlint')
   return faction ?? ''
 }
 
@@ -706,7 +742,8 @@ const myBoardRangeOverlays = computed(() => {
   if (hasEnemySummonOnMyBoard.value) {
     const myId = store.gameState?.myPlayerId
     for (const c of store.myBoard?.cells ?? []) {
-      if (c.hasSummon && c.summonOwnerId && c.summonOwnerId !== myId) {
+      if (c.hasSummon && !c.isPhantomSummon
+        && c.summonOwnerId && c.summonOwnerId !== myId) {
         addCell(map, c.row, c.col, 'ownboard-target')
       }
     }
@@ -805,6 +842,9 @@ const weaponCursorClass = computed(() => {
     case 'EvilIncendiary': return 'cursor-incendiary'
     case 'GreekFire': return 'cursor-greekfire'
     case 'EvilGreekFire': return 'cursor-greekfire'
+    case 'Cannon':
+    case 'Fortuna':
+    case 'Warming': return 'cursor-cannon'
     default: return 'cursor-ballista'
   }
 })
@@ -832,6 +872,7 @@ function projectileKindFor(result: BattleshipShotResult | null): BattleshipProje
     case 'Buckshot': return 'buckshot'
     case 'Fire': return 'fire'
     case 'Electric': return 'electric'
+    case 'Cannon': return 'cannon'
     default: return 'arrow'
   }
 }
@@ -859,18 +900,20 @@ onMounted(() => {
     const sourceCells = sourceShip ? occupiedDeckCells(sourceShip) : []
     const fallback = sourceCells.find(cell => cell.deckIndex === result?.sourceDeckIndex)
       ?? sourceCells[0]
-      ?? { row: 0, col: 0 }
-    const sourceRow = (result?.sourceRow ?? -1) >= 0 ? result!.sourceRow : fallback.row
-    const sourceCol = (result?.sourceCol ?? -1) >= 0 ? result!.sourceCol : fallback.col
+    const hasExactSource = (result?.sourceRow ?? -1) >= 0 && (result?.sourceCol ?? -1) >= 0
+    const sourceRow = hasExactSource ? result!.sourceRow : (fallback?.row ?? -1)
+    const sourceCol = hasExactSource ? result!.sourceCol : (fallback?.col ?? -1)
     const myId = store.gameState?.myPlayerId
     const enemyId = enemyPlayer.value?.discordId
-    const sourceStage = result?.sourceBoardPlayerId === myId
-      ? myStageRef.value
-      : result?.sourceBoardPlayerId === enemyId
-        ? enemyStageRef.value
-        : sourceShip
-          ? myStageRef.value
+    const sourceStage = hasExactSource
+      ? result?.sourceBoardPlayerId === myId
+        ? myStageRef.value
+        : result?.sourceBoardPlayerId === enemyId
+          ? enemyStageRef.value
           : null
+      : sourceShip && fallback
+        ? myStageRef.value
+        : null
 
     return projectileLayerRef.value.fire(
       sourceStage,
@@ -939,6 +982,9 @@ onUnmounted(() => {
     <div v-else-if="pendingCursedBoatDirection" class="bs-banner bs-banner--warning maneuver-banner">
       Проклятая лодка меняет курс: выберите ярко-зелёную соседнюю клетку.
     </div>
+    <div v-else-if="pendingParrotDirection" class="bs-banner bs-banner--warning maneuver-banner">
+      {{ message('battleship.summon.parrot.direction') }}
+    </div>
     <div v-if="firstTurnBanner" class="bs-banner bs-banner--gold first-turn-banner">{{ firstTurnBanner }}</div>
     <div v-if="phase === 'Boarding'" class="bs-banner bs-banner--warning">Абордаж! Близкие корабли идут на таран.</div>
 
@@ -957,6 +1003,7 @@ onUnmounted(() => {
     <!-- Summons stay directly below weapons; choosing an icon immediately opens cell selection. -->
     <SummonBar
       :my-player="myPlayer"
+      :displayed-summons="store.displayedMySummons"
       :phase="phase"
       :shot-count="store.shotCount"
       :can-deploy-summon="canDeploySummon"
@@ -1031,7 +1078,7 @@ onUnmounted(() => {
         'maneuver-focus': !!pendingMatryoshka || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive,
         'matryoshka-focus': !!pendingMatryoshka,
         'assembly-focus': !!pendingAssembly,
-        'cursed-focus': !!pendingCursedBoatDirection,
+        'cursed-focus': !!pendingCursedBoatDirection || !!pendingParrotDirection,
         'capture-focus': captureFocusActive,
       }"
     >
@@ -1053,7 +1100,7 @@ onUnmounted(() => {
             :is-enemy="true"
             :cell-size="42"
             :shot-type="store.selectedShotType"
-            :clickable="!!pendingCursedBoatDirection || (!pendingMatryoshka && !pendingManeuver && !pendingAssembly && !voluntaryManeuverActive && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
+            :clickable="!!pendingCursedBoatDirection || !!pendingParrotDirection || (!mandatoryInteractionActive && !voluntaryManeuverActive && ((isMyTurn && !store.shotDelayActive && !summonPriorityLockActive && !isGreekFireMode && !hasCapturedShip) || !!store.summonDeployMode))"
             :highlight-cells="enemyHighlight"
             :blocked-rows="activeBlockedRows"
             :animated-cells="store.enemyAnimatedCells"
@@ -1062,9 +1109,9 @@ onUnmounted(() => {
             :ship-name-map="enemyShipNameMap"
             :reveal-ship-names="hasOperationalMast"
             :range-overlay-cells="enemyBoardRangeOverlays"
-            :maneuver-active="!!pendingCursedBoatDirection"
-            :maneuver-ship-cells="cursedBoatShipCells"
-            :maneuver-target-cells="cursedBoatTargetCells"
+            :maneuver-active="!!pendingCursedBoatDirection || !!pendingParrotDirection"
+            :maneuver-ship-cells="directionShipCells"
+            :maneuver-target-cells="directionTargetCells"
             @cell-click="handleEnemyCellClick"
             @cell-hover="handleEnemyHover"
             @cell-right-click="handleEnemyRightClick"
@@ -1101,7 +1148,7 @@ onUnmounted(() => {
             :last-shot-cell="myLastShot"
             :ship-name-map="myShipNameMap"
             :range-overlay-cells="myBoardRangeOverlays"
-            :clickable="!!pendingMatryoshka || pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode || isNeptuneMode) && canUseOwnBoardWeapon && !summonPriorityLockActive)"
+            :clickable="!store.parrotTransitionActive && (!!pendingMatryoshka || pirateRestoreActive || !!pendingAssembly || !!pendingManeuver || voluntaryManeuverActive || ((hasCapturedShip || hasEnemySummonOnMyBoard || isGreekFireMode || isNeptuneMode) && canUseOwnBoardWeapon && !summonPriorityLockActive))"
             :maneuver-active="!!pendingMatryoshka || pirateRestoreActive || !!pendingManeuver || !!pendingAssembly || voluntaryManeuverActive"
             :maneuver-ship-cells="pendingMatryoshka ? matryoshkaWreckCells : maneuverShipCells"
             :maneuver-target-cells="pendingMatryoshka ? matryoshkaTargetCells : pirateRestoreActive ? pirateRestoreCells : pendingAssembly ? assemblyTargetCells : maneuverTargetCells"
@@ -1156,7 +1203,7 @@ onUnmounted(() => {
       :shot-result="store.lastShotResult"
       :shot-result-class="shotResultClass"
       :is-my-turn="isMyTurn"
-      :can-pass-boarding="!summonPriorityLockActive && !voluntaryManeuverActive && (myPlayer?.canPassBoarding ?? false)"
+      :can-pass-boarding="!store.parrotTransitionActive && !summonPriorityLockActive && !voluntaryManeuverActive && (myPlayer?.canPassBoarding ?? false)"
       @pass-boarding="store.passBoardingTurn()"
     />
 
@@ -1411,6 +1458,9 @@ onUnmounted(() => {
 
 /* ═══════ Weapon cursors ═══════ */
 .cursor-ballista { cursor: crosshair; }
+.cursor-cannon {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='6' fill='%23111827' stroke='%23d4a847' stroke-width='2'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23d4a847'/%3E%3C/svg%3E") 12 12, crosshair;
+}
 .cursor-buckshot {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='%23d4a847' stroke-width='1.5' stroke-dasharray='3 3'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23d4a847'/%3E%3C/svg%3E") 12 12, crosshair;
 }

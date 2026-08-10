@@ -513,7 +513,7 @@ const justiceUseBlocks = false
 .fa-bar-compact { padding: 2px 0; }
 .fa-bar-compact .fa-bar-track { height: 16px; }
 .fa-bar-track { flex: 1; height: 20px; background: var(--bg-secondary); border-radius: 10px; overflow: hidden; position: relative; border: 1px solid var(--border-subtle); }
-.fa-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
+.fa-bar-fill { height: 100%; border-radius: 10px; transition: width var(--fight-weighing-duration, 0.5s) ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; min-width: 40px; }
 .fa-bar-fill.bar-attacker { background: linear-gradient(90deg, var(--kh-c-secondary-success-500), var(--accent-green)); }
 .fa-bar-fill.bar-defender { background: linear-gradient(90deg, var(--accent-red-dim), var(--accent-red)); }
 .fa-bar-fill.bar-even { background: linear-gradient(90deg, rgba(230, 148, 74, 0.6), var(--accent-orange)); }

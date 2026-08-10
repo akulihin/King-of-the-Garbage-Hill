@@ -146,18 +146,101 @@ public static class ShipCatalog
             Abilities = new() { "matryoshka_stage_4" },
         },
 
+        // ── Captain Flint fixed fleet ────────────────────────────────
+        new ShipDefinition
+        {
+            Id = "flint_fortune", Name = "Удача", NameRu = "Удача",
+            DeckCount = 3, Range = RangeClass.Close, Cost = 0, IsFree = true,
+            DeckHpOverrides = new() { 2, 4, 2 }, Speed = 1, Space = 1,
+            Factions = new() { Faction.CaptainFlint },
+            Abilities = new()
+            {
+                "flint_captain",
+                "flint_boarding_devastate_any",
+                "flint_fortuna_volley",
+            },
+            Description = "",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Fortuna, Ammo = 2, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Fortuna, Ammo = 2, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Fortuna, Ammo = 2, DeckIndex = 2 },
+            },
+        },
+        new ShipDefinition
+        {
+            Id = "flint_freedom", Name = "Свобода", NameRu = "Свобода",
+            DeckCount = 3, Range = RangeClass.Close, Cost = 0, IsFree = true,
+            DeckHpOverrides = new() { 2, 2, 2 }, Speed = 1, Space = 1,
+            Factions = new() { Faction.CaptainFlint },
+            Abilities = new()
+            {
+                "flint_captain",
+                "flint_boarding_devastate_any",
+                "flint_boarding_speed_4",
+                "manual_move_after_hit",
+                "manual_move_exact_4",
+            },
+            Description = "",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 2 },
+            },
+        },
+        new ShipDefinition
+        {
+            Id = "flint_melee_double", Name = "Двухпалубный абордажный корабль", NameRu = "Двухпалубный абордажный корабль",
+            DeckCount = 2, Range = RangeClass.CloseMelee, Cost = 0, IsFree = true,
+            DefaultArmor = 2, Speed = 1, Space = 1,
+            Factions = new() { Faction.CaptainFlint },
+            Description = "",
+            DefaultWeapons = new(),
+        },
+        new ShipDefinition
+        {
+            Id = "flint_cannon_double", Name = "Двухпалубный пушечный корабль", NameRu = "Двухпалубный пушечный корабль",
+            DeckCount = 2, Range = RangeClass.Close, Cost = 0, IsFree = true,
+            DefaultArmor = 2, Speed = 1, Space = 1,
+            Factions = new() { Faction.CaptainFlint },
+            Description = "",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 0 },
+            },
+        },
+        new ShipDefinition
+        {
+            Id = "flint_cannon_triple", Name = "Трёхпалубный пушечный корабль", NameRu = "Трёхпалубный пушечный корабль",
+            DeckCount = 3, Range = RangeClass.Close, Cost = 0, IsFree = true,
+            DefaultArmor = 2, Speed = 1, Space = 1,
+            Factions = new() { Faction.CaptainFlint },
+            Description = "",
+            DefaultWeapons = new()
+            {
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Cannon, Ammo = 2, DeckIndex = 1 },
+            },
+        },
+
         // ── Upgraded (cost coins) ships ─────────────────────────────
         new ShipDefinition
         {
             Id = "fast_warming_ship", Name = "Быстроразогревающийся корабль", NameRu = "Быстроразогревающийся корабль",
-            DeckCount = 4, Range = RangeClass.Mid, Cost = 25, IsHome = true,
+            DeckCount = 4, Range = RangeClass.Mid, Cost = 0, IsFree = true, IsHome = true,
             DeckHpOverrides = new() { 1, 1, 1, 1 }, Speed = 1, Space = 1, ExplosionRadius = 2,
-            Regions = new() { Region.East }, Factions = new() { Faction.Alliance },
+            Regions = new(), Factions = new() { Faction.CaptainFlint },
             Abilities = new() { "double_shot_while_alive", "overheat_after_20_shots" },
+            SuppressAutomaticBallistas = true,
             Description = "Даёт второй выстрел за ход, а после 20 выстрелов владельца взрывается в радиусе 2.",
             DefaultWeapons = new()
             {
                 new WeaponTemplate { Type = WeaponType.Mast, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Warming, DeckIndex = 0 },
+                new WeaponTemplate { Type = WeaponType.Warming, DeckIndex = 1 },
+                new WeaponTemplate { Type = WeaponType.Warming, DeckIndex = 2 },
+                new WeaponTemplate { Type = WeaponType.Warming, DeckIndex = 3 },
             }
         },
         new ShipDefinition
@@ -414,7 +497,7 @@ public static class ShipCatalog
 
         // Every Mid deck carries its own Ballista, including the special decks of both
         // four-deck flagships. A special module remains the deck's primary visual module.
-        if (def.Range == RangeClass.Mid)
+        if (def.Range == RangeClass.Mid && !def.SuppressAutomaticBallistas)
         {
             for (var deckIndex = 0; deckIndex < ship.Decks.Count; deckIndex++)
             {
@@ -657,6 +740,9 @@ public static class ShipCatalog
         return type switch
         {
             WeaponType.Ballista => "ballista",
+            WeaponType.Cannon => "cannon",
+            WeaponType.Fortuna => "fortuna",
+            WeaponType.Warming => "warming",
             WeaponType.Tetracatapult => "tetracatapult",
             WeaponType.Neptune => "neptune",
             WeaponType.Mast => "mast",

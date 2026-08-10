@@ -2,6 +2,7 @@ import type {
   BattleshipSummon,
   BattleshipSummonMarker,
 } from 'src/services/signalr'
+import { message } from 'src/platform/localization'
 
 const summonNames: Record<string, string> = {
   Ram: 'Таран',
@@ -17,9 +18,11 @@ const summonIcons: Record<string, string> = {
   Brander: 'brander',
   CursedBoat: 'cursedBoat',
   PirateBoat: 'pirateBoat',
+  Parrot: 'parrot',
 }
 
 export function summonTypeName(type: string): string {
+  if (type === 'Parrot') return message('battleship.summon.parrot.name')
   return summonNames[type] ?? type
 }
 

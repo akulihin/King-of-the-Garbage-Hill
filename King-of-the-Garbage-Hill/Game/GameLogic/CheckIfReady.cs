@@ -1046,14 +1046,8 @@ public class CheckIfReady : IServiceSingleton
             return;
 
         ScamRat.TransferExactBonusPoints(leader, runnerUp, 1, CaptainObviousSource);
-        runnerUp.Status.AddInGamePersonalLogs(
-            GameLocalization.MessageForUser(
-                runnerUp.DiscordId,
-                "kotgh.gameplay.captainObvious.guesser") + "\n");
-        leader.Status.AddInGamePersonalLogs(
-            GameLocalization.MessageForUser(
-                leader.DiscordId,
-                "kotgh.gameplay.captainObvious.target") + "\n");
+        AddCaptainObviousEvent(runnerUp, "kotgh.gameplay.captainObvious.guesser");
+        AddCaptainObviousEvent(leader, "kotgh.gameplay.captainObvious.target");
 
         game.PlayersList = Naruto.OrderLeaderboard(game.PlayersList);
         for (var index = 0; index < game.PlayersList.Count; index++)
@@ -1064,6 +1058,20 @@ public class CheckIfReady : IServiceSingleton
         runnerUp.Passives.AchievementTracker.CaptainObviousChangedLeader = changedLeader;
         leader.Passives.AchievementTracker.CaptainObviousTarget = true;
         leader.Passives.AchievementTracker.CaptainObviousChangedLeader = changedLeader;
+    }
+
+    private static void AddCaptainObviousEvent(GamePlayerBridgeClass player, string messageKey)
+    {
+        var message = GameLocalization.MessageText(messageKey);
+        player.Status.AddInGamePersonalLogs(
+            PhrasePayload.EncodeOwnerOnly(
+                CaptainObviousSource,
+                message.Ru,
+                "Captain Obvious",
+                message.En,
+                "",
+                "",
+                player.GetPlayerId()) + "\n");
     }
 
     private async Task NotifyOwner(GameClass game)

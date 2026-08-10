@@ -130,6 +130,9 @@ const deckVisualMap = computed(() => {
           mast: 'mast',
           boiler: 'boiler',
           incendiary: 'incendiary',
+          cannon: 'cannon',
+          fortuna: 'fortuna',
+          warming: 'warming',
         }
         const icon = moduleKey[deck.module]
         if (icon) symbols.push(icon)

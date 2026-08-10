@@ -14,6 +14,7 @@ import {
   type BattleshipBotVersion,
   type BattleshipOrientation,
   type BattleshipWeaponLoadout,
+  type BattleshipSummon,
 } from 'src/services/signalr'
 import {
   playBattleshipShot,
@@ -85,6 +86,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
   // Placement mode state
   const selectedShipId = ref<string | null>(null)
   const placementOrientation = ref<BattleshipOrientation>('Horizontal')
+  const flintPlacementHoverCell = ref<{ row: number; col: number } | null>(null)
 
   // Combat state (shared by the page shell's keyboard handler and the phases)
   const selectedShotType = ref('Ballista')
@@ -100,6 +102,20 @@ export const useBattleshipStore = defineStore('battleship', () => {
   // Animation state
   const enemyAnimatedCells = ref(new Map<string, string>())
   const myAnimatedCells = ref(new Map<string, string>())
+  const parrotTransitionActive = ref(false)
+  const parrotStatusSnapshot = ref<BattleshipSummon | null>(null)
+  let shotImpactPending = false
+  let shotImpactDurationMs = 0
+  let parrotTransitionTimer: ReturnType<typeof setTimeout> | null = null
+  let parrotImpactFallbackTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingTurnStartSound = false
+  const pendingParrotAnimations: Array<{
+    target: 'enemy' | 'my'
+    row: number
+    col: number
+    anim: string
+    durationMs: number
+  }> = []
 
   // Last shot marker (which board + coordinates)
   const lastShotCell = ref<{ target: 'enemy' | 'my'; row: number; col: number } | null>(null)
@@ -219,6 +235,13 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
   const myEndReward = computed(() => gameState.value?.myEndReward ?? null)
 
+  const displayedMySummons = computed<BattleshipSummon[]>(() => {
+    const summons = myPlayer.value?.summons ?? []
+    const snapshot = parrotStatusSnapshot.value
+    if (!parrotTransitionActive.value || !snapshot) return summons
+    return [...summons.filter(summon => summon.id !== snapshot.id), snapshot]
+  })
+
   const availableWeapons = computed<BattleshipWeaponOption[]>(() => {
     if (!myPlayer.value) return []
     const weapons: BattleshipWeaponOption[] = []
@@ -238,7 +261,10 @@ export const useBattleshipStore = defineStore('battleship', () => {
             : shotType === 'EvilIncendiary' ? 'Злая горючка'
               : shotType === 'GreekFire' ? 'Греческий огонь'
                 : shotType === 'EvilGreekFire' ? 'Злой Греческий огонь'
-                  : shotType === 'Ballista' ? 'Баллиста' : shotType
+                  : shotType === 'Cannon' ? message('battleship.weapon.cannon.name')
+                    : shotType === 'Fortuna' ? message('battleship.weapon.fortuna.name')
+                      : shotType === 'Warming' ? message('battleship.weapon.warming.name')
+                        : shotType === 'Ballista' ? 'Баллиста' : shotType
       weapons.push({ ...base, shotType, label })
     }
     return weapons
@@ -257,6 +283,68 @@ export const useBattleshipStore = defineStore('battleship', () => {
       if (next.get(key) === anim) next.delete(key)
       m.value = next
     }, durationMs)
+  }
+
+  function triggerParrotAnim(
+    target: 'enemy' | 'my',
+    row: number,
+    col: number,
+    anim: string,
+    durationMs: number,
+  ) {
+    if (shotImpactPending) {
+      parrotTransitionActive.value = true
+      pendingParrotAnimations.push({ target, row, col, anim, durationMs })
+      if (anim !== 'anim-parrot-death') {
+        const map = target === 'enemy' ? enemyAnimatedCells : myAnimatedCells
+        map.value = new Map(map.value.set(`${row},${col}`, 'anim-parrot-pending'))
+      }
+      if (!parrotImpactFallbackTimer) {
+        parrotImpactFallbackTimer = setTimeout(() => {
+          parrotImpactFallbackTimer = null
+          shotImpactPending = false
+          flushParrotAnimations()
+        }, 4500)
+      }
+      return
+    }
+    triggerCellAnim(target, row, col, anim, durationMs)
+    scheduleParrotTransitionEnd(durationMs)
+  }
+
+  function scheduleParrotTransitionEnd(durationMs: number) {
+    if (parrotTransitionTimer) clearTimeout(parrotTransitionTimer)
+    parrotTransitionActive.value = true
+    parrotTransitionTimer = setTimeout(() => {
+      parrotTransitionTimer = null
+      parrotTransitionActive.value = false
+      parrotStatusSnapshot.value = null
+      if (pendingTurnStartSound) {
+        pendingTurnStartSound = false
+        playBattleshipTurnStart()
+      }
+    }, durationMs)
+  }
+
+  function flushParrotAnimations() {
+    if (parrotImpactFallbackTimer) clearTimeout(parrotImpactFallbackTimer)
+    parrotImpactFallbackTimer = null
+    for (const map of [enemyAnimatedCells, myAnimatedCells]) {
+      map.value = new Map([...map.value].filter(([, anim]) =>
+        !anim.startsWith('anim-parrot-flight-')))
+    }
+    const animations = pendingParrotAnimations.splice(0)
+    for (const animation of animations) {
+      triggerCellAnim(
+        animation.target,
+        animation.row,
+        animation.col,
+        animation.anim,
+        animation.durationMs,
+      )
+    }
+    if (animations.length > 0)
+      scheduleParrotTransitionEnd(Math.max(...animations.map(value => value.durationMs)))
   }
 
   function triggerShotAnim(result: BattleshipShotResult, target: 'enemy' | 'my') {
@@ -279,6 +367,50 @@ export const useBattleshipStore = defineStore('battleship', () => {
     if (!oldCells || !newCells) return
     const map = target === 'enemy' ? enemyAnimatedCells : myAnimatedCells
     const oldMap = new Map(oldCells.map(c => [`${c.row},${c.col}`, c]))
+    const oldParrot = oldCells.find(cell => cell.hasSummon && cell.summonType === 'Parrot')
+    const newParrot = newCells.find(cell => cell.hasSummon && cell.summonType === 'Parrot')
+    if (oldParrot && newParrot
+      && (oldParrot.row !== newParrot.row || oldParrot.col !== newParrot.col)) {
+      const rowDelta = newParrot.row - oldParrot.row
+      const colDelta = newParrot.col - oldParrot.col
+      const direction = Math.abs(colDelta) >= Math.abs(rowDelta)
+        ? (colDelta >= 0 ? 'right' : 'left')
+        : (rowDelta >= 0 ? 'down' : 'up')
+      if (shotImpactPending) {
+        triggerCellAnim(
+          target,
+          oldParrot.row,
+          oldParrot.col,
+          `anim-parrot-flight-${direction}-${shotImpactDurationMs > 1000 ? 'long' : shotImpactDurationMs <= 450 ? 'arrow' : 'short'}`,
+          Math.max(450, shotImpactDurationMs + 120),
+        )
+        triggerParrotAnim(target, newParrot.row, newParrot.col, 'anim-parrot-settle', 360)
+      }
+      else {
+        triggerParrotAnim(target, newParrot.row, newParrot.col, `anim-parrot-arrive-${direction}`, 720)
+      }
+    }
+    else if (oldParrot && !newParrot) {
+      const direction = oldParrot.summonMoveDirection ?? 'Down'
+      const step = direction === 'Up' ? { row: -1, col: 0 }
+        : direction === 'Left' ? { row: 0, col: -1 }
+          : direction === 'Right' ? { row: 0, col: 1 }
+            : { row: 1, col: 0 }
+      const deathRow = oldParrot.row + step.row
+      const deathCol = oldParrot.col + step.col
+      if (deathRow >= 0 && deathRow < 10 && deathCol >= 0 && deathCol < 10) {
+        if (shotImpactPending) {
+          triggerCellAnim(
+            target,
+            oldParrot.row,
+            oldParrot.col,
+            `anim-parrot-flight-${direction.toLowerCase()}-${shotImpactDurationMs > 1000 ? 'long' : shotImpactDurationMs <= 450 ? 'arrow' : 'short'}`,
+            Math.max(450, shotImpactDurationMs + 120),
+          )
+        }
+        triggerParrotAnim(target, deathRow, deathCol, 'anim-parrot-death', 820)
+      }
+    }
     let freezeSoundPlayed = false
     let explodeSoundPlayed = false
     let summonSpawnSoundPlayed = false
@@ -396,12 +528,30 @@ export const useBattleshipStore = defineStore('battleship', () => {
   function initCallbacks() {
     signalrService.onBattleshipState = (state) => {
       // Snapshot old board cells before updating state (for diff animations)
-      const oldEnemyCells = enemyPlayer.value?.board?.cells
-      const oldMyCells = myPlayer.value?.board?.cells
+      const oldSpectatorView = !!gameState.value && !gameState.value.myPlayerId
+      const oldEnemyCells = oldSpectatorView
+        ? gameState.value?.player2?.board?.cells
+        : enemyPlayer.value?.board?.cells
+      const oldMyCells = oldSpectatorView
+        ? gameState.value?.player1?.board?.cells
+        : myPlayer.value?.board?.cells
 
       const oldState = gameState.value
       const oldPhase = oldState?.phase ?? null
       const wasMyTurn = oldState?.isMyTurn ?? false
+      const oldMyParrot = myPlayer.value?.summons?.find(summon =>
+        summon.type === 'Parrot' && summon.isAlive)
+      const nextMe = state.player1?.isMe ? state.player1
+        : state.player2?.isMe ? state.player2
+          : null
+      const nextMyParrot = nextMe?.summons?.find(summon =>
+        summon.type === 'Parrot' && summon.isAlive)
+      if (oldState?.gameId === state.gameId && oldMyParrot
+        && (!nextMyParrot
+          || oldMyParrot.row !== nextMyParrot.row
+          || oldMyParrot.col !== nextMyParrot.col)) {
+        parrotStatusSnapshot.value = { ...oldMyParrot }
+      }
 
       // New game → reset per-match client-side stats
       if (oldState?.gameId !== state.gameId) {
@@ -413,6 +563,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
         lastShotResult.value = null
         lastShotCell.value = null
         markedCells.value = new Set()
+        shotImpactPending = false
+        shotImpactDurationMs = 0
+        pendingParrotAnimations.length = 0
+        if (parrotTransitionTimer) clearTimeout(parrotTransitionTimer)
+        if (parrotImpactFallbackTimer) clearTimeout(parrotImpactFallbackTimer)
+        parrotTransitionTimer = null
+        parrotImpactFallbackTimer = null
+        parrotTransitionActive.value = false
+        parrotStatusSnapshot.value = null
+        pendingTurnStartSound = false
         clearTurnSkipNotices()
         activateShotDelay(0)
       }
@@ -451,17 +611,23 @@ export const useBattleshipStore = defineStore('battleship', () => {
         shipCatalog.value = state.shipCatalog
       }
 
-      // Turn start — my turn just began mid-combat
-      if (!wasMyTurn && state.isMyTurn && !turnSkipNotice.value
-          && (state.phase === 'Combat' || state.phase === 'Boarding')) {
-        playBattleshipTurnStart()
-      }
-
       // Diff boards for multi-cell animations (sunk ship cells, burn spread, freeze, etc.)
-      const newEnemyCells = enemyPlayer.value?.board?.cells
-      const newMyCells = myPlayer.value?.board?.cells
+      const spectatorView = !state.myPlayerId
+      const newEnemyCells = spectatorView
+        ? state.player2?.board?.cells
+        : enemyPlayer.value?.board?.cells
+      const newMyCells = spectatorView
+        ? state.player1?.board?.cells
+        : myPlayer.value?.board?.cells
       diffBoardAnimations(oldEnemyCells, newEnemyCells, 'enemy')
       diffBoardAnimations(oldMyCells, newMyCells, 'my')
+
+      // Turn start — wait until an arriving/dying Parrot finishes its boundary animation.
+      if (!wasMyTurn && state.isMyTurn && !turnSkipNotice.value
+          && (state.phase === 'Combat' || state.phase === 'Boarding')) {
+        if (parrotTransitionActive.value) pendingTurnStartSound = true
+        else playBattleshipTurnStart()
+      }
       // Win/lose sounds play from the GameOverCelebration modal on mount.
     }
 
@@ -476,6 +642,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     signalrService.onBattleshipEvent = (event: BattleshipEvent) => {
       if (event.eventType === 'ShotResult') {
         const result = event.data as BattleshipShotResult
+        const isAutomaticShot = result.isAutomaticShot === true
         if (result.wasSkipped) {
           lastShotResult.value = null
           pendingShotTarget = null
@@ -487,39 +654,52 @@ export const useBattleshipStore = defineStore('battleship', () => {
 
         // Start the public reload visualization before launching the projectile. Hit
         // flights are intentionally long, so the reload bar overlaps their animation.
-        activateShotDelay(
-          result.shotDelayMs ?? 0,
-          result.shotDelayMs ?? 0,
-          gameState.value?.currentTurnPlayerId ?? null,
-        )
+        if (!isAutomaticShot) {
+          activateShotDelay(
+            result.shotDelayMs ?? 0,
+            result.shotDelayMs ?? 0,
+            gameState.value?.currentTurnPlayerId ?? null,
+          )
+        }
 
         // Track last shot position
+        const spectatorView = !gameState.value?.myPlayerId
         const shotTarget: 'enemy' | 'my' = result.targetPlayerId
-          ? (result.targetPlayerId === gameState.value?.myPlayerId ? 'my' : 'enemy')
+          ? (spectatorView
+              ? (result.targetPlayerId === gameState.value?.player1?.discordId ? 'my' : 'enemy')
+              : (result.targetPlayerId === gameState.value?.myPlayerId ? 'my' : 'enemy'))
           : (isMyTurn.value ? (pendingShotTarget ?? 'enemy') : 'my')
         pendingShotTarget = null
         lastShotCell.value = { target: shotTarget, row: result.row, col: result.col }
 
         // Client-side match stats (my shots only)
-        if (isMyTurn.value) {
+        if (isMyTurn.value && !isAutomaticShot) {
           myShotsFired.value++
           if (result.hit && !result.miss) myShotsHit.value++
           if (result.shipSunk) myShipsSunk.value++
         }
 
-        // Kill streak tracking
-        if (result.destroyed || result.shipSunk || result.burned) {
-          killStreak.value++
-          killStreakDisplay.value = killStreak.value
-          if (killStreakTimer) clearTimeout(killStreakTimer)
-          killStreakTimer = setTimeout(() => { killStreakDisplay.value = 0 }, 3000)
-        } else if (result.miss || result.dodged) {
-          killStreak.value = 0
+        // Automatic Fortune volleys have no player-action attribution in the event,
+        // so they must not award or reset the local manual-shot combo.
+        if (!isAutomaticShot) {
+          if (result.destroyed || result.shipSunk || result.burned) {
+            killStreak.value++
+            killStreakDisplay.value = killStreak.value
+            if (killStreakTimer) clearTimeout(killStreakTimer)
+            killStreakTimer = setTimeout(() => { killStreakDisplay.value = 0 }, 3000)
+          } else if (result.miss || result.dodged) {
+            killStreak.value = 0
+          }
         }
 
         // Sound + animation helper
         const fireShotEffects = () => {
+          if (!isAutomaticShot) {
+            shotImpactPending = false
+            shotImpactDurationMs = 0
+          }
           triggerShotAnim(result, shotTarget)
+          if (!isAutomaticShot) flushParrotAnimations()
           if (result.shipSunk) playBattleshipShipSunk()
           else if (result.burned) playBattleshipBurn()
           else if (result.dodged) playBattleshipDodge()
@@ -537,6 +717,12 @@ export const useBattleshipStore = defineStore('battleship', () => {
         // private; the handler launches those projectiles from outside the visible board.
         const handled = vfxEnabled.value
           && (shotVfxHandler?.(result.row, result.col, shotTarget, fireShotEffects) ?? false)
+        if (!isAutomaticShot) {
+          shotImpactPending = handled
+          shotImpactDurationMs = handled
+            ? (result.hit ? 3200 : result.projectileType === 'Arrow' ? 430 : 520)
+            : 0
+        }
         if (!handled) fireShotEffects()
 
       }
@@ -571,6 +757,16 @@ export const useBattleshipStore = defineStore('battleship', () => {
     if (penaltyFeedbackTimer) clearTimeout(penaltyFeedbackTimer)
     penaltyFeedbackTimer = null
     penaltyFeedbackId.value = 0
+    shotImpactPending = false
+    shotImpactDurationMs = 0
+    pendingParrotAnimations.length = 0
+    if (parrotTransitionTimer) clearTimeout(parrotTransitionTimer)
+    if (parrotImpactFallbackTimer) clearTimeout(parrotImpactFallbackTimer)
+    parrotTransitionTimer = null
+    parrotImpactFallbackTimer = null
+    parrotTransitionActive.value = false
+    parrotStatusSnapshot.value = null
+    pendingTurnStartSound = false
     activateShotDelay(0)
   }
 
@@ -683,13 +879,13 @@ export const useBattleshipStore = defineStore('battleship', () => {
   }
 
   async function shoot(row: number, col: number) {
-    if (!gameId.value || shotDelayActive.value) return
+    if (!gameId.value || shotDelayActive.value || parrotTransitionActive.value) return
     pendingShotTarget = 'enemy'
     await signalrService.battleshipShoot(gameId.value, row, col)
   }
 
   async function shootOwnBoard(row: number, col: number) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     const evilGreekFireResponse = selectedShotType.value === 'EvilGreekFire'
       && shotDelayActive.value
       && !!shotDelayOwnerId.value
@@ -708,12 +904,15 @@ export const useBattleshipStore = defineStore('battleship', () => {
       case 'EvilIncendiary': return 'EvilIncendiary'
       case 'GreekFire': return 'GreekFire'
       case 'EvilGreekFire': return 'EvilGreekFire'
+      case 'Cannon': return 'Cannon'
+      case 'Fortuna': return 'Fortuna'
+      case 'Warming': return 'Warming'
       default: return 'Ballista'
     }
   }
 
   async function selectWeapon(weaponType: string, shotType: string, weaponId: string) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     selectedWeaponType.value = weaponType
     summonDeployMode.value = null
     playBattleshipWeaponSelect()
@@ -722,36 +921,41 @@ export const useBattleshipStore = defineStore('battleship', () => {
   }
 
   async function passBoardingTurn() {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     await signalrService.battleshipPassBoardingTurn(gameId.value)
   }
 
   async function deploySummon(summonTypeName: string, col: number, summonId?: string) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     playBattleshipDeploy()
     await signalrService.battleshipDeploySummon(gameId.value, summonTypeName, col, summonId)
   }
 
   async function deployPendingSummon(pendingId: string, col: number) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     playBattleshipDeploy()
     await signalrService.battleshipDeployPendingSummon(gameId.value, pendingId, col)
   }
 
   async function restoreShipWithPirateBoat(shipId: string) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     playBattleshipDeploy()
     await signalrService.battleshipRestoreShipWithPirateBoat(gameId.value, shipId)
   }
 
   async function manualMove(shipId: string, direction: string, distance: number = 1) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     await signalrService.battleshipManualMove(gameId.value, shipId, direction, distance)
   }
 
   async function setCursedBoatDirection(summonId: string, direction: string) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     await signalrService.battleshipSetCursedBoatDirection(gameId.value, summonId, direction)
+  }
+
+  async function setParrotDirection(summonId: string, direction: string) {
+    if (!gameId.value || parrotTransitionActive.value) return
+    await signalrService.battleshipSetParrotDirection(gameId.value, summonId, direction)
   }
 
   async function assembleShip(
@@ -760,7 +964,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     col: number,
     orientation: BattleshipOrientation,
   ) {
-    if (!gameId.value) return
+    if (!gameId.value || parrotTransitionActive.value) return
     await signalrService.battleshipAssembleShip(gameId.value, groupId, row, col, orientation)
   }
 
@@ -771,7 +975,8 @@ export const useBattleshipStore = defineStore('battleship', () => {
     orientation: BattleshipOrientation,
   ): Promise<boolean> {
     const activeGameId = gameId.value
-    if (!activeGameId || myPlayer.value?.pendingMatryoshka?.parentShipId !== parentShipId)
+    if (!activeGameId || parrotTransitionActive.value
+      || myPlayer.value?.pendingMatryoshka?.parentShipId !== parentShipId)
       return false
     await signalrService.battleshipDeployMatryoshka(
       activeGameId,
@@ -835,6 +1040,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     isCreating,
     selectedShipId,
     placementOrientation,
+    flintPlacementHoverCell,
     selectedShotType,
     selectedWeaponType,
     shotDelayActive,
@@ -845,6 +1051,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     summonType,
     enemyAnimatedCells,
     myAnimatedCells,
+    parrotTransitionActive,
     lastShotCell,
     killStreak,
     killStreakDisplay,
@@ -878,6 +1085,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     isWinner,
     myEndReward,
     availableWeapons,
+    displayedMySummons,
 
     // Actions
     initCallbacks,
@@ -908,6 +1116,7 @@ export const useBattleshipStore = defineStore('battleship', () => {
     restoreShipWithPirateBoat,
     manualMove,
     setCursedBoatDirection,
+    setParrotDirection,
     assembleShip,
     deployMatryoshka,
     requestState,

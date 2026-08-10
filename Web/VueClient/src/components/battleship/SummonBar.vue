@@ -7,6 +7,7 @@ import type {
 } from 'src/services/signalr'
 import { renderIcon } from './battleship-icons'
 import { useTip } from 'src/composables/useTip'
+import { message } from 'src/platform/localization'
 import {
   summonIconKey,
 } from './battleship-summon-presentation'
@@ -15,6 +16,7 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
 const props = defineProps<{
   myPlayer: BattleshipPlayerState | null
+  displayedSummons?: BattleshipSummon[]
   phase: string
   shotCount: number
   canDeploySummon: boolean
@@ -62,6 +64,7 @@ const summonDescriptions: Record<string, string> = {
   PirateBoat: 'Пиратская лодка — скорость 1, захватывает 1-2-палубные корабли, разбивается о 3-4-палубные',
   Brander: 'Брандер — скорость 1, дополнительный призыв (1 за матч), не проходит сквозь живые палубы, стреляйте в него для подрыва',
   CursedBoat: 'Проклятая лодка — опустошает корабль, затем меняет направление и продолжает путь',
+  Parrot: message('battleship.summon.parrot.tooltip'),
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -71,9 +74,13 @@ const summonTypeNameRu: Record<string, string> = {
   Brander: 'Брандер',
   CursedBoat: 'Проклятый',
   PirateBoat: 'Пиратская лодка',
+  Parrot: message('battleship.summon.parrot.name'),
 }
 
 const summonOrder = ['Ram', 'Scout', 'PirateBoat', 'Brander', 'CursedBoat']
+
+const activeSummons = computed(() =>
+  (props.displayedSummons ?? props.myPlayer?.summons ?? []).filter(summon => summon.isAlive))
 
 const mandatoryBoardingRemaining = computed(() =>
   (props.myPlayer?.mandatoryBoardingSummonSlots ?? 0)
@@ -126,7 +133,7 @@ function cancelDeploy() {
 <template>
   <div class="summon-bar-root">
     <!-- 1. Summon Deployment Bar -->
-    <div class="summon-bar bs-bar">
+    <div v-if="myPlayer?.faction !== 'CaptainFlint'" class="summon-bar bs-bar">
       <span class="sb-label">Обычные призывы ({{ myPlayer?.summonSlotsUsed ?? 0 }}/{{ myPlayer?.maxSummonSlots ?? 4 }}):</span>
       <span v-if="myPlayer?.hasPendingBoardingDeployment" class="boarding-capacity bs-mono">
         Обязательно: {{ mandatoryBoardingRemaining }} · мест: {{ myPlayer.boardingDeploymentCapacity }}
@@ -169,13 +176,19 @@ function cancelDeploy() {
     </div>
 
     <!-- 2. Active Summons Status -->
-    <div v-if="myPlayer?.summons?.filter(s => s.isAlive).length" class="summon-status-bar bs-bar">
+    <div v-if="activeSummons.length" class="summon-status-bar bs-bar">
       <span class="sb-label">Активные призывы:</span>
       <span
-        v-for="s in myPlayer!.summons.filter(ss => ss.isAlive)"
+        v-for="s in activeSummons"
         :key="s.id"
         class="bs-chip"
-        :class="'summon-' + s.type.toLowerCase()"
+        :class="[
+          'summon-' + s.type.toLowerCase(),
+          { 'summon-chip--phantom': s.isPhantom },
+        ]"
+        @mouseenter="showTip($event, summonDescriptions[s.type] ?? '')"
+        @mousemove="moveTip"
+        @mouseleave="hideTip"
       >
         <span class="summon-chip-icon" v-html="activeIcon(s)" />
         {{ s.isBoardingShip ? (s.sourceShipName || 'Абордажный корабль') : nameRu(s.type) }}
@@ -315,6 +328,17 @@ function cancelDeploy() {
 .summon-brander { --bs-chip-color: var(--accent-orange); }
 .summon-cursedboat { --bs-chip-color: var(--accent-purple); }
 .summon-pirateboat { --bs-chip-color: var(--accent-gold); }
+.summon-parrot { --bs-chip-color: #4ade80; }
+.summon-parrot .summon-chip-icon { filter: drop-shadow(0 0 5px rgba(74, 222, 128, 0.75)); }
+.summon-chip--phantom .summon-chip-icon {
+  opacity: 0.58;
+  filter: blur(1px) drop-shadow(0 0 6px rgba(74, 222, 128, 0.9));
+  animation: summon-chip-phantom 0.42s ease-in-out infinite alternate;
+}
+@keyframes summon-chip-phantom {
+  from { transform: translateX(-2px) scaleX(1.15); }
+  to { transform: translateX(2px) scaleX(0.9); }
+}
 
 /* ── Position label in chip ────────────────────────────── */
 .summon-pos {

@@ -9,6 +9,7 @@ import BattleLogPanel from 'src/components/battleship/BattleLogPanel.vue'
 import GameHeader from 'src/components/battleship/GameHeader.vue'
 import { renderIcon } from 'src/components/battleship/battleship-icons'
 import { useTip } from 'src/composables/useTip'
+import { message } from 'src/platform/localization'
 
 const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
 
@@ -42,6 +43,7 @@ const phaseAccentClass = computed(() => {
 function factionLabel(faction: string | undefined): string {
   if (faction === 'Alliance') return 'Альянс'
   if (faction === 'Empire') return 'Империя'
+  if (faction === 'CaptainFlint') return message('battleship.faction.captainFlint')
   return faction ?? ''
 }
 

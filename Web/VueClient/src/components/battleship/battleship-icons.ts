@@ -103,6 +103,13 @@ const pirateBoat = svg(
   '<line x1="19" y1="19" x2="16" y2="19"/><line x1="19" y1="19" x2="19" y2="16"/>'
 )
 
+const parrot = svgFilled(
+  '<path d="M7 14c0-5 3-9 8-9 3 0 5 2 5 5 0 4-3 7-7 7h-2l-2 4-1-5z"/>' +
+  '<path d="M18 8l4 2-4 2" fill="none"/>' +
+  '<circle cx="16" cy="8" r="1" fill="none"/>' +
+  '<path d="M8 11c-3 0-5 2-6 5 3 0 6-1 8-3" fill="none"/>'
+)
+
 // ---------------------------------------------------------------------------
 // Ships (silhouettes for ship cells)
 // ---------------------------------------------------------------------------
@@ -291,6 +298,7 @@ export const ICONS: Record<string, string> = {
   brander,
   cursedBoat,
   pirateBoat,
+  parrot,
 
   // Ships
   ship1,
@@ -309,6 +317,8 @@ export const ICONS: Record<string, string> = {
   boiler,
   armor,
   bow,
+  fortuna: cannon,
+  warming: incendiary,
 
   // UI
   anchor,

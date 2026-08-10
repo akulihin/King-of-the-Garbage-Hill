@@ -28,6 +28,7 @@ const ordinaryTrailNames: Record<string, string> = {
   Brander: 'Брандер',
   CursedBoat: 'Проклятая лодка',
   PirateBoat: 'Пиратская лодка',
+  Parrot: message('battleship.summon.parrot.name'),
 }
 
 function displayKey(marker: BattleshipSummonMarker): string {
@@ -96,5 +97,6 @@ const entries = computed<TrailLegendEntry[]>(() => {
 .legend-trail-brander { --legend-color: var(--accent-orange); }
 .legend-trail-cursedboat { --legend-color: var(--accent-purple); }
 .legend-trail-pirateboat { --legend-color: var(--accent-gold); }
+.legend-trail-parrot { --legend-color: #4ade80; }
 .legend-trail-boarding { --legend-color: #86efac; }
 </style>

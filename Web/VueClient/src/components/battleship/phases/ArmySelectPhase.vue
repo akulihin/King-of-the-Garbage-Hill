@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useBattleshipStore } from 'src/store/battleship'
 import { useTip } from 'src/composables/useTip'
+import { message } from 'src/platform/localization'
 import BsIcon from '../BsIcon.vue'
 
 const store = useBattleshipStore()
@@ -22,6 +23,15 @@ const { tipText, tipVisible, tipPos, showTip, moveTip, hideTip } = useTip()
           @click="store.selectArmy('Alliance')"
         >
           Альянс
+        </button>
+        <button
+          class="bs-btn bs-btn--primary bs-btn--lg"
+          @mouseenter="showTip($event, message('battleship.faction.captainFlint.tooltip'))"
+          @mousemove="moveTip"
+          @mouseleave="hideTip"
+          @click="store.selectArmy('CaptainFlint')"
+        >
+          {{ message('battleship.faction.captainFlint') }}
         </button>
       </div>
     </div>

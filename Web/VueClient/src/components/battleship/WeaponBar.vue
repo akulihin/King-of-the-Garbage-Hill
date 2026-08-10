@@ -33,6 +33,9 @@ const shotTypeToIconKey: Record<string, string> = {
   EvilIncendiary: 'incendiary',
   GreekFire: 'greekFire',
   EvilGreekFire: 'greekFire',
+  Cannon: 'cannon',
+  Fortuna: 'fortuna',
+  Warming: 'warming',
 }
 
 function weaponTooltip(shotType: string): string {
@@ -45,6 +48,9 @@ function weaponTooltip(shotType: string): string {
     case 'EvilIncendiary': return 'Злая горючка — взрывает весь корабль при попадании в уже уничтоженную палубу'
     case 'GreekFire': return 'Греческий огонь — стреляет только по своей доске и оставляет перманентный огонь'
     case 'EvilGreekFire': return 'Злой Греческий огонь — можно применить на своей доске во время паузы между выстрелами противника'
+    case 'Cannon': return message('battleship.weapon.cannon.tooltip')
+    case 'Fortuna': return message('battleship.weapon.fortuna.tooltip')
+    case 'Warming': return message('battleship.weapon.warming.tooltip')
     default: return ''
   }
 }

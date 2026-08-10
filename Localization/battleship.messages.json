@@ -6,6 +6,131 @@
       "ru": "Морской Бой",
       "en": "Battleship"
     },
+    "battleship.faction.captainFlint": {
+      "visibility": "public",
+      "ru": "Капитан Финт",
+      "en": "Captain Flint"
+    },
+    "battleship.faction.captainFlint.tooltip": {
+      "visibility": "public",
+      "ru": "Особый флот без базовых Суммонов и Лодок: сначала выберите и разместите капитанский корабль, остальной флот соберётся автоматически",
+      "en": "A special fleet without base Summons or Boats: choose and place the captain ship, then the rest of the fleet is assembled automatically"
+    },
+    "battleship.flint.fleet.kicker": {
+      "visibility": "public",
+      "ru": "Капитанский корабль",
+      "en": "Captain ship"
+    },
+    "battleship.flint.fleet.title": {
+      "visibility": "public",
+      "ru": "Выберите флагман Финта",
+      "en": "Choose Flint's flagship"
+    },
+    "battleship.flint.fleet.hint": {
+      "visibility": "public",
+      "ru": "После выбора вы разместите только флагман. Остальной флот заполнит свободные клетки автоматически.",
+      "en": "After choosing, you will place only the flagship. The rest of the fleet will fill the free cells automatically."
+    },
+    "battleship.flint.fortune.name": {
+      "visibility": "public",
+      "ru": "Удача",
+      "en": "Fortune"
+    },
+    "battleship.flint.fortune.description": {
+      "visibility": "public",
+      "ru": "Три палубы · Close · 2 HP. Средняя палуба получает 2 брони. Три пушки «Фортуна»: урон 4, общий запас 6 выстрелов. При абордаже бесплатно стреляет по вражеским палубам сбоку в Space 3.",
+      "en": "Three decks · Close · 2 HP. The middle deck has 2 armor. Three Fortuna cannons: 4 damage and a shared pool of 6 shots. During boarding it fires for free at enemy decks alongside it within Space 3."
+    },
+    "battleship.flint.freedom.name": {
+      "visibility": "public",
+      "ru": "Свобода",
+      "en": "Freedom"
+    },
+    "battleship.flint.freedom.description": {
+      "visibility": "public",
+      "ru": "Три палубы · Close · 2 HP без брони. Маневрирующая двойка уклоняется на 4 клетки; скорость при абордаже — 4. Три обычные Пушки: урон 3, общий запас 6 выстрелов.",
+      "en": "Three decks · Close · 2 HP without armor. Its Maneuvering Double dodge moves 4 cells; boarding speed is 4. Three standard Cannons: 3 damage and a shared pool of 6 shots."
+    },
+    "battleship.flint.fleet.choose": {
+      "visibility": "public",
+      "ru": "Выбрать {ship}",
+      "en": "Choose {ship}"
+    },
+    "battleship.flint.placement.kicker": {
+      "visibility": "public",
+      "ru": "Флагман Финта",
+      "en": "Flint's flagship"
+    },
+    "battleship.flint.placement.title": {
+      "visibility": "public",
+      "ru": "Разместите капитанский корабль",
+      "en": "Place the captain ship"
+    },
+    "battleship.flint.placement.hint": {
+      "visibility": "public",
+      "ru": "Выберите свободную клетку в строках 1–8. Строки 9 и 10 недоступны. После размещения остальной флот будет расставлен автоматически.",
+      "en": "Choose a free cell in rows 1–8. Rows 9 and 10 are unavailable. The rest of the fleet will be placed automatically."
+    },
+    "battleship.flint.placement.rotate": {
+      "visibility": "public",
+      "ru": "Повернуть",
+      "en": "Rotate"
+    },
+    "battleship.flint.placement.waiting": {
+      "visibility": "public",
+      "ru": "Флот Финта собран. Ожидаем противника.",
+      "en": "Flint's fleet is ready. Waiting for the opponent."
+    },
+    "battleship.weapon.cannon.name": {
+      "visibility": "public",
+      "ru": "Пушка",
+      "en": "Cannon"
+    },
+    "battleship.weapon.cannon.tooltip": {
+      "visibility": "public",
+      "ru": "Пушка — урон 3, общий запас выстрелов. Если после уничтожения палубы у корабля остаётся одна живая палуба, она разрушается и корабль сразу тонет.",
+      "en": "Cannon — 3 damage with shared ammo. If destroying a deck leaves a ship with one living deck, that deck is destroyed and the ship sinks immediately."
+    },
+    "battleship.weapon.fortuna.name": {
+      "visibility": "public",
+      "ru": "Фортуна",
+      "en": "Fortuna"
+    },
+    "battleship.weapon.fortuna.tooltip": {
+      "visibility": "public",
+      "ru": "Фортуна — урон 4, по 2 выстрела за каждую живую палубу «Удачи». Использует правило Пушки о последней палубе.",
+      "en": "Fortuna — 4 damage and 2 shots for every living deck of Fortune. It uses the Cannon last-deck rule."
+    },
+    "battleship.weapon.warming.name": {
+      "visibility": "public",
+      "ru": "Разогрев",
+      "en": "Warming"
+    },
+    "battleship.weapon.warming.tooltip": {
+      "visibility": "public",
+      "ru": "Разогрев — урон 2, безлимитно. Живой Быстроразогревающийся корабль гарантирует второй выстрел за ход и взрывается после 20 выстрелов владельца.",
+      "en": "Warming — 2 damage, unlimited. A living Fast Warming Ship guarantees a second shot each turn and explodes after its owner fires 20 shots."
+    },
+    "battleship.summon.parrot.name": {
+      "visibility": "public",
+      "ru": "Попугайчик",
+      "en": "Parrot"
+    },
+    "battleship.summon.parrot.tooltip": {
+      "visibility": "public",
+      "ru": "Попугайчик разведует Space 1, исчезает при контакте с вражеской палубой и двигается после ответного хода противника",
+      "en": "Parrot scouts Space 1, disappears on contact with an enemy deck, and moves after the opponent's response turn"
+    },
+    "battleship.summon.parrot.phantom": {
+      "visibility": "public",
+      "ru": "Попугайчик набрал скорость: стреляйте на опережение в клетку, куда он движется",
+      "en": "Parrot is moving at speed: lead your shot and target the cell it is moving toward"
+    },
+    "battleship.summon.parrot.direction": {
+      "visibility": "public",
+      "ru": "Выберите направление движения Попугайчика.",
+      "en": "Choose Parrot's movement direction."
+    },
     "battleship.lobby.createEyebrow": {
       "visibility": "public",
       "ru": "Новая битва",

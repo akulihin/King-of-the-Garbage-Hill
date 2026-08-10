@@ -34,6 +34,9 @@ public enum RangeClass
 public enum ShotType
 {
     Ballista,       // default: 2 damage
+    Cannon,         // Captain Flint shared cannon pool: 3 damage
+    Fortuna,        // Fortune flagship shared pool: 4 damage
+    Warming,        // Fast Warming ship cannon: 2 damage, unlimited
     WhiteStone,     // 4x damage (=8), destroys module, stuns
     Buckshot,       // 0.5x damage (=1), 4-cell AoE
     Neptune,        // 1 damage, creates Electric Charge marks and a three-point Burn triangle
@@ -46,6 +49,9 @@ public enum ShotType
 public enum WeaponType
 {
     Ballista,
+    Cannon,
+    Fortuna,
+    Warming,
     Tetracatapult,
     Neptune,
     Mast,
@@ -62,7 +68,8 @@ public enum SummonType
     PirateBoat,
     Scout,
     Brander,
-    CursedBoat
+    CursedBoat,
+    Parrot
 }
 
 public enum ShipStatusType
@@ -77,7 +84,8 @@ public enum ShipStatusType
 public enum Faction
 {
     Empire,
-    Alliance
+    Alliance,
+    CaptainFlint
 }
 
 public enum Region

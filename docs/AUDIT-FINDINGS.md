@@ -2187,6 +2187,13 @@ Historical fixed-lineup winrates, 30 games each, from the **pre-M45 omniscient A
 - **Actual before the fix:** the passive multiplied only `ScoresToGiveAtEndOfRound`. The real score settled at +12, but `PreviousRoundScoreEntries` stayed at raw +4 and `ScoreBreakdown` carried only the ordinary ×1/×2/×4 multiplier, so the Vue animation and totals displayed +4.
 - **Fixed:** 2026-08-08 — `MultiplyPendingRegularPoints` records the passive factor alongside the already-scaled aggregate. Settlement snapshots/reset it independently, the DTO exposes `RegularPointsMultiplier`, and Vue applies `roundMultiplier × regularPointsMultiplier` only to regular entries with legacy replay fallback ×1. The top summed delta appends `(x3!)`; bonus entries and the actual score are not multiplied again (`InGameStatus`; `CharacterPassives`; `GameStateMapper.MapStatus`; `score-combo.ts`; `PlayerCard.vue`).
 
+### m79. Капитан Очевидность phrases disappeared from live and replay Events
+
+- **Expected (designer report, 2026-08-09):** after the correct place-2 prediction transfers one point, the guesser sees `Капитан Очевидность: Вы правильно угадали лидера. Честь и хвала.`, and the guessed leader sees `Капитан Очевидность: Вас разоблачили, вы были слишком... очевидны.` as their respective personal Events.
+- **Actual before the fix:** the point transfer first auto-logged a `Капитан Очевидность: ±1 ... очков` receipt, then the authored plain-text phrase used the same source prefix. `AddInGamePersonalLogs` coalesced those adjacent records, after which both live and replay `parsePrevLogs` classified the combined line as gold because it contained `очков` and removed it from Events. The structured score feed retained only the point entry, so the appended phrase had no visible surface.
+- **Failure scenario:** place 2 correctly identifies place 1 at ordinary six-player settlement → the point is stolen and the achievements progress, but neither affected player can see the supplied Капитан Очевидность phrase in Events.
+- **Fixed:** 2026-08-09 — each existing catalog phrase is now encoded as a separate bilingual owner-only payload. Its raw record has no mergeable source prefix, while owner projection restores the exact RU/EN text; the adjacent `±1` receipt remains an independent gold score record in live state and saved replay (`CheckIfReady.HandleCaptainObvious`/`AddCaptainObviousEvent`; `GameLocalization.MessageText`; `PhrasePayload.EncodeOwnerOnly`; `InGameStatus.AddInGamePersonalLogs`; `Game.vue`/`Replay.vue` `parsePrevLogs`).
+
 ## Unfinished work backlog (2026-07-12)
 
 ### Still-open findings
@@ -2214,7 +2221,7 @@ Full team-mode ruleset (2х2х2/3х3 team-score win, forced ally predictions —
 
 ## Summary count
 
-**Current total:** **2 Critical** (C1–C2) · **248 Major** (M1–M248) · **78 Minor** (m1–m78) · **16 Design questions** (D1–D16).
+**Current total:** **2 Critical** (C1–C2) · **248 Major** (M1–M248) · **79 Minor** (m1–m79) · **16 Design questions** (D1–D16).
 
 Historical cumulative rollout through M174:
 

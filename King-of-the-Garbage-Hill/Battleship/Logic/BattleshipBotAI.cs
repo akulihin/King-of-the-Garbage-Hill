@@ -21,6 +21,9 @@ public static class BattleshipBotAI
     /// </summary>
     public static List<FleetSelection> SelectFleet(Faction faction = Faction.Empire)
     {
+        if (faction == Faction.CaptainFlint)
+            return FleetValidator.GetDefaultFleet(Faction.CaptainFlint);
+
         var budget = FleetValidator.GetBudget(faction);
         var regions = new HashSet<Region>();
         var purchases = new List<FleetSelection>();
@@ -173,6 +176,7 @@ public static class BattleshipBotAI
         // Place poison sources before the ships that must avoid their cones, then keep the
         // existing largest/Far-first strategy for the rest of the fleet.
         var sortedFleet = bot.Fleet
+            .Where(ship => !ship.IsPlaced)
             .OrderByDescending(s => s.Abilities.Contains("poison_cone") ? 1000 : 0)
             .ThenByDescending(s => s.Range is RangeClass.Far or RangeClass.Tetra ? 100 : 0)
             .ThenByDescending(s => s.Decks.Count)
@@ -222,6 +226,49 @@ public static class BattleshipBotAI
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Randomized backtracking placement used after Captain Flint's flagship was placed by
+    /// the player. Existing placements remain untouched; failure rolls back only new hulls.
+    /// </summary>
+    public static bool TryPlaceRemainingFleet(BattleshipPlayer player)
+    {
+        if (player?.Board == null) return false;
+        var remaining = player.Fleet
+            .Where(ship => !ship.IsPlaced)
+            .OrderByDescending(ship => ship.Decks.Count)
+            .ToList();
+        return TryPlaceRemainingFleet(player, remaining, 0);
+    }
+
+    private static bool TryPlaceRemainingFleet(
+        BattleshipPlayer player,
+        List<Ship> remaining,
+        int index)
+    {
+        if (index >= remaining.Count) return true;
+        var ship = remaining[index];
+        var candidates = new List<(int row, int col, Orientation orientation)>();
+        for (var row = 0; row < PlacementValidator.GridSize; row++)
+        for (var col = 0; col < PlacementValidator.GridSize; col++)
+        foreach (var orientation in Enum.GetValues<Orientation>())
+        {
+            var (valid, _) = PlacementValidator.ValidatePlacement(
+                player.Board, ship, row, col, orientation);
+            if (valid && IsPoisonSafePlacement(player.Board, ship, row, col, orientation))
+                candidates.Add((row, col, orientation));
+        }
+
+        foreach (var candidate in candidates.OrderBy(_ => Rng.Next()))
+        {
+            PlaceShipOnBoard(
+                player, ship, candidate.row, candidate.col, candidate.orientation);
+            if (TryPlaceRemainingFleet(player, remaining, index + 1)) return true;
+            RemoveShipFromBoard(player, ship);
+        }
+
+        return false;
     }
 
     private static bool IsPoisonSafePlacement(
@@ -311,6 +358,21 @@ public static class BattleshipBotAI
         }
 
         player.Board.PlacedShips.Add(ship);
+    }
+
+    private static void RemoveShipFromBoard(BattleshipPlayer player, Ship ship)
+    {
+        foreach (var (row, col) in ship.GetOccupiedCells())
+        {
+            var cell = player.Board.GetCell(row, col);
+            if (cell?.ShipRef == ship) cell.ShipRef = null;
+        }
+
+        player.Board.PlacedShips.Remove(ship);
+        ship.Row = -1;
+        ship.Col = -1;
+        ship.Orientation = Orientation.Horizontal;
+        ship.IsPlaced = false;
     }
 
     // ── Weapon Selection ─────────────────────────────────────────────

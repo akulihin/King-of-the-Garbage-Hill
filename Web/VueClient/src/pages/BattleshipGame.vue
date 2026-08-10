@@ -33,8 +33,10 @@ const overheatShotCount = computed(() => {
   return Math.min(store.myPlayer?.totalShotsFired ?? 0, 20)
 })
 const combatKeyboardLocked = computed(() => !!(
-  store.myPlayer?.pendingManeuver
+  store.parrotTransitionActive
+  || store.myPlayer?.pendingManeuver
   || store.myPlayer?.pendingCursedBoatDirection
+  || store.myPlayer?.pendingParrotDirection
   || store.myPlayer?.pendingAssembly
   || store.myPlayer?.hasPendingMatryoshka
   || store.enemyPlayer?.hasPendingMatryoshka

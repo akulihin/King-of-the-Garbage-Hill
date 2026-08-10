@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
 
-export type BattleshipProjectileKind = 'arrow' | 'stone' | 'buckshot' | 'fire' | 'electric'
+export type BattleshipProjectileKind = 'arrow' | 'stone' | 'buckshot' | 'fire' | 'electric' | 'cannon'
 
 type ProjectileView = {
   id: number
@@ -58,7 +58,7 @@ function fire(
     const angle = Math.atan2(dy, dx) * 180 / Math.PI
     const arc = Math.min(source.y, target.y) - Math.max(70, Math.abs(dx) * 0.18)
     const midX = source.x + dx * 0.52
-    const spin = kind === 'stone' || kind === 'buckshot' ? 300 : 0
+    const spin = kind === 'stone' || kind === 'buckshot' || kind === 'cannon' ? 300 : 0
     const animation = element.animate([
       { transform: `translate3d(${source.x}px, ${source.y}px, 0) rotate(${angle}deg) scale(.78)`, opacity: 0 },
       { transform: `translate3d(${midX}px, ${arc}px, 0) rotate(${angle + spin * 0.5}deg) scale(1.08)`, opacity: 1, offset: 0.5 },
@@ -136,6 +136,26 @@ defineExpose({ fire })
   height: 15px;
   border-radius: 48% 55% 45% 52%;
   background: radial-gradient(circle at 32% 28%, #f2f0e8, #a9a69e 52%, #595852 100%);
+}
+
+.projectile--cannon {
+  width: 17px;
+  height: 17px;
+  border: 1px solid #64748b;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #cbd5e1 0 8%, #475569 30%, #111827 72%, #020617 100%);
+  box-shadow: 0 0 8px rgba(248, 250, 252, 0.24);
+}
+.projectile--cannon::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  top: 6px;
+  width: 26px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(226, 232, 240, 0.55));
+  filter: blur(1px);
 }
 
 .projectile--fire {

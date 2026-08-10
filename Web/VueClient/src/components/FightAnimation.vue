@@ -150,6 +150,11 @@ const justiceUpTimers = new Set<ReturnType<typeof setTimeout>>()
 const STEP_DELAY_MS = 850
 const R3_NEEDLE_MS = 850
 const R3_LWW_SOUND_DELAY_MS = 750
+// Fight pacing switch: false restores the original round-1 factor timings exactly.
+const fight_animation_v2 = true
+const FIGHT_ANIMATION_V2_RATE = 1.2
+const WEIGHING_VALUE_ANIMATION_MS = 500
+const WEIGHING_BAR_TRANSITION_MS = 400
 let r3SoundTimer: ReturnType<typeof setTimeout> | null = null
 let r3SettleTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -562,6 +567,25 @@ const round1Factors = computed<Factor[]>(() => {
   return list
 })
 
+function fightAnimationRateForStep(step: number): number {
+  if (!fight_animation_v2 || !isMyFight.value || skippedToEnd.value) return 1
+  return step >= 1 && step <= round1Factors.value.length
+    ? FIGHT_ANIMATION_V2_RATE
+    : 1
+}
+
+const currentFightAnimationRate = computed(() =>
+  fightAnimationRateForStep(currentStep.value))
+
+const fightAnimationStyle = computed(() => {
+  const baseDuration = props.fightStyle === 'v1'
+    ? WEIGHING_VALUE_ANIMATION_MS
+    : WEIGHING_BAR_TRANSITION_MS
+  return {
+    '--fight-weighing-duration': `${baseDuration / currentFightAnimationRate.value}ms`,
+  }
+})
+
 // ── Step counting for animation ─────────────────────────────────────
 // For MY fights: intro(0) → R1 factors(1..N) → R1 result(N+1)
 // → R2 + optional R3 roll(N+2) → result(N+3)
@@ -611,7 +635,7 @@ watch(targetWeighingValue, (target: number) => {
   const start = animatedWeighingValue.value
   const diff = target - start
   if (Math.abs(diff) < 0.01) { animatedWeighingValue.value = target; return }
-  const duration = 500 // ms
+  const duration = WEIGHING_VALUE_ANIMATION_MS / currentFightAnimationRate.value
   const startTime = performance.now()
   function tick(now: number) {
     const elapsed = now - startTime
@@ -759,7 +783,8 @@ function clearR3Timers() {
 function stepDelay(): number {
   // Enemy fights are quick — short delay just to show the card briefly
   if (!isMyFight.value) return 200 / speed.value
-  return STEP_DELAY_MS / speed.value
+  const nextStepRate = fightAnimationRateForStep(currentStep.value + 1)
+  return STEP_DELAY_MS / nextStepRate / speed.value
 }
 function betweenFightDelay(): number {
   // Short pause between enemy fights, longer for own fights
@@ -1703,7 +1728,7 @@ function keepDisplayValue(orig: string, _username: string): string {
 </script>
 
 <template>
-  <div class="fight-animation">
+  <div class="fight-animation" :style="fightAnimationStyle">
     <div
       v-if="activeTab === 'fights' && fight?.homelanderLaser && showFinalResult"
       class="homelander-laser-overlay"

@@ -1139,7 +1139,7 @@ function outcomeClass(f: FightEntry): string {
 .tug-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+  transition: width var(--fight-weighing-duration, 0.4s) cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
   position: relative;
 }
 .tug-good { background: linear-gradient(90deg, rgba(63, 167, 61, 0.6), rgba(63, 167, 61, 0.9)); }
